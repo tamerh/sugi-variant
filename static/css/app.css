@@ -1,0 +1,88 @@
+/* Sugi Variant — app-specific styles layered on atlas.css.
+   Classification + concordance colour tokens; verdict card; evidence panel grid;
+   patient lane. Everything server-rendered (no JS needed to read the facts). */
+
+:root{
+  --path:#c0392b; --path-soft:#fdecea;
+  --lpath:#d35400; --lpath-soft:#fdf0e6;
+  --conflict:#8e44ad; --conflict-soft:#f4ecf7;
+  --vus:#7f8c8d; --vus-soft:#f2f3f4;
+  --lben:#2e7d32; --lben-soft:#eaf4eb;
+  --ben:#1e8449; --ben-soft:#e8f5ec;
+  --ok:#2e7d32; --flag:#c77800;
+}
+[data-theme="dark"]{
+  --path:#ff6b5e; --path-soft:#3a1c19;
+  --lpath:#ff9d55; --lpath-soft:#3a2716;
+  --conflict:#c39bd3; --conflict-soft:#2c2233;
+  --vus:#a0a6a8; --vus-soft:#23282a;
+  --lben:#7bc47f; --lben-soft:#18291a;
+  --ben:#7bc47f; --ben-soft:#16281b;
+  --ok:#7bc47f; --flag:#f0b556;
+}
+
+/* ── Verdict card (Zone A) ─────────────────────────────────────────────── */
+.vv-verdict{
+  border:1px solid var(--border,#e5e7eb); border-left:5px solid var(--cls,var(--vus));
+  border-radius:14px; padding:1.25rem 1.4rem; margin:0 0 1.6rem;
+  background:var(--cls-soft,var(--vus-soft));
+}
+.vv-cls-path{--cls:var(--path);--cls-soft:var(--path-soft)}
+.vv-cls-lpath{--cls:var(--lpath);--cls-soft:var(--lpath-soft)}
+.vv-cls-conflict{--cls:var(--conflict);--cls-soft:var(--conflict-soft)}
+.vv-cls-vus{--cls:var(--vus);--cls-soft:var(--vus-soft)}
+.vv-cls-lben{--cls:var(--lben);--cls-soft:var(--lben-soft)}
+.vv-cls-ben{--cls:var(--ben);--cls-soft:var(--ben-soft)}
+.vv-title{font-size:1.7rem;margin:0;line-height:1.15}
+.vv-hgvs{font-weight:600}
+.vv-hgvs-alt{font-weight:400;color:var(--muted,#6b7280);font-size:1.1rem}
+.vv-ids{margin:.25rem 0 0;font-size:.9rem;color:var(--muted,#6b7280);font-family:ui-monospace,monospace}
+.vv-verdict-row{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem .9rem;margin:.85rem 0 .5rem}
+.vv-pill-cls{display:inline-block;background:var(--cls);color:#fff;font-weight:700;
+  padding:.28rem .7rem;border-radius:999px;font-size:.9rem;letter-spacing:.01em}
+.vv-stars{color:var(--cls);font-size:1.05rem}.vv-stars-n{color:var(--muted,#6b7280);font-size:.82rem}
+.vv-meta{color:var(--muted,#6b7280);font-size:.86rem}
+.vv-concordance{display:flex;align-items:baseline;gap:.5rem;font-size:.98rem;margin:.4rem 0;
+  padding:.5rem .7rem;border-radius:9px;background:var(--bg,#fff)}
+.vv-concordance.is-ok{color:var(--ok)}.vv-concordance.is-flag{color:var(--flag)}
+.vv-concordance .vv-rarity{color:var(--ink,#111);font-weight:400}
+.vv-conc-icon{font-size:1.05rem}
+.vv-lead{margin:.6rem 0 .9rem;font-size:1.02rem}
+.vv-jump{display:flex;flex-wrap:wrap;gap:.5rem}
+.vv-jump-pill{font-size:.85rem;padding:.32rem .75rem;border:1px solid var(--border,#e5e7eb);
+  border-radius:999px;background:var(--bg,#fff);text-decoration:none;color:var(--accent,#2563eb)}
+.vv-jump-patient{border-color:var(--accent,#2563eb)}
+
+/* ── Evidence panels (Zone B) ──────────────────────────────────────────── */
+.vv-panels{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:.4rem 0 2rem}
+@media(max-width:760px){.vv-panels{grid-template-columns:1fr}}
+.vv-panel{border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:1rem 1.1rem;background:var(--bg,#fff)}
+.vv-panel-h{margin:0 0 .55rem;font-size:1.02rem;display:flex;align-items:center;gap:.5rem}
+.vv-panel-src{font-size:.72rem;font-weight:600;color:var(--muted,#6b7280);
+  background:var(--vus-soft);padding:.12rem .45rem;border-radius:6px;letter-spacing:.03em;text-transform:uppercase}
+.vv-panel p{margin:.3rem 0;font-size:.94rem}
+.vv-num{font-family:ui-monospace,monospace;font-weight:600}
+.vv-band-common{color:var(--flag);font-weight:600}
+.vv-band-rare{color:var(--ink,#111)}
+.vv-mini{margin:.3rem 0 0;padding-left:1.1rem;font-size:.9rem}
+.vv-mini li{margin:.15rem 0}
+
+/* ── Mechanism & patient ───────────────────────────────────────────────── */
+.vv-mech-lead{font-size:1rem;line-height:1.5}
+.vv-go{font-size:.92rem;color:var(--ink,#111)}
+.vv-sum{cursor:pointer;font-weight:600;margin:.4rem 0}
+.vv-ident{display:grid;grid-template-columns:auto 1fr;gap:.3rem 1rem;margin:.5rem 0;font-size:.94rem}
+.vv-ident dt{font-weight:600;color:var(--muted,#6b7280)}
+.vv-ident dd{margin:0}
+.vv-chip{display:inline-block;margin:.15rem .3rem .15rem 0;padding:.2rem .6rem;font-size:.85rem;
+  border:1px solid var(--border,#e5e7eb);border-radius:999px;text-decoration:none;background:var(--bg,#fff)}
+
+.vv-patient{border:1px solid var(--accent-soft,#dbeafe);background:var(--accent-soft,#eff6ff);
+  border-radius:14px;padding:1.2rem 1.4rem;margin:1.6rem 0}
+[data-theme="dark"] .vv-patient{background:#16202e;border-color:#24344a}
+.vv-patient-h{font-size:1.2rem;margin:0 0 .5rem;display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap}
+.vv-patient-badge{font-size:.72rem;font-weight:600;color:var(--muted,#6b7280);
+  background:var(--bg,#fff);padding:.15rem .5rem;border-radius:6px}
+.vv-patient-lead{font-size:1.02rem;margin:.3rem 0 .7rem}
+.vv-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.8rem}
+.vv-src{margin-top:2rem;border-top:1px solid var(--border,#e5e7eb);padding-top:.8rem}

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ code }}{% endblock %}
+{% block content %}
+<div class="container"><section class="entity-main" style="text-align:center;padding:3rem 1rem">
+  <h1 class="section-title" style="justify-content:center">{{ code }}</h1>
+  <p>{{ detail or "Something went wrong." }}</p>
+  <p><a class="btn btn-ghost" href="{{ base }}/">← Home</a></p>
+</section></div>
+{% endblock %}

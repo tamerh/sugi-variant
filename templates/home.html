@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+  <section class="hero">
+    <p class="hero-eyebrow">Sugi Variant · prototype</p>
+    <h1 class="hero-title">Every clinically significant variant — narrated, cross-sourced, citable.</h1>
+    <p class="hero-lead">ClinVar-anchored variant pages integrating gnomAD v4.1, AlphaMissense, SpliceAI, conservation, ClinGen, MaveDB, Reactome pathways and a plain-language patient view. Server-rendered and deterministic.</p>
+  </section>
+  <section class="entity-main">
+    <h2 class="section-title">Example variants</h2>
+    <ul class="vv-mini">
+      {% for s in demos %}<li><a href="{{ base }}/variant/{{ s }}/">{{ s }}</a></li>{% endfor %}
+    </ul>
+  </section>
+</div>
+{% endblock %}
