@@ -54,7 +54,10 @@ def stars(review_status):
 env.globals.update(label=variant_label, cls_class=cls_class, stars=stars)
 
 app = FastAPI(title="Sugi Variant")
-app.mount(f"{BASE}/static", StaticFiles(directory=str(ROOT / "static")), name="static")
+# Serve at ROOT (like Sugi Predict): nginx `proxy_pass …:8013/;` strips the
+# /variant/ prefix, so routes + static are unprefixed. BASE_PATH is used ONLY
+# in templates ({{ base }}) to generate the public /variant/… links.
+app.mount("/static", StaticFiles(directory=str(ROOT / "static")), name="static")
 
 # ── record resolution (in-process per-gene cache; ISR html-cache on top) ───────
 _GENE_CACHE = {}
@@ -113,14 +116,14 @@ async def _err(request, exc):
 
 
 # ── routes ─────────────────────────────────────────────────────────────────────
-@app.get(f"{BASE}/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse)
 async def home():
     demos = ["pten-p-arg173cys", "acta1-p-pro309ala", "asxl1-p-gly646trp",
              "pten-p-arg130gln", "acta1-c-809-1g-t"]
     return _render("home.html", demos=demos)
 
 
-@app.get(BASE + "/variant/{slug}", response_class=HTMLResponse)
+@app.get("/{slug}", response_class=HTMLResponse)
 async def variant_page(slug: str):
     slug = slug.lower().strip("/")
     rec = _resolve(slug)

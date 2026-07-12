@@ -108,7 +108,7 @@
       {% if v.gene_context and v.gene_context.constraint and v.gene_context.constraint.loeuf %}
         <p><b>Gene constraint:</b> LOEUF {{ v.gene_context.constraint.loeuf }}, pLI {{ v.gene_context.constraint.pli }}{% if v.gene_context.dosage and v.gene_context.dosage.haplo %} · ClinGen haploinsufficiency {{ v.gene_context.dosage.haplo }}/3{% endif %}.</p>{% endif %}
       {% if v.hotspot and v.hotspot.others %}<p><b>Residue {{ v.hotspot.position }}</b> carries {{ v.hotspot.others|length }} other pathogenic ClinVar variant{{ 's' if v.hotspot.others|length != 1 }}
-        ({% for o in v.hotspot.others[:6] %}<a href="{{ base }}/variant/{{ o.slug }}/">{{ o.label }}</a>{{ ', ' if not loop.last }}{% endfor %}).</p>{% endif %}
+        ({% for o in v.hotspot.others[:6] %}<a href="{{ base }}/{{ o.slug }}/">{{ o.label }}</a>{{ ', ' if not loop.last }}{% endfor %}).</p>{% endif %}
     </section>
     {% endif %}
 
@@ -135,7 +135,7 @@
       {% if v.conditions %}<p><b>Associated conditions:</b>
         {% for cd in v.conditions %}<a class="vv-chip" href="https://sugi.bio/atlas/disease/{{ cd.name|lower|replace(' ','-')|replace(',','') }}">{{ cd.name }}</a>{% endfor %}</p>{% endif %}
       {% if v.similar %}<p><b>Similar variants:</b>
-        {% for s in v.similar %}<a class="vv-chip" href="{{ base }}/variant/{{ s.slug }}/">{{ s.label }}</a>{% endfor %}</p>{% endif %}
+        {% for s in v.similar %}<a class="vv-chip" href="{{ base }}/{{ s.slug }}/">{{ s.label }}</a>{% endfor %}</p>{% endif %}
     </section>
 
     {# ── ZONE E · FOR PATIENTS & FAMILIES ──────────────────────────────── #}
