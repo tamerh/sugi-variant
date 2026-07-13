@@ -86,3 +86,5 @@
 .vv-patient-lead{font-size:1.02rem;margin:.3rem 0 .7rem}
 .vv-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.8rem}
 .vv-src{margin-top:2rem;border-top:1px solid var(--border,#e5e7eb);padding-top:.8rem}
+.vv-consensus{margin-top:.5rem;padding-top:.45rem;border-top:1px dashed var(--border,#e5e7eb);font-size:.9rem}
+.vv-consensus.is-agree{color:var(--ok);font-weight:500}

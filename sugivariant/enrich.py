@@ -277,7 +277,7 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
     clinical determination."""
     cls = (classification or "").lower()
     clinvar_path = "pathogenic" in cls and "conflict" not in cls
-    lines, flags, agree, total = [], [], 0, 0
+    lines, flags, agree, total, consensus = [], [], 0, 0, None
 
     if am:
         amclass, amscore = am.get("class"), am.get("score")
@@ -317,14 +317,15 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
             n_dmg = sum(1 for _, d in preds if d)
             names = ", ".join(n for n, _ in preds)
             if n_dmg == len(preds):
-                lines.append(f"→ **In-silico consensus:** all {len(preds)} independent "
-                             f"predictors ({names}) call this damaging")
+                summary = f"all {len(preds)} predictors call this damaging"
             elif n_dmg == 0:
-                lines.append(f"→ **In-silico consensus:** all {len(preds)} predictors "
-                             f"({names}) call this tolerated")
+                summary = f"all {len(preds)} predictors call this tolerated"
             else:
-                lines.append(f"→ **In-silico consensus:** {n_dmg}/{len(preds)} predictors "
-                             f"({names}) call this damaging — mixed")
+                summary = f"{n_dmg}/{len(preds)} damaging — mixed"
+            consensus = {"n_damaging": n_dmg, "total": len(preds),
+                         "names": names, "summary": summary,
+                         "unanimous": n_dmg in (0, len(preds))}
+            lines.append(f"→ **In-silico consensus:** {summary} ({names})")
     else:
         lines.append("AlphaMissense — not scored (not a missense SNV)")
 
@@ -374,7 +375,7 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
                    "**concordant** with the ClinVar classification")
     else:
         verdict = "Mixed / partial computational evidence (see below)"
-    return {"lines": lines, "verdict": verdict, "flags": flags}
+    return {"lines": lines, "verdict": verdict, "flags": flags, "consensus": consensus}
 
 
 # ── Batch 3: per-gene context (fetched once per gene, cached in ctx) ─────────
