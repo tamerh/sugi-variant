@@ -7,7 +7,7 @@ the linked conditions and (when the gene has a ClinGen VCEP) the expert-panel
 ACMG assertion. Positional in-silico predictions (AlphaMissense/SpliceAI) are
 optional annotations, joined by substitution/position — never page generators.
 """
-from sugivariant.biobtree import entry, map_all
+from sugibiobtree import entry, map_all
 from sugivariant.slug import parse_hgvs, variant_slugs
 from sugivariant import enrich as EN
 

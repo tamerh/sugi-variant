@@ -13,7 +13,7 @@ descriptions of independent evidence, each shown with its source.
 import re
 from collections import Counter
 
-from sugivariant.biobtree import map_all
+from sugibiobtree import map_all
 
 _AA3to1 = {"Ala": "A", "Arg": "R", "Asn": "N", "Asp": "D", "Cys": "C", "Gln": "Q",
            "Glu": "E", "Gly": "G", "His": "H", "Ile": "I", "Leu": "L", "Lys": "K",
@@ -79,7 +79,7 @@ def _coord_entry(coord, dataset):
     NOT map-chainable: `map(coord, '>>gnomad_variant')` returns 0). Audit Tier 1/2."""
     if not coord:
         return None
-    from sugivariant.biobtree import entry
+    from sugibiobtree import entry
     try:
         a = (entry(coord, dataset) or {}).get("Attributes") or {}
     except Exception:
@@ -402,7 +402,7 @@ def gene_mavedb(hgnc_id):
     most genes (only MAVE-assayed genes carry scores). score_set_title is looked
     up once per score set (it's not in the lite map projection)."""
     from collections import defaultdict
-    from sugivariant.biobtree import entry
+    from sugibiobtree import entry
     by_hgvs, rep = defaultdict(list), {}
     for x in map_all(hgnc_id, ">>hgnc>>mavedb", cap=200):
         hp, ss = x.get("hgvs_pro"), x.get("score_set")
@@ -666,7 +666,7 @@ def _build_orphanet_digest(oid, fallback_name=None):
 
 
 def _orphanet_entry(oid):
-    from sugivariant.biobtree import entry
+    from sugibiobtree import entry
     a = (entry(oid, "orphanet") or {}).get("Attributes") or {}
     return a.get("Orphanet") or (next(iter(a.values()), {}) if a else {})
 

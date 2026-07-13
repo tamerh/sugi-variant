@@ -13,7 +13,7 @@ import argparse
 import json
 import os
 
-from sugivariant.biobtree import search, rows
+from sugibiobtree import search, rows
 from sugivariant.util import build_meta, biobtree_version, atlas_version, _yaml_escape
 from sugivariant import links
 from sugivariant import collect as VC, render as VR, enrich as EN, jsonld as VJ

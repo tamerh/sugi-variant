@@ -8,7 +8,7 @@ import subprocess
 import urllib.request
 from datetime import datetime, timezone
 
-from sugivariant.biobtree import API
+from sugibiobtree import API
 
 GENERATED_BY = "Sugi Variant"
 _VERSION = "sugi-variant-0.1"
