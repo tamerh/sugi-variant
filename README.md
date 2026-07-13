@@ -19,3 +19,12 @@ app serves root paths; BASE_PATH=/variant generates the public /variant/… link
 ## Status
 Prototype: verdict-card + evidence-panel view. TODO: search, protein lollipop SVG,
 JSON-LD/.md twin, sitemap, slug→VCV index, Docker/systemd.
+
+## Dependency: sugibiobtree (shared client)
+The variant science uses the shared `sugibiobtree` biobtree client (one source of
+truth with Sugi Atlas). Every env that runs this app must have it installed:
+
+    pip install -e the sugi-biobtree repo
+
+Dev: installed editable in the `bioyoda` env. When containerizing, the image must
+`pip install` sugibiobtree (editable during dev, or pinned/vendored for prod).
