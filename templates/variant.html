@@ -59,10 +59,12 @@
       <section class="vv-panel">
         <h3 class="vv-panel-h">Computational</h3>
         {% if p and p.class %}<p><b>AlphaMissense</b> {{ p.class|replace('_',' ') }} <span class="vv-num">{{ p.score }}</span>
-          {% if v.am_percentile and v.am_percentile.top_pct <= 10 %}<span class="section-sub">(top {{ v.am_percentile.top_pct }}%)</span>{% endif %}</p>
+          {% if v.am_percentile and v.am_percentile.top_pct <= 10 %}<span class="section-sub">(top {{ v.am_percentile.top_pct }}%)</span>{% endif %}
+          <span class="section-sub">— ACMG-weighted</span></p>
         {% else %}<p class="section-sub">AlphaMissense — not a missense SNV</p>{% endif %}
+        {% if v.revel %}<p><b>REVEL</b> <span class="vv-num">{{ v.revel.score }}</span> <span class="section-sub">({{ v.revel.tier }} — agreement signal)</span></p>{% endif %}
         {% if v.spliceai %}<p><b>SpliceAI</b> {{ v.spliceai.effect|replace('_',' ') }} <span class="vv-num">Δ{{ v.spliceai.score }}</span></p>{% endif %}
-        {% if v.conservation and v.conservation.phylop is not none %}<p><b>Conservation</b> phyloP {{ '%.2g'|format(v.conservation.phylop) }}{% if v.conservation.phastcons is not none %}, phastCons {{ '%.2g'|format(v.conservation.phastcons) }}{% endif %}</p>{% endif %}
+        {% if v.conservation and v.conservation.phylop is not none %}<p><b>Conservation</b> phyloP {{ '%.2g'|format(v.conservation.phylop) }}{% if v.conservation.gerp is not none %}, GERP {{ '%.2g'|format(v.conservation.gerp) }}{% endif %}{% if v.conservation.phastcons is not none %}, phastCons {{ '%.2g'|format(v.conservation.phastcons) }}{% endif %}</p>{% endif %}
       </section>
       <section class="vv-panel">
         <h3 class="vv-panel-h">Population <span class="vv-panel-src">gnomAD v4.1</span></h3>
