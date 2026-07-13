@@ -1,5 +1,5 @@
-"""Sugi Variant — the web. A FastAPI + Jinja2 + ISR renderer over the deterministic
-variant enrichment (shared with Sugi Atlas's variant builder). Server-rendered
+"""Sugi Variant — the web. A FastAPI + Jinja2 + ISR renderer over the self-contained
+`sugivariant` package (decoupled from Sugi Atlas). Server-rendered
 HTML (crawlable / AI-citable — the whole differentiator), disk-cached after first
 hit. Sibling of the Sugi Predict app; reuses the atlas.css design system.
 
@@ -17,11 +17,11 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-# Reuse the atlas variant enrichment — ONE record-assembly path, no drift.
-sys.path.insert(0, os.environ.get("ATLAS_SRC", "the sugi-atlas src"))
-from atlas.variant.build import enriched_records          # noqa: E402
-from atlas.variant.render import _label as variant_label  # noqa: E402
-from atlas.variant.enrich import review_stars             # noqa: E402
+# The variant science lives in the local, self-contained sugivariant package.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from sugivariant.build import enriched_records            # noqa: E402
+from sugivariant.render import _label as variant_label    # noqa: E402
+from sugivariant.enrich import review_stars               # noqa: E402
 
 ROOT = pathlib.Path(__file__).parent
 BASE = os.environ.get("BASE_PATH", "").rstrip("/")
