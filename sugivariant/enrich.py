@@ -122,7 +122,23 @@ def alphamissense_for(coord):
     if not a or a.get("am_pathogenicity") is None:
         return None
     return {"class": a.get("am_class"), "score": str(a.get("am_pathogenicity")),
-            "short": a.get("protein_variant")}
+            "short": a.get("protein_variant"), "uniprot": a.get("uniprot_id")}
+
+
+def esm1b_for(uniprot, protein_variant):
+    """ESM1b protein-language-model variant effect (Brandes 2023), keyed by
+    uniprot:protein_variant (both from AlphaMissense). LLR ≤ 0, more negative =
+    more damaging; NO fixed ACMG threshold — surface the raw LLR and let the
+    concordance panel do the work (~-7.5 is the paper's rough divider, used only
+    for the 'damaging vs tolerated' agreement read). Training is ClinVar-
+    independent → a genuinely orthogonal predictor next to AlphaMissense/REVEL."""
+    if not (uniprot and protein_variant):
+        return None
+    a = _coord_entry(f"{uniprot}:{protein_variant}", "esm1b")
+    llr = _f((a or {}).get("esm1b_llr"))
+    if llr is None:
+        return None
+    return {"llr": llr, "damaging": llr <= -7.5}
 
 
 def conservation_for(coord):
@@ -251,7 +267,7 @@ def submitter_consensus(submissions):
     return {"n": len(calls), "breakdown": dict(bd), "verdict": verdict}
 
 
-def concordance(classification, am, gnomad, spliceai=None, conservation=None, revel=None):
+def concordance(classification, am, gnomad, spliceai=None, conservation=None, revel=None, esm1b=None):
     """Cross-source concordance readout: do the computational predictors agree with
     ClinVar? Returns {lines, verdict, flags}. ClinGen-SVI framing: in-silico
     predictors are NOT independent, so exactly ONE calibrated tool carries the
@@ -283,6 +299,32 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
             else:
                 rel = "agrees with" if (revel["direction"] == "pathogenic") == am_path else "differs from"
             lines.append(f"REVEL {revel['score']} ({revel['tier']}) — {rel} AlphaMissense")
+        # ESM1b — orthogonal (ClinVar-independent) protein-language-model opinion,
+        # also an agreement signal (not additive). Raw LLR surfaced; ~-7.5 divides
+        # the damaging/tolerated *read* only.
+        if esm1b:
+            rel = "agrees with" if esm1b["damaging"] == am_path else "differs from"
+            lines.append(f"ESM1b LLR {esm1b['llr']:g} "
+                         f"({'damaging' if esm1b['damaging'] else 'tolerated'}) — {rel} AlphaMissense")
+        # In-silico CONSENSUS — descriptive agreement of the independent missense
+        # predictors (do they concur?). NOT additive ACMG evidence (ClinGen SVI).
+        preds = [("AlphaMissense", am_path)]
+        if revel and revel["direction"] != "indeterminate":
+            preds.append(("REVEL", revel["direction"] == "pathogenic"))
+        if esm1b:
+            preds.append(("ESM1b", esm1b["damaging"]))
+        if len(preds) >= 2:
+            n_dmg = sum(1 for _, d in preds if d)
+            names = ", ".join(n for n, _ in preds)
+            if n_dmg == len(preds):
+                lines.append(f"→ **In-silico consensus:** all {len(preds)} independent "
+                             f"predictors ({names}) call this damaging")
+            elif n_dmg == 0:
+                lines.append(f"→ **In-silico consensus:** all {len(preds)} predictors "
+                             f"({names}) call this tolerated")
+            else:
+                lines.append(f"→ **In-silico consensus:** {n_dmg}/{len(preds)} predictors "
+                             f"({names}) call this damaging — mixed")
     else:
         lines.append("AlphaMissense — not scored (not a missense SNV)")
 

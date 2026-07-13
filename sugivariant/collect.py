@@ -120,14 +120,17 @@ def attach_enrichment(rec, ctx=None):
     gnomad = EN.gnomad_frequency(rec)             # by coordinate via entry() → fixes false-Absent
     conservation = EN.conservation_for(coord)     # phyloP / GERP / phastCons
     revel = EN.revel_for(coord)                   # ensemble missense predictor (agreement signal)
+    # ESM1b — protein-LM predictor, keyed by the uniprot:protein_variant AM gives us
+    esm1b = EN.esm1b_for(am.get("uniprot"), am.get("short")) if am else None
     rec["alphamissense"] = am
     rec["gnomad"] = gnomad
     rec["conservation"] = conservation
     rec["revel"] = revel
+    rec["esm1b"] = esm1b
     rec["spliceai"] = EN.spliceai_for(coord, ctx.get("spliceai") or {})
     rec["consensus"] = EN.submitter_consensus(rec.get("submissions") or [])
     rec["concordance"] = EN.concordance(rec.get("classification"), am, gnomad,
-                                        rec.get("spliceai"), conservation, revel)
+                                        rec.get("spliceai"), conservation, revel, esm1b)
     rec["hotspot"] = EN.residue_hotspot(rec.get("hgvs_p"), ctx.get("positions"))
     # Batch 3 — per-variant derived (in-memory from the per-gene caches)
     am_map = ctx.get("am") or {}          # per-gene AM distribution (for the percentile)

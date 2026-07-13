@@ -263,3 +263,22 @@ def test_conservation_gerp_and_nonmissense_counts():
                     {"phylop": 7.4, "gerp": 4.9, "phastcons": 1})
     assert any("agrees" in ln for ln in m["lines"])
     assert "1 independent predictor" in m["verdict"]         # AM only
+
+
+# ── ESM1b (orthogonal protein-LM predictor) + in-silico consensus (2026-07-13) ─
+def test_esm1b_agreement_and_consensus():
+    from sugivariant.enrich import concordance
+    am = {"class": "likely_pathogenic", "score": "0.99"}
+    revel = {"score": 0.955, "tier": "PP3_Strong", "direction": "pathogenic"}
+    esm = {"llr": -14.5, "damaging": True}
+    c = concordance("Pathogenic", am, None, revel=revel, esm1b=esm)
+    # ESM1b shown as an agreement signal (raw LLR), not a counted vote
+    assert any("ESM1b LLR -14.5" in ln and "agrees with AlphaMissense" in ln for ln in c["lines"])
+    assert "1 independent predictor" in c["verdict"]        # AM alone carries the ACMG weight
+    # consensus summary across the 3 independent missense predictors
+    assert any("consensus" in ln and "all 3" in ln and "damaging" in ln for ln in c["lines"])
+    # a tolerated ESM1b vs pathogenic AM → "differs from" + mixed consensus
+    d = concordance("Pathogenic", am, None,
+                    esm1b={"llr": -0.1, "damaging": False})
+    assert any("differs from AlphaMissense" in ln for ln in d["lines"])
+    assert any("consensus" in ln and "1/2" in ln for ln in d["lines"])

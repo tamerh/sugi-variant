@@ -63,6 +63,7 @@
           <span class="section-sub">— ACMG-weighted</span></p>
         {% else %}<p class="section-sub">AlphaMissense — not a missense SNV</p>{% endif %}
         {% if v.revel %}<p><b>REVEL</b> <span class="vv-num">{{ v.revel.score }}</span> <span class="section-sub">({{ v.revel.tier }} — agreement signal)</span></p>{% endif %}
+        {% if v.esm1b %}<p><b>ESM1b</b> <span class="vv-num">LLR {{ '%.2f'|format(v.esm1b.llr) }}</span> <span class="section-sub">({{ 'damaging' if v.esm1b.damaging else 'tolerated' }} — orthogonal, agreement signal)</span></p>{% endif %}
         {% if v.spliceai %}<p><b>SpliceAI</b> {{ v.spliceai.effect|replace('_',' ') }} <span class="vv-num">Δ{{ v.spliceai.score }}</span></p>{% endif %}
         {% if v.conservation and v.conservation.phylop is not none %}<p><b>Conservation</b> phyloP {{ '%.2g'|format(v.conservation.phylop) }}{% if v.conservation.gerp is not none %}, GERP {{ '%.2g'|format(v.conservation.gerp) }}{% endif %}{% if v.conservation.phastcons is not none %}, phastCons {{ '%.2g'|format(v.conservation.phastcons) }}{% endif %}</p>{% endif %}
       </section>
