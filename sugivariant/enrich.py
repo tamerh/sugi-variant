@@ -125,17 +125,20 @@ def alphamissense_for(coord):
             "short": a.get("protein_variant"), "uniprot": a.get("uniprot_id")}
 
 
-def esm1b_for(uniprot, protein_variant):
-    """ESM1b protein-language-model variant effect (Brandes 2023), keyed by
+def saprot_for(uniprot, protein_variant):
+    """SaProt-650M structure-aware protein-language-model variant effect (Su et
+    al. 2023; computed in-house from MIT weights → redistributable), keyed by
     uniprot:protein_variant (both from AlphaMissense). LLR ≤ 0, more negative =
-    more damaging; NO fixed ACMG threshold — surface the raw LLR and let the
-    concordance panel do the work (~-7.5 is the paper's rough divider, used only
-    for the 'damaging vs tolerated' agreement read). Training is ClinVar-
-    independent → a genuinely orthogonal predictor next to AlphaMissense/REVEL."""
+    more damaging; NO calibrated ACMG threshold — surface the raw LLR and let the
+    concordance panel do the work (~-7.5 is a heuristic divider on the same LLR
+    scale, used only for the 'damaging vs tolerated' agreement read). Unsupervised
+    → a genuinely orthogonal predictor next to the supervised AlphaMissense/REVEL.
+    Covers ~98.6% of the proteome; the ~1.4% without an AlphaFold structure fall
+    back to AlphaMissense (SaProt simply returns None here)."""
     if not (uniprot and protein_variant):
         return None
-    a = _coord_entry(f"{uniprot}:{protein_variant}", "esm1b")
-    llr = _f((a or {}).get("esm1b_llr"))
+    a = _coord_entry(f"{uniprot}:{protein_variant}", "saprot")
+    llr = _f((a or {}).get("saprot_llr"))
     if llr is None:
         return None
     return {"llr": llr, "damaging": llr <= -7.5}
@@ -267,7 +270,7 @@ def submitter_consensus(submissions):
     return {"n": len(calls), "breakdown": dict(bd), "verdict": verdict}
 
 
-def concordance(classification, am, gnomad, spliceai=None, conservation=None, revel=None, esm1b=None):
+def concordance(classification, am, gnomad, spliceai=None, conservation=None, revel=None, saprot=None):
     """Cross-source concordance readout: do the computational predictors agree with
     ClinVar? Returns {lines, verdict, flags}. ClinGen-SVI framing: in-silico
     predictors are NOT independent, so exactly ONE calibrated tool carries the
@@ -299,20 +302,20 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
             else:
                 rel = "agrees with" if (revel["direction"] == "pathogenic") == am_path else "differs from"
             lines.append(f"REVEL {revel['score']} ({revel['tier']}) — {rel} AlphaMissense")
-        # ESM1b — orthogonal (ClinVar-independent) protein-language-model opinion,
+        # SaProt — orthogonal (ClinVar-independent) protein-language-model opinion,
         # also an agreement signal (not additive). Raw LLR surfaced; ~-7.5 divides
         # the damaging/tolerated *read* only.
-        if esm1b:
-            rel = "agrees with" if esm1b["damaging"] == am_path else "differs from"
-            lines.append(f"ESM1b LLR {esm1b['llr']:g} "
-                         f"({'damaging' if esm1b['damaging'] else 'tolerated'}) — {rel} AlphaMissense")
+        if saprot:
+            rel = "agrees with" if saprot["damaging"] == am_path else "differs from"
+            lines.append(f"SaProt LLR {saprot['llr']:g} "
+                         f"({'damaging' if saprot['damaging'] else 'tolerated'}) — {rel} AlphaMissense")
         # In-silico CONSENSUS — descriptive agreement of the independent missense
         # predictors (do they concur?). NOT additive ACMG evidence (ClinGen SVI).
         preds = [("AlphaMissense", am_path)]
         if revel and revel["direction"] != "indeterminate":
             preds.append(("REVEL", revel["direction"] == "pathogenic"))
-        if esm1b:
-            preds.append(("ESM1b", esm1b["damaging"]))
+        if saprot:
+            preds.append(("SaProt", saprot["damaging"]))
         if len(preds) >= 2:
             n_dmg = sum(1 for _, d in preds if d)
             names = ", ".join(n for n, _ in preds)

@@ -20,7 +20,7 @@ from sugivariant import collect as VC, render as VR, enrich as EN, jsonld as VJ
 
 _DATASETS = ("clinvar", "clingen_variant", "clingen_gene_validity", "clingen_dosage",
              "gencc", "mondo", "orphanet", "gard", "clinical_trials", "panelapp_gene",
-             "alphamissense", "revel", "esm1b", "spliceai", "conservation", "mavedb", "reactome", "go",
+             "alphamissense", "revel", "saprot", "spliceai", "conservation", "mavedb", "reactome", "go",
              "dbsnp", "gnomad_variant", "gnomad_constraint", "uniprot", "pdb", "alphafold", "hgnc")
 _CLASS_ORDER = ["Pathogenic", "Likely pathogenic", "Pathogenic/Likely pathogenic",
                 "Conflicting classifications of pathogenicity"]

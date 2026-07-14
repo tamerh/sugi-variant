@@ -308,8 +308,8 @@ def render_body(v, jsonld_tag=""):
         L.append("\n*Computational predictors are not independent (ClinGen SVI): "
                  "AlphaMissense (Cheng et al. 2023) carries the ACMG weight for missense "
                  "and conservation (phyloP/GERP/phastCons) for non-missense; REVEL "
-                 "(Pejaver-2022 calibrated tiers) and ESM1b (Brandes 2023, ClinVar-"
-                 "independent protein language model, raw LLR) are shown as orthogonal "
+                 "(Pejaver-2022 calibrated tiers) and SaProt (Su et al. 2023, structure-"
+                 "aware, ClinVar-independent protein language model, raw LLR) are shown as orthogonal "
                  "agreement signals, not additive. gnomAD v4.1 popmax is the ACMG "
                  "BA1/BS1/PM2 frequency metric. Predictions, not a clinical determination.*")
 
