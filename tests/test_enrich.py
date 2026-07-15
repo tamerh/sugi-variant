@@ -56,6 +56,48 @@ def test_concordance_conservation_line():
     assert "concordant" in (c["verdict"] or "").lower()     # conservation is the concordant predictor
 
 
+def test_plain_summary_wording_and_condition():
+    from sugivariant.enrich import plain_summary
+    rec = {"gene_symbol": "TP53", "classification": "Pathogenic",
+           "review_status": "reviewed by expert panel", "submitter_count": 46,
+           "conditions": [{"name": "Li-Fraumeni syndrome"}], "concordance": {"flags": []}}
+    s = plain_summary(rec)
+    # benchmark 2026-07: no "clinical labs"; leads with the (now VCEP-ordered) condition
+    assert "clinical lab" not in s
+    assert "46 submitters" in s
+    assert "Li-Fraumeni syndrome" in s
+    # singular submitter
+    rec["submitter_count"] = 1
+    assert "1 submitter," in plain_summary(rec) and "submitters" not in plain_summary(rec)
+
+
+def test_disagreement_flag():
+    from sugivariant.enrich import disagreement_flag
+    def rec(cls, consensus=None, flags=None):
+        return {"classification": cls,
+                "concordance": {"consensus": consensus, "flags": flags or []}}
+    # pathogenic but predictors lean tolerated → predictor_vs_clinvar
+    d = disagreement_flag(rec("Pathogenic",
+        {"n_damaging": 0, "total": 2, "unanimous": True, "summary": "all 2 predictors call this tolerated"}))
+    assert d["category"] == "predictor_vs_clinvar" and d["severity"] == 3
+    # pathogenic + AlphaMissense-benign flag, too few predictors for a consensus → still flagged
+    d2 = disagreement_flag(rec("Pathogenic", None, ["AlphaMissense predicts likely-benign"]))
+    assert d2["category"] == "predictor_vs_clinvar"
+    # conflicting ClinVar but predictors unanimous → resolves_conflicting
+    d3 = disagreement_flag(rec("Conflicting classifications of pathogenicity",
+        {"n_damaging": 3, "total": 3, "unanimous": True, "summary": "all 3 predictors call this damaging"}))
+    assert d3["category"] == "resolves_conflicting" and d3["severity"] == 2
+    # predictors split among themselves → predictors_split
+    d4 = disagreement_flag(rec("Conflicting classifications of pathogenicity",
+        {"n_damaging": 1, "total": 3, "unanimous": False, "summary": "1/3 damaging — mixed"}))
+    assert d4["category"] == "predictors_split"
+    # concordant pathogenic (all predictors damaging) → no flag
+    assert disagreement_flag(rec("Pathogenic",
+        {"n_damaging": 3, "total": 3, "unanimous": True, "summary": "all 3 predictors call this damaging"})) is None
+    # nothing scored → no flag
+    assert disagreement_flag(rec("Pathogenic", None)) is None
+
+
 def test_residue_hotspot():
     idx = {309: [{"hgvs_p": "p.Pro309Ala", "label": "ACTA1 p.Pro309Ala", "slug": "a", "classification": "Pathogenic"},
                  {"hgvs_p": "p.Pro309Leu", "label": "ACTA1 p.Pro309Leu", "slug": "b", "classification": "Pathogenic"}]}
@@ -112,7 +154,7 @@ def test_plain_summary_calibrated():
     strong = plain_summary({"gene_symbol": "ACTA1", "classification": "Pathogenic",
                             "review_status": "criteria provided, multiple submitters, no conflicts",
                             "submitter_count": 3, "conditions": [{"name": "nemaline myopathy"}]})
-    assert "considered disease-causing" in strong and "3 clinical labs" in strong
+    assert "considered disease-causing" in strong and "3 submitters" in strong
     assert "nemaline myopathy" in strong
     # 1★ single-submitter pathogenic → hedged "limited review"
     weak = plain_summary({"gene_symbol": "G", "classification": "Pathogenic",

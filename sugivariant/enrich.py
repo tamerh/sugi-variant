@@ -382,6 +382,45 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
     return {"lines": lines, "verdict": verdict, "flags": flags, "consensus": consensus}
 
 
+# Category order for the /disagreements browse view (higher = surfaced first).
+DISAGREEMENT_CATEGORIES = ("predictor_vs_clinvar", "resolves_conflicting", "predictors_split")
+
+
+def disagreement_flag(rec):
+    """Classify a record's evidence disagreement for the /disagreements browse view,
+    from the ALREADY-computed concordance (no new biobtree lookups). Returns
+    {category, label, reason, severity} or None.
+
+    The three disagreements no competitor surfaces (benchmark 2026-07):
+      predictor_vs_clinvar — a pathogenic/LP ClinVar call the predictors lean against
+                             (AlphaMissense — the ACMG-weighted tool — calls benign, or
+                             the in-silico consensus is majority-tolerant)
+      resolves_conflicting — ClinVar is 'conflicting', but the predictors are unanimous
+      predictors_split     — the independent predictors disagree with each other
+
+    Descriptive only — a QC signal, NOT a reclassification (ClinGen SVI, HANDOVER §8)."""
+    c = rec.get("concordance") or {}
+    cons = c.get("consensus") or {}
+    total = cons.get("total") or 0
+    n_dmg = cons.get("n_damaging") or 0
+    cls = (rec.get("classification") or "").lower()
+    is_path = "pathogenic" in cls and "conflict" not in cls
+    is_conf = "conflict" in cls
+    am_benign = any("likely-benign" in f for f in (c.get("flags") or []))
+
+    if is_path and (am_benign or (total and n_dmg * 2 < total)):
+        detail = cons.get("summary") if total else "AlphaMissense predicts likely-benign"
+        return {"category": "predictor_vs_clinvar", "label": "Predictors vs ClinVar",
+                "reason": f"ClinVar {rec.get('classification')}, but {detail}", "severity": 3}
+    if is_conf and total >= 2 and cons.get("unanimous"):
+        return {"category": "resolves_conflicting", "label": "Resolves a conflicting call",
+                "reason": f"ClinVar conflicting; {cons.get('summary')}", "severity": 2}
+    if total >= 2 and not cons.get("unanimous"):
+        return {"category": "predictors_split", "label": "Predictors split",
+                "reason": cons.get("summary"), "severity": 1}
+    return None
+
+
 # ── Batch 3: per-gene context (fetched once per gene, cached in ctx) ─────────
 def gene_context(hgnc_id):
     """ACMG-adjacent gene block: gnomAD constraint + ClinGen dosage + gene-disease
@@ -834,7 +873,7 @@ def plain_summary(rec):
     stars = review_stars(rec.get("review_status"))
     discordant = bool((rec.get("concordance") or {}).get("flags"))
     if "conflict" in cls:
-        meaning = "of uncertain or conflicting significance (clinical labs disagree on it)"
+        meaning = "of uncertain or conflicting significance (submitters disagree on it)"
     elif "likely pathogenic" in cls:
         meaning = "considered likely disease-causing"
     elif "pathogenic" in cls:
@@ -848,7 +887,7 @@ def plain_summary(rec):
         meaning = f"classified as {rec.get('classification')}"
     gene = rec.get("gene_symbol")
     n = rec.get("submitter_count") or 0
-    who = (f", submitted by {n} clinical lab" + ("s" if n != 1 else "")) if n else ""
+    who = (f", submitted by {n} submitter" + ("s" if n != 1 else "")) if n else ""
     cond = (rec.get("conditions") or [{}])[0].get("name")
     link = f", and is linked to {cond}" if cond else ""
     return f"This is a change in the {gene} gene that is {meaning}{who}{link}."

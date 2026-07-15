@@ -88,3 +88,55 @@
 .vv-src{margin-top:2rem;border-top:1px solid var(--border,#e5e7eb);padding-top:.8rem}
 .vv-consensus{margin-top:.5rem;padding-top:.45rem;border-top:1px dashed var(--border,#e5e7eb);font-size:.9rem}
 .vv-consensus.is-agree{color:var(--ok);font-weight:500}
+
+/* ── disagreement browse view (benchmark 2026-07) ──────────────────────────── */
+.dz-tone-flag{--dz:var(--flag);--dz-soft:var(--lpath-soft)}
+.dz-tone-info{--dz:var(--conflict);--dz-soft:var(--conflict-soft)}
+.dz-tone-warn{--dz:var(--vus);--dz-soft:var(--vus-soft)}
+
+.hero-tight{padding-bottom:.4rem}
+.dz-summary{margin:.6rem 0 0;color:var(--muted,#6b7280);font-size:.95rem}
+.dz-chip{display:inline-block;min-width:1.5rem;text-align:center;background:var(--dz,var(--vus));
+  color:#fff;font-weight:700;font-size:.8rem;padding:.05rem .45rem;border-radius:999px;
+  font-variant-numeric:tabular-nums}
+
+/* legend on the hub */
+.dz-legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.9rem;margin:0 0 2rem}
+.dz-legend-item{border:1px solid var(--border,#e5e7eb);border-left:4px solid var(--dz,var(--vus));
+  border-radius:12px;padding:.85rem 1rem;background:var(--bg,#fff)}
+.dz-legend-h{margin:0 0 .3rem;font-size:1rem;color:var(--dz)}
+.dz-legend-item p{margin:0;font-size:.9rem;color:var(--muted,#6b7280);line-height:1.45}
+
+/* gene grid on the hub */
+.dz-genes{list-style:none;padding:0;margin:0;display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.6rem}
+.dz-gene{display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+  border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:.7rem .9rem;background:var(--bg,#fff);
+  text-decoration:none;color:inherit;transition:border-color .12s,transform .12s}
+.dz-gene:hover{border-color:var(--accent,#2563eb);transform:translateY(-1px)}
+.dz-gene-name{font-weight:700;font-family:ui-monospace,monospace}
+.dz-gene-counts{display:flex;gap:.25rem}
+.dz-gene-go{font-size:.82rem;color:var(--accent,#2563eb)}
+
+/* grouped lists on the gene page */
+.dz-group{margin:0 0 2rem}
+.dz-count{font-size:.9rem;color:#fff;background:var(--dz,var(--vus));padding:.06rem .5rem;
+  border-radius:999px;vertical-align:middle;font-variant-numeric:tabular-nums}
+.dz-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.55rem}
+.dz-row{border:1px solid var(--border,#e5e7eb);border-left:3px solid var(--dz,var(--vus));
+  border-radius:10px;padding:.6rem .85rem;background:var(--bg,#fff)}
+.dz-row-link{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;text-decoration:none;color:inherit}
+.dz-row-link:hover .dz-row-name{text-decoration:underline}
+.dz-row-name{font-size:1rem}.dz-row-name b{font-family:ui-monospace,monospace}
+.dz-stars{color:var(--dz);font-size:.95rem;margin-left:auto}
+.dz-reason{margin:.35rem 0 0;font-size:.88rem;color:var(--muted,#6b7280)}
+.dz-empty{padding:1.5rem;border:1px dashed var(--border,#e5e7eb);border-radius:12px;
+  color:var(--muted,#6b7280);text-align:center}
+
+/* cross-link banner on a flagged variant page */
+.dz-banner{display:block;margin:.7rem 0 0;padding:.55rem .8rem;border-radius:9px;
+  background:var(--dz-soft);border:1px solid var(--dz,var(--vus));color:inherit;
+  text-decoration:none;font-size:.9rem}
+.dz-banner b{color:var(--dz)}
+.dz-banner-go{display:inline-block;margin-left:.35rem;color:var(--dz);font-weight:600;white-space:nowrap}
+.dz-banner:hover .dz-banner-go{text-decoration:underline}

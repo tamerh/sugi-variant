@@ -28,6 +28,22 @@ def should_build(classification):
     return (classification or "").strip().lower() in BUILD_CLASSES
 
 
+def _order_conditions(conditions, vcep):
+    """Lead with the ClinGen VCEP / expert-panel disease so the primary condition
+    is the DEFINING one, not an arbitrary first >>clinvar>>mondo edge. conditions[0]
+    drives the Summary headline, the mechanism narrative, the patient digest routing
+    and the condition links, so the order here propagates everywhere (benchmark
+    2026-07: TP53 Li-Fraumeni hotspots headlined 'gastric cancer' with Li-Fraumeni
+    buried at 24/28). Stable otherwise; a no-op when there is no VCEP (most genes)."""
+    vcep_diseases = {(c.get("disease") or "").strip().lower()
+                     for c in (vcep or []) if c.get("disease")}
+    if not vcep_diseases or len(conditions) < 2:
+        return conditions
+    # False (0) sorts before True (1); sort is stable → VCEP disease(s) first, rest as-is
+    return sorted(conditions,
+                  key=lambda c: (c.get("name") or "").strip().lower() not in vcep_diseases)
+
+
 def collect(variation_id):
     """Full page record for a ClinVar variation id, or None if it's not a
     buildable classification / can't resolve a slug."""
@@ -55,7 +71,12 @@ def collect(variation_id):
              "panel": c.get("vcep") or c.get("panel"), "disease": c.get("disease")}
             for c in map_all(variation_id, ">>clinvar>>clingen_variant") if c.get("id")]
 
+    conditions = _order_conditions(conditions, vcep)
+
     subs = v.get("submissions") or []
+    # Distinct submitters, not raw submission rows — a lab with multiple SCVs counts
+    # once (benchmark 2026-07: '57 submissions' was shown as '57 clinical labs').
+    n_submitters = len({s.get("submitter_name") for s in subs if s.get("submitter_name")})
     return {
         "variation_id": variation_id,
         "gene_symbol": gene,
@@ -78,7 +99,7 @@ def collect(variation_id):
                          "review_status": s.get("review_status"),
                          "method": s.get("method_type"),
                          "date": s.get("date_last_evaluated")} for s in subs],
-        "submitter_count": len(subs),
+        "submitter_count": n_submitters or len(subs),
         "conditions": conditions,
         "vcep": vcep,
         "phenotype_list": v.get("phenotype_list") or [],
