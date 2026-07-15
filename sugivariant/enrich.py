@@ -834,7 +834,7 @@ def plain_summary(rec):
     stars = review_stars(rec.get("review_status"))
     discordant = bool((rec.get("concordance") or {}).get("flags"))
     if "conflict" in cls:
-        meaning = "of uncertain or conflicting significance (clinical labs disagree on it)"
+        meaning = "of uncertain or conflicting significance (submitters disagree on it)"
     elif "likely pathogenic" in cls:
         meaning = "considered likely disease-causing"
     elif "pathogenic" in cls:
@@ -848,7 +848,7 @@ def plain_summary(rec):
         meaning = f"classified as {rec.get('classification')}"
     gene = rec.get("gene_symbol")
     n = rec.get("submitter_count") or 0
-    who = (f", submitted by {n} clinical lab" + ("s" if n != 1 else "")) if n else ""
+    who = (f", submitted by {n} submitter" + ("s" if n != 1 else "")) if n else ""
     cond = (rec.get("conditions") or [{}])[0].get("name")
     link = f", and is linked to {cond}" if cond else ""
     return f"This is a change in the {gene} gene that is {meaning}{who}{link}."
