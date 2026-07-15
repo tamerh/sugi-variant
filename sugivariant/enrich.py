@@ -42,9 +42,10 @@ def protein_position(hgvs_p):
 def gene_alphamissense(hgnc_id):
     """{protein_short: (am_class, am_pathogenicity)} for the whole gene."""
     out = {}
-    # cap high enough for full per-gene coverage (~2.5k substitutions/small gene)
-    # so the percentile stats see the whole distribution.
-    for r in map_all(hgnc_id, ">>hgnc>>uniprot>>alphamissense", cap=60):
+    # uncapped: the percentile stats must see the WHOLE distribution — a big
+    # protein (e.g. TTN, ~100k substitutions) far exceeds the old 60-page/6k cap,
+    # which silently skewed its am_percentile. Runs once per gene (cached).
+    for r in map_all(hgnc_id, ">>hgnc>>uniprot>>alphamissense", cap=None):
         pv = (r.get("protein_variant") or "").strip()
         if pv:
             out[pv] = (r.get("am_class"), r.get("am_pathogenicity"))
@@ -486,7 +487,9 @@ def gene_spliceai(hgnc_id):
     """{coordinate: {effect, score}} of the gene's SpliceAI splice-impact
     predictions (chr:pos:ref:alt keys), fetched once per gene."""
     out = {}
-    for r in map_all(hgnc_id, ">>hgnc>>spliceai", cap=60):
+    # uncapped: every variant's coordinate must resolve its SpliceAI score — a
+    # 60-page cap would drop splice annotations on big genes. Once per gene (cached).
+    for r in map_all(hgnc_id, ">>hgnc>>spliceai", cap=None):
         cid = r.get("id")
         if cid and r.get("score"):
             out[cid] = {"effect": r.get("effect"), "score": r.get("score")}

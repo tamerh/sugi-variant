@@ -159,9 +159,14 @@ def attach_enrichment(rec, ctx=None):
     return rec
 
 
-def enumerate_gene(hgnc_id, cap_pages=60):
+def enumerate_gene(hgnc_id, cap_pages=None):
     """[(variation_id, classification, name)] for a gene's ClinVar variants that
-    pass the build gate — the enumeration a variant build fans over."""
+    pass the build gate — the enumeration a variant build fans over.
+
+    cap_pages=None (default) paginates to completion: the variant corpus MUST NOT
+    truncate a gene's buildable set — the old 60-page cap silently dropped ~half of
+    BRCA2 (3,072 seen vs 11,602 real). Pass an int only to bound it deliberately
+    (e.g. a fast smoke test)."""
     out = []
     for r in map_all(hgnc_id, ">>hgnc>>clinvar", cap=cap_pages):
         if should_build(r.get("germline_classification")):
