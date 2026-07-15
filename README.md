@@ -1,15 +1,23 @@
-# Sugi Variant — dev web app (prototype)
+# Sugi Variant — per-variant genetic reference (prototype)
 
-Dynamic FastAPI + Jinja2 + ISR renderer over the deterministic variant enrichment
-(shared with Sugi Atlas: `atlas.variant.enriched_records`). Server-rendered HTML
-(crawlable/AI-citable), disk/ETag-cached. Sibling of Sugi Predict; reuses `atlas.css`.
+Separate product spun out of Sugi Atlas. Dynamic FastAPI + Jinja2 + ISR renderer over
+the self-contained `sugivariant` science package (`sugivariant.build.enriched_records`).
+Server-rendered HTML (crawlable/AI-citable — the differentiator), disk/ETag-cached.
+Sibling of Sugi Predict; reuses `atlas.css`.
+
+## 👉 New here? Read `HANDOVER.md` first.
+It has the full context: why the product exists, the domain rules you must not break
+(ClinGen SVI predictor framing, patient-safety), biobtree quirks, corpus scale, and the
+TODO roadmap. Design spec: `docs/VARIANT_PAGES_SPEC.md`. Audit history:
+`docs/variant-audit-2026-07.md`.
 
 ## Run (dev)
     ./run.sh                      # uvicorn :8013, BASE_PATH=/variant
-Then, behind nginx: https://sugi.bio/variant/pten-p-arg173cys/
-Local (no proxy): http://127.0.0.1:8013/pten-p-arg173cys/
+Then, behind nginx: https://sugi.bio/variant/pten-p-arg130gln
+Local (no proxy): http://127.0.0.1:8013/pten-p-arg130gln
 
-Env: bioyoda (has fastapi + the atlas deps). ATLAS_SRC points at the atlas src.
+Env: `bioyoda` (`python`) — fastapi + the shared
+`sugibiobtree` client. biobtree REST API must be up at localhost:9291.
 
 ## Deploy mapping (sugi.bio/variant)
 nginx `location /variant/ { proxy_pass http://127.0.0.1:8013/; }` (see
