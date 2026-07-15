@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ gene }} — evidence disagreements{% endblock %}
+{% block description %}{{ gene }} variants where ClinVar and the computational predictors disagree: {{ flagged }} of {{ total }} pathogenic-gated records flagged for review.{% endblock %}
+{% block content %}
+<div class="container">
+  <p class="breadcrumb">
+    <a href="{{ base }}/">Sugi Variant</a><span>/</span>
+    <a href="{{ base }}/disagreements">Disagreements</a><span>/</span>
+    {{ gene }}
+  </p>
+
+  <section class="hero hero-tight">
+    <h1 class="hero-title">{{ gene }} — where the evidence disagrees</h1>
+    <p class="hero-lead">
+      <strong>{{ flagged }}</strong> of {{ total }} pathogenic-gated {{ gene }} variants carry an
+      evidence disagreement. This is a review signal — each variant page shows the full, sourced detail.
+    </p>
+    <p class="dz-summary">
+      {% for cat in cats %}{% if counts[cat] %}<span class="dz-chip dz-tone-{{ meta[cat].tone }}">{{ counts[cat] }}</span> {{ meta[cat].label }}{% if not loop.last %} · {% endif %}{% endif %}{% endfor %}
+    </p>
+  </section>
+
+  <section class="entity-main">
+    {% if not flagged %}
+    <p class="dz-empty">No evidence disagreements found in {{ gene }} — every scored variant's signals concur.</p>
+    {% endif %}
+    {% for cat in cats %}{% if groups[cat] %}
+    <div class="dz-group dz-tone-{{ meta[cat].tone }}">
+      <h2 class="section-title">{{ meta[cat].label }} <span class="dz-count">{{ counts[cat] }}</span></h2>
+      <p class="section-sub" style="margin:-0.4rem 0 0.8rem">{{ meta[cat].blurb }}</p>
+      <ul class="dz-list">
+        {% for it in groups[cat] %}{% set r = it.rec %}{% set s = stars(r.review_status) %}
+        <li class="dz-row">
+          <a class="dz-row-link" href="{{ base }}/{{ r.canonical_slug }}">
+            <span class="dz-row-name">{{ r.gene_symbol }} <b>{{ r.hgvs_p or r.hgvs_c }}</b></span>
+            <span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(r.classification) }}">{{ r.classification }}</span>
+            <span class="dz-stars" title="{{ r.review_status }}">{{ s.glyph }}</span>
+          </a>
+          <p class="dz-reason">{{ it.flag.reason }}</p>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}{% endfor %}
+  </section>
+</div>
+{% endblock %}

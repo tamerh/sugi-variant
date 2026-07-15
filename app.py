@@ -21,7 +21,8 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sugivariant.build import enriched_records            # noqa: E402
 from sugivariant.render import _label as variant_label    # noqa: E402
-from sugivariant.enrich import review_stars               # noqa: E402
+from sugivariant.enrich import (review_stars,             # noqa: E402
+                                disagreement_flag, DISAGREEMENT_CATEGORIES)
 
 ROOT = pathlib.Path(__file__).parent
 BASE = os.environ.get("BASE_PATH", "").rstrip("/")
@@ -90,6 +91,40 @@ def _render(tpl, **ctx):
     return env.get_template(tpl).render(**ctx)
 
 
+# ── disagreement browse view ────────────────────────────────────────────────────
+# The one signal no competitor surfaces (benchmark 2026-07): variants where the
+# evidence doesn't line up. Descriptive QC, not reclassification (HANDOVER §8).
+FEATURED_GENES = ["BRCA1", "BRCA2", "TP53", "PTEN", "MLH1", "MSH2",
+                  "LDLR", "SCN1A", "KCNQ1", "ASXL1"]
+CAT_META = {
+    "predictor_vs_clinvar": {
+        "label": "Predictors vs ClinVar", "tone": "flag",
+        "blurb": "ClinVar calls these pathogenic, but the computational predictors "
+                 "lean tolerated — the highest-value review flag."},
+    "resolves_conflicting": {
+        "label": "Resolves a conflicting call", "tone": "info",
+        "blurb": "ClinVar submitters conflict, but the independent predictors "
+                 "unanimously agree — a resolving in-silico read."},
+    "predictors_split": {
+        "label": "Predictors split", "tone": "warn",
+        "blurb": "The independent predictors disagree with each other — read with care."},
+}
+
+
+def _grouped_flags(recs):
+    """Group a gene's flagged records by disagreement category, most-relevant first
+    within each group (pathogenic → higher review stars → slug)."""
+    groups = {cat: [] for cat in DISAGREEMENT_CATEGORIES}
+    for r in recs:
+        f = disagreement_flag(r)
+        if f:
+            groups[f["category"]].append({"rec": r, "flag": f})
+    for items in groups.values():
+        items.sort(key=lambda it: (-review_stars(it["rec"].get("review_status")),
+                                   it["rec"]["canonical_slug"]))
+    return groups
+
+
 # ── ETag html-cache middleware (mirrors Sugi Predict: dynamic but CDN-cacheable) ─
 @app.middleware("http")
 async def _cache_html(request, call_next):
@@ -123,6 +158,32 @@ async def home():
     return _render("home.html", demos=demos)
 
 
+@app.get("/disagreements", response_class=HTMLResponse)
+async def disagreements_hub():
+    # Counts only for genes already built (cold BRCA2 ≈ minutes) — link the rest.
+    featured = []
+    for g in FEATURED_GENES:
+        counts = None
+        if g in _GENE_CACHE:
+            counts = {k: len(v) for k, v in _grouped_flags(_GENE_CACHE[g]).items()}
+        featured.append({"gene": g, "counts": counts})
+    return _render("disagreements_hub.html", featured=featured,
+                   cats=DISAGREEMENT_CATEGORIES, meta=CAT_META)
+
+
+@app.get("/disagreements/{gene}", response_class=HTMLResponse)
+async def disagreements_gene(gene: str):
+    gene = gene.upper().strip("/")
+    recs = _records(gene)
+    if not recs:
+        raise StarletteHTTPException(404, f"No variants built for “{gene}”.")
+    groups = _grouped_flags(recs)
+    counts = {k: len(v) for k, v in groups.items()}
+    return _render("disagreements_gene.html", gene=gene, groups=groups, counts=counts,
+                   flagged=sum(counts.values()), total=len(recs),
+                   cats=DISAGREEMENT_CATEGORIES, meta=CAT_META)
+
+
 @app.get("/{slug}", response_class=HTMLResponse)
 async def variant_page(slug: str):
     slug = slug.lower().strip("/")
@@ -130,4 +191,5 @@ async def variant_page(slug: str):
     if not rec:
         raise StarletteHTTPException(404, f"No variant page for “{slug}”.")
     # canonical: if hit via an alias, the template sets rel=canonical to the p-slug
-    return _render("variant.html", v=rec, canonical=rec["canonical_slug"], nav="variant")
+    return _render("variant.html", v=rec, canonical=rec["canonical_slug"], nav="variant",
+                   disagreement=disagreement_flag(rec))

@@ -37,6 +37,13 @@
         {% if g %} · <span class="vv-rarity">{{ g.band }}</span>{% endif %}
       </div>
       {% endif %}
+      {% if disagreement %}
+      <a class="dz-banner dz-tone-{{ 'flag' if disagreement.category == 'predictor_vs_clinvar' else 'info' if disagreement.category == 'resolves_conflicting' else 'warn' }}"
+         href="{{ base }}/disagreements/{{ v.gene_symbol }}">
+        <b>{{ disagreement.label }}</b> — {{ disagreement.reason }}
+        <span class="dz-banner-go">See all {{ v.gene_symbol }} disagreements →</span>
+      </a>
+      {% endif %}
       <p class="vv-lead">{{ v.plain }}</p>
       <div class="vv-jump">
         <a class="vv-jump-pill" href="#evidence">Evidence ↓</a>

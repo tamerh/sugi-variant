@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Evidence disagreements{% endblock %}
+{% block description %}Variants where ClinVar and the computational predictors — or the predictors themselves — disagree. A quality-control view no other variant resource surfaces.{% endblock %}
+{% block content %}
+<div class="container">
+  <section class="hero">
+    <p class="hero-eyebrow">Sugi Variant · browse</p>
+    <h1 class="hero-title">Where the evidence disagrees</h1>
+    <p class="hero-lead">Every variant page reports whether the independent signals concur. This view
+    does the opposite — it collects the variants where they <em>don't</em>: a pathogenic call the
+    predictors push back on, a conflicting call the predictors resolve, or predictors that split among
+    themselves. Descriptive quality control, not a reclassification.</p>
+  </section>
+
+  <section class="entity-main">
+    <div class="dz-legend">
+      {% for cat in cats %}
+      <div class="dz-legend-item dz-tone-{{ meta[cat].tone }}">
+        <h2 class="dz-legend-h">{{ meta[cat].label }}</h2>
+        <p>{{ meta[cat].blurb }}</p>
+      </div>
+      {% endfor %}
+    </div>
+
+    <h2 class="section-title">Browse by gene</h2>
+    <p class="section-sub" style="margin:-0.4rem 0 1rem">Counts appear once a gene has been built; the first visit to a large gene may take a moment.</p>
+    <ul class="dz-genes">
+      {% for f in featured %}
+      <li>
+        <a class="dz-gene" href="{{ base }}/disagreements/{{ f.gene }}">
+          <span class="dz-gene-name">{{ f.gene }}</span>
+          {% if f.counts %}
+          <span class="dz-gene-counts">
+            {% for cat in cats %}{% if f.counts[cat] %}<span class="dz-chip dz-tone-{{ meta[cat].tone }}" title="{{ meta[cat].label }}">{{ f.counts[cat] }}</span>{% endif %}{% endfor %}
+          </span>
+          {% else %}<span class="dz-gene-go">browse →</span>{% endif %}
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="section-sub" style="margin-top:1rem">Any built gene works directly: <code>{{ base }}/disagreements/&lt;GENE&gt;</code>.</p>
+  </section>
+</div>
+{% endblock %}
