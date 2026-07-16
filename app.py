@@ -318,7 +318,7 @@ async def sitemap():
     lm_tag = f"<lastmod>{lm}</lastmod>" if lm else ""
     children = "".join(
         f"<sitemap><loc>{_PUB}/sitemap-{g.lower()}.xml</loc>{lm_tag}</sitemap>"
-        for g, _ in IX.genes(ix))
+        for g, _ in IX.sitemap_genes(ix))
     xml = ('<?xml version="1.0" encoding="UTF-8"?>'
            '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
            f'{children}</sitemapindex>')
@@ -330,7 +330,7 @@ async def sitemap_gene(gene: str):
     ix = _index()
     if not ix:
         raise StarletteHTTPException(503, "Sitemap needs the resolution index.")
-    slugs = IX.gene_slugs(ix, gene)
+    slugs = IX.sitemap_gene_slugs(ix, gene)
     if not slugs:
         raise StarletteHTTPException(404, f"No sitemap for “{gene}”.")
     lm = _index_lastmod()

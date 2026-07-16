@@ -17,12 +17,12 @@ import sqlite3
 
 from sugivariant.build import enriched_records
 from sugivariant.slug import _norm, _norm_hgvs
-from sugivariant.enrich import disagreement_flag, missense_short
+from sugivariant.enrich import disagreement_flag, missense_short, review_stars
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS variant(
   vcv INTEGER PRIMARY KEY, gene TEXT, slug TEXT, hgvs_p TEXT, hgvs_c TEXT,
-  classification TEXT, review_status TEXT, rsid TEXT, coordinate TEXT,
+  classification TEXT, review_status TEXT, stars INTEGER, rsid TEXT, coordinate TEXT,
   primary_condition TEXT, flag TEXT);
 CREATE TABLE IF NOT EXISTS alias(key TEXT, vcv INTEGER, PRIMARY KEY(key, vcv));
 CREATE INDEX IF NOT EXISTS ix_alias ON alias(key);
@@ -80,10 +80,10 @@ def index_gene(conn, gene, recs=None):
         flag = disagreement_flag(r)
         cond = (r.get("conditions") or [{}])[0].get("name")
         cur.execute(
-            "INSERT OR REPLACE INTO variant VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT OR REPLACE INTO variant VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
             (vcv, r["gene_symbol"], r["canonical_slug"], r.get("hgvs_p"), r.get("hgvs_c"),
-             r.get("classification"), r.get("review_status"), r.get("rsid"),
-             r.get("coordinate"), cond, flag["category"] if flag else None))
+             r.get("classification"), r.get("review_status"), review_stars(r.get("review_status")),
+             r.get("rsid"), r.get("coordinate"), cond, flag["category"] if flag else None))
         cur.executemany("INSERT OR IGNORE INTO alias VALUES(?,?)",
                         [(k.lower(), vcv) for k in variant_keys(r)])  # lookup() lowercases
     cur.execute("INSERT OR REPLACE INTO gene_meta VALUES(?,?)", (gene.upper(), len(recs)))
@@ -115,8 +115,7 @@ def all_slugs(conn):
 
 
 def genes(conn):
-    """[(gene, n)] for the sitemap index — each gene is one child sitemap (every
-    gene's P/LP/conflicting set is well under the sitemaps.org 50k-URL cap)."""
+    """[(gene, n)] over ALL built genes (from gene_meta)."""
     return [(r["gene"], r["n"]) for r in
             conn.execute("SELECT gene, n FROM gene_meta ORDER BY gene")]
 
@@ -124,6 +123,24 @@ def genes(conn):
 def gene_slugs(conn, gene):
     return [r["slug"] for r in conn.execute(
         "SELECT slug FROM variant WHERE gene=? ORDER BY slug", (gene.upper(),))]
+
+
+# Sitemap inclusion gate: advertise to Google only pages with assertion criteria
+# (>=1 star) AND a named condition. The thin 0-star / no-condition tail is still
+# SERVED (the resolver answers any hit) — just not advertised, to avoid the
+# scaled-thin-content risk on a young YMYL domain. Serving is NEVER gated here.
+_SITEMAP_WHERE = "stars >= 1 AND primary_condition IS NOT NULL AND primary_condition != ''"
+
+
+def sitemap_genes(conn):
+    """[(gene, eligible_n)] — only genes with >=1 sitemap-eligible page."""
+    return [(r["gene"], r["n"]) for r in conn.execute(
+        f"SELECT gene, COUNT(*) n FROM variant WHERE {_SITEMAP_WHERE} GROUP BY gene ORDER BY gene")]
+
+
+def sitemap_gene_slugs(conn, gene):
+    return [r["slug"] for r in conn.execute(
+        f"SELECT slug FROM variant WHERE gene=? AND {_SITEMAP_WHERE} ORDER BY slug", (gene.upper(),))]
 
 
 def disagreements(conn, category=None, limit=None):
