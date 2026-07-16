@@ -16,6 +16,8 @@
         More than one variant matches — pick the exact change.
       {% elif kind == 'rsid' %}
         <code>{{ term }}</code> resolves in dbSNP, but has no pathogenic-gated ClinVar page (we build Pathogenic / Likely-pathogenic / Conflicting only).
+      {% elif kind == 'coordinate' %}
+        No pathogenic-gated page at coordinate <code>{{ term }}</code>. It may fall outside our build gate, or its gene isn’t indexed yet.
       {% elif kind == 'nogene' %}
         No built variants for gene <code>{{ term }}</code>. Check the symbol, or try an rsID.
       {% elif kind == 'unparsed' %}

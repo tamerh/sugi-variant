@@ -27,6 +27,7 @@ from sugivariant.slug import _norm, _norm_hgvs            # noqa: E402
 from sugivariant.enrich import (review_stars,             # noqa: E402
                                 missense_short, disagreement_flag,
                                 DISAGREEMENT_CATEGORIES)
+from sugivariant import index as IX                       # noqa: E402
 
 ROOT = pathlib.Path(__file__).parent
 BASE = os.environ.get("BASE_PATH", "").rstrip("/")
@@ -95,6 +96,34 @@ def _render(tpl, **ctx):
     return env.get_template(tpl).render(**ctx)
 
 
+# ── persistent resolution index (optional; falls back to the live path if absent) ─
+INDEX_DB = pathlib.Path(os.environ.get("INDEX_DB") or (CACHE_DIR / "index.db"))
+_INDEX = None
+
+
+def _index():
+    """The SQLite resolution index, or None if it hasn't been built. Opened once,
+    read-only across request threads."""
+    global _INDEX
+    if _INDEX is None and INDEX_DB.exists():
+        _INDEX = IX.open_db(str(INDEX_DB), check_same_thread=False)
+    return _INDEX
+
+
+def _ix_rec(row):
+    """Adapt an index row to the record shape templates/redirects expect."""
+    return {"canonical_slug": row["slug"], "gene_symbol": row["gene"],
+            "hgvs_p": row["hgvs_p"], "hgvs_c": row["hgvs_c"],
+            "classification": row["classification"], "review_status": row["review_status"],
+            "rsid": row["rsid"], "variation_id": row["vcv"]}
+
+
+def _index_hits(key):
+    """[adapted records] for a normalized key via the index, or None if no index."""
+    ix = _index()
+    return [_ix_rec(r) for r in IX.lookup(ix, key)] if ix else None
+
+
 # ── query resolution (rsID reverse-map + gene-first HGVS match) ─────────────────
 # Three arrival keys are supported (biobtree keys on identifiers, not free-text
 # HGVS): an rsID resolves directly via dbSNP reverse-map; a GENE + HGVS/AA query
@@ -120,7 +149,11 @@ def _hgvs_keys(rec):
 
 def resolve_rsid(rsid):
     """rsID → the pathogenic-gated ClinVar page records it maps to (0, 1 or many —
-    an rsID is position-level and can cover several variations)."""
+    an rsID is position-level and can cover several variations). Index first (no
+    biobtree call), else the live dbSNP reverse-map."""
+    hits = _index_hits(rsid.lower())
+    if hits:
+        return hits
     try:
         variations = map_all(rsid, ">>dbsnp>>clinvar", cap=None)
     except Exception:
@@ -147,6 +180,12 @@ def resolve_query(q):
     if _RSID_RE.match(q):
         return ("rsid", q.lower(), resolve_rsid(q.lower()))
 
+    coord = IX.norm_coordinate(q)
+    if coord:
+        # A coordinate has NO biobtree→ClinVar edge, so only the index can resolve
+        # it — no live fallback is possible.
+        return ("coordinate", q, _index_hits(coord) or [])
+
     # GENE + HGVS/AA. Splitting bare tokens (ACTA1 vs pro309ala, and genes like
     # SLC2A1 that also carry digit-letter runs) can't be classified reliably, so
     # don't guess — try each non-HGVS token as the gene and keep the one that hits.
@@ -154,6 +193,13 @@ def resolve_query(q):
     gene_candidates = [t for t in toks if "." not in t and ">" not in t]
     if len(toks) < 2 or not gene_candidates:
         return ("unparsed", q, [])
+    # Index-first: build the normalized key per gene candidate (no gene build).
+    for g in gene_candidates:
+        key = f"{_norm(g)}-{_norm_hgvs(' '.join(t for t in toks if t != g))}"
+        hits = _index_hits(key)
+        if hits:
+            return ("query", q, hits)
+    # Live fallback (gene-first build + slug-match) for un-indexed genes.
     tried_gene = False
     for g in gene_candidates:
         recs = _records(g)
@@ -164,7 +210,7 @@ def resolve_query(q):
         hits = [r for r in recs if qkey in _hgvs_keys(r)]
         if hits:
             return ("query", q, hits)
-    return ("query" if tried_gene else "nogene", q, [])
+    return ("query" if (tried_gene or _index()) else "nogene", q, [])
 
 
 def _resolution_response(kind, term, hits):
@@ -241,6 +287,19 @@ async def home(q: str = ""):
     demos = ["pten-p-arg173cys", "acta1-p-pro309ala", "asxl1-p-gly646trp",
              "pten-p-arg130gln", "acta1-c-809-1g-t"]
     return HTMLResponse(_render("home.html", demos=demos))
+
+
+@app.get("/sitemap.xml")
+async def sitemap():
+    # Every built page, for crawlers/AI — the whole distribution channel. Needs the
+    # index (else there's no cross-gene list of what exists).
+    ix = _index()
+    if not ix:
+        raise StarletteHTTPException(503, "Sitemap needs the resolution index; run sugivariant.index.")
+    pub = "https://sugi.bio" + (BASE or "/variant")
+    urls = "".join(f"<url><loc>{pub}/{s}</loc></url>" for s in IX.all_slugs(ix))
+    xml = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>'
+    return Response(content=xml, media_type="application/xml")
 
 
 @app.get("/disagreements", response_class=HTMLResponse)
