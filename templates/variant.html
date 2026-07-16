@@ -4,7 +4,7 @@
 {% block title %}{{ label(v) }}{% endblock %}
 {% block description %}{{ v.plain }}{% endblock %}
 {% block head %}
-  {% if canonical and canonical != v.canonical_slug %}<link rel="canonical" href="https://sugi.bio/variant/{{ canonical }}/">{% endif %}
+  <link rel="canonical" href="https://sugi.bio/variant/{{ v.canonical_slug }}">{# self-referential, no trailing slash (§10); alias pages canonicalize to the p-form #}
 {% endblock %}
 {% block content %}
 <article class="entity-page vv" data-toc>

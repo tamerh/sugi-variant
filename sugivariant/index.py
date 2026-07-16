@@ -114,6 +114,18 @@ def all_slugs(conn):
     return [r["slug"] for r in conn.execute("SELECT slug FROM variant ORDER BY slug")]
 
 
+def genes(conn):
+    """[(gene, n)] for the sitemap index — each gene is one child sitemap (every
+    gene's P/LP/conflicting set is well under the sitemaps.org 50k-URL cap)."""
+    return [(r["gene"], r["n"]) for r in
+            conn.execute("SELECT gene, n FROM gene_meta ORDER BY gene")]
+
+
+def gene_slugs(conn, gene):
+    return [r["slug"] for r in conn.execute(
+        "SELECT slug FROM variant WHERE gene=? ORDER BY slug", (gene.upper(),))]
+
+
 def disagreements(conn, category=None, limit=None):
     q = "SELECT * FROM variant WHERE flag IS NOT NULL"
     args = []

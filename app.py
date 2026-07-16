@@ -293,16 +293,52 @@ async def home(q: str = ""):
     return HTMLResponse(_render("home.html", demos=demos))
 
 
+_PUB = "https://sugi.bio" + (BASE or "/variant")
+
+
+def _index_lastmod():
+    """Build-level lastmod = the index db's mtime (ISO date). Honest: the page was
+    (re)built when the index was."""
+    try:
+        import datetime
+        return datetime.date.fromtimestamp(INDEX_DB.stat().st_mtime).isoformat()
+    except Exception:
+        return None
+
+
 @app.get("/sitemap.xml")
 async def sitemap():
-    # Every built page, for crawlers/AI — the whole distribution channel. Needs the
-    # index (else there's no cross-gene list of what exists).
+    # Sitemap INDEX (not a flat urlset): a 600k-URL urlset breaches the sitemaps.org
+    # 50k/50MB cap and Google silently drops it. One child sitemap per gene, each
+    # well under the cap.
     ix = _index()
     if not ix:
         raise StarletteHTTPException(503, "Sitemap needs the resolution index; run sugivariant.index.")
-    pub = "https://sugi.bio" + (BASE or "/variant")
-    urls = "".join(f"<url><loc>{pub}/{s}</loc></url>" for s in IX.all_slugs(ix))
-    xml = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>'
+    lm = _index_lastmod()
+    lm_tag = f"<lastmod>{lm}</lastmod>" if lm else ""
+    children = "".join(
+        f"<sitemap><loc>{_PUB}/sitemap-{g.lower()}.xml</loc>{lm_tag}</sitemap>"
+        for g, _ in IX.genes(ix))
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>'
+           '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+           f'{children}</sitemapindex>')
+    return Response(content=xml, media_type="application/xml")
+
+
+@app.get("/sitemap-{gene}.xml")
+async def sitemap_gene(gene: str):
+    ix = _index()
+    if not ix:
+        raise StarletteHTTPException(503, "Sitemap needs the resolution index.")
+    slugs = IX.gene_slugs(ix, gene)
+    if not slugs:
+        raise StarletteHTTPException(404, f"No sitemap for “{gene}”.")
+    lm = _index_lastmod()
+    lm_tag = f"<lastmod>{lm}</lastmod>" if lm else ""
+    urls = "".join(f"<url><loc>{_PUB}/{s}</loc>{lm_tag}</url>" for s in slugs)
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>'
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+           f'{urls}</urlset>')
     return Response(content=xml, media_type="application/xml")
 
 

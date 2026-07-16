@@ -13,7 +13,8 @@ _HOST = "https://sugi.bio"
 
 
 def _url(rec):
-    return f"{_HOST}/atlas/variant/{rec['canonical_slug']}/"
+    # Standalone product path, no trailing slash (§10). NOT the old /atlas/ path.
+    return f"{_HOST}/variant/{rec['canonical_slug']}"
 
 
 def _label(rec):
