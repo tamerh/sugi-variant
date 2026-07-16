@@ -300,6 +300,28 @@ def test_revel_is_agreement_not_a_second_vote():
     assert any("differs from AlphaMissense" in ln for ln in d["lines"])
 
 
+def test_am_isoform_mismatch():
+    from sugivariant.enrich import am_isoform_mismatch
+    # AM's transcript numbers the residue 309; ClinVar p.HGVS says 334 → mismatch flag
+    mm = am_isoform_mismatch({"short": "P309A"}, "p.Pro334Ala")
+    assert mm == {"am": "P309A", "clinvar": "P334A"}
+    # same residue → no flag
+    assert am_isoform_mismatch({"short": "R130Q"}, "p.Arg130Gln") is None
+    # missing data → no flag (never fabricate)
+    assert am_isoform_mismatch(None, "p.Arg130Gln") is None
+    assert am_isoform_mismatch({"short": "R130Q"}, None) is None
+    assert am_isoform_mismatch({"short": None}, "p.Arg130Gln") is None
+
+
+def test_nonmissense_banner_is_explicit_not_reassuring():
+    from sugivariant.enrich import concordance
+    # non-missense (am=None), no conservation → the panel must say predictors DON'T APPLY
+    c = concordance("Pathogenic", None, None)
+    assert any("do not apply" in ln for ln in c["lines"])
+    # and it must never read as a benign/absent-predictor signal
+    assert not any("not scored" in ln for ln in c["lines"])
+
+
 def test_conservation_gerp_and_nonmissense_counts():
     from sugivariant.enrich import concordance
     # non-missense (am=None): conservation is the primary computational signal → counts

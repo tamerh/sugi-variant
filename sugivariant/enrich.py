@@ -126,6 +126,21 @@ def alphamissense_for(coord):
             "short": a.get("protein_variant"), "uniprot": a.get("uniprot_id")}
 
 
+def am_isoform_mismatch(am, hgvs_p):
+    """AlphaMissense is looked up by genomic coordinate and returns ITS transcript's
+    protein change. If that residue disagrees with the ClinVar p.HGVS, AM is numbered
+    on a DIFFERENT isoform than the reported variant (the known Tier-2 hazard) — a QC
+    flag so the AM read isn't silently trusted against the wrong residue. Never
+    suppresses the datum; only flags the disagreement. {am, clinvar} or None."""
+    if not am or not hgvs_p:
+        return None
+    am_short = (am.get("short") or "").upper()
+    cv_short = (missense_short(hgvs_p) or "").upper()
+    if am_short and cv_short and am_short != cv_short:
+        return {"am": am.get("short"), "clinvar": missense_short(hgvs_p)}
+    return None
+
+
 def saprot_for(uniprot, protein_variant):
     """SaProt-650M structure-aware protein-language-model variant effect (Su et
     al. 2023; computed in-house from MIT weights → redistributable), keyed by
@@ -334,7 +349,11 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
                          "unanimous": n_dmg in (0, len(preds))}
             lines.append(f"→ **In-silico consensus:** {summary} ({names})")
     else:
-        lines.append("AlphaMissense — not scored (not a missense SNV)")
+        lines.append("**Missense predictors (AlphaMissense/REVEL/SaProt) do not apply** to this "
+                     "variant type — they score amino-acid substitutions only. For non-missense "
+                     "variants the computational signal comes from conservation"
+                     + (" and, for splice-region changes, SpliceAI" if spliceai else "")
+                     + " (below), not from a missing predictor score.")
 
     if spliceai:
         total += 1
@@ -370,8 +389,12 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
         elif gnomad.get("absent"):
             lines.append("Absent from gnomAD v4.1 (very rare — ACMG PM2-supporting only)")
         else:
+            faf = gnomad.get("faf")
+            faf_note = (f"; filtering AF (faf95) {faf}" if faf
+                        else "; faf/AC-AN not in this data projection")
             lines.append(gnomad["band"][0].upper() + gnomad["band"][1:]
-                         + " (gnomAD v4.1 — PM2/BS1 context)")
+                         + f" (gnomAD v4.1{faf_note} — BA1/BS1 are disease-specific thresholds, "
+                         "not a blanket 5%)")
 
     if flags:
         verdict = "Evidence sources **disagree** — " + "; ".join(flags)

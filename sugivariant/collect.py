@@ -144,6 +144,7 @@ def attach_enrichment(rec, ctx=None):
     # SaProt — protein-LM predictor, keyed by the uniprot:protein_variant AM gives us
     saprot = EN.saprot_for(am.get("uniprot"), am.get("short")) if am else None
     rec["alphamissense"] = am
+    rec["am_isoform_mismatch"] = EN.am_isoform_mismatch(am, rec.get("hgvs_p"))
     rec["gnomad"] = gnomad
     rec["conservation"] = conservation
     rec["revel"] = revel

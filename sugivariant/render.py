@@ -324,6 +324,11 @@ def render_body(v, jsonld_tag=""):
         L += ["", "## Computational & population evidence {#evidence}", "",
               f"**Concordance:** {conc['verdict']}.", ""]
         L += [f"- {ln}" for ln in conc.get("lines", [])]
+        mm = v.get("am_isoform_mismatch")
+        if mm:
+            L.append(f"- ⚠ **Isoform check:** AlphaMissense is numbered on a different transcript "
+                     f"(AM **{mm['am']}** vs ClinVar **{mm['clinvar']}**) — the AlphaMissense read here "
+                     "may be for a different residue; verify against the ClinVar transcript.")
         pctl = v.get("am_percentile")
         if pctl and pctl["top_pct"] <= 10:      # only when it's a genuine standout
             L.append(f"- AlphaMissense ranks this among the **top {pctl['top_pct']}%** "
@@ -334,8 +339,9 @@ def render_body(v, jsonld_tag=""):
                  "and conservation (phyloP/GERP/phastCons) for non-missense; REVEL "
                  "(Pejaver-2022 calibrated strength bands) and SaProt (Su et al. 2023, structure-"
                  "aware, ClinVar-independent protein language model, raw LLR) are shown as orthogonal "
-                 "agreement signals, not additive. gnomAD v4.1 popmax is the ACMG "
-                 "BA1/BS1/PM2 frequency metric. Predictions, not a clinical determination.*")
+                 "agreement signals, not additive. gnomAD v4.1 grpmax with the ClinGen-recommended "
+                 "filtering allele frequency (faf) is the BA1/BS1/PM2 metric; thresholds are "
+                 "disease-specific. Predictions, not a clinical determination.*")
 
     # Gene ACMG context + protein/structural context + mechanism/pathways
     L += _gene_context_zone(v)
