@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ term }} — search{% endblock %}
+{% block description %}Search results for {{ term }} in Sugi Variant.{% endblock %}
+{% block content %}
+<div class="container">
+  <section class="hero hero-tight">
+    <p class="hero-eyebrow">Sugi Variant · search</p>
+    <h1 class="hero-title">
+      {% if hits %}{{ hits|length }} match{{ 'es' if hits|length != 1 }} for “{{ term }}”
+      {% else %}No page for “{{ term }}”{% endif %}
+    </h1>
+    <p class="hero-lead">
+      {% if hits and kind == 'rsid' %}
+        <code>{{ term }}</code> is position-level and maps to several ClinVar variations — pick the one you mean.
+      {% elif hits %}
+        More than one variant matches — pick the exact change.
+      {% elif kind == 'rsid' %}
+        <code>{{ term }}</code> resolves in dbSNP, but has no pathogenic-gated ClinVar page (we build Pathogenic / Likely-pathogenic / Conflicting only).
+      {% elif kind == 'nogene' %}
+        No built variants for gene <code>{{ term }}</code>. Check the symbol, or try an rsID.
+      {% elif kind == 'unparsed' %}
+        Couldn’t read that as a variant. Try <code>GENE change</code> (e.g. <code>PTEN R130Q</code>), an HGVS form (<code>PTEN c.389G&gt;A</code>), or an rsID (<code>rs121909229</code>).
+      {% else %}
+        Nothing matched. Try <code>GENE change</code> (e.g. <code>PTEN R130Q</code>) or an rsID.
+      {% endif %}
+    </p>
+  </section>
+
+  {% if hits %}
+  <section class="entity-main">
+    <ul class="dz-list">
+      {% for r in hits %}{% set s = stars(r.review_status) %}
+      <li class="dz-row">
+        <a class="dz-row-link" href="{{ base }}/{{ r.canonical_slug }}">
+          <span class="dz-row-name">{{ r.gene_symbol }} <b>{{ r.hgvs_p or r.hgvs_c }}</b>
+            {% if r.hgvs_p and r.hgvs_c %}<span class="vv-hgvs-alt">({{ r.hgvs_c }})</span>{% endif %}</span>
+          <span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(r.classification) }}">{{ r.classification }}</span>
+          <span class="dz-stars" title="{{ r.review_status }}">{{ s.glyph }}</span>
+        </a>
+        {% if r.rsid %}<p class="dz-reason">{{ r.rsid }} · VCV{{ r.variation_id }}</p>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

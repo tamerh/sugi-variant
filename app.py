@@ -12,17 +12,21 @@ import re
 import sys
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 # The variant science lives in the local, self-contained sugivariant package.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from sugibiobtree import map_all                          # noqa: E402
 from sugivariant.build import enriched_records            # noqa: E402
+from sugivariant.collect import collect                   # noqa: E402
 from sugivariant.render import _label as variant_label    # noqa: E402
+from sugivariant.slug import _norm, _norm_hgvs            # noqa: E402
 from sugivariant.enrich import (review_stars,             # noqa: E402
-                                disagreement_flag, DISAGREEMENT_CATEGORIES)
+                                missense_short, disagreement_flag,
+                                DISAGREEMENT_CATEGORIES)
 
 ROOT = pathlib.Path(__file__).parent
 BASE = os.environ.get("BASE_PATH", "").rstrip("/")
@@ -91,6 +95,85 @@ def _render(tpl, **ctx):
     return env.get_template(tpl).render(**ctx)
 
 
+# ── query resolution (rsID reverse-map + gene-first HGVS match) ─────────────────
+# Three arrival keys are supported (biobtree keys on identifiers, not free-text
+# HGVS): an rsID resolves directly via dbSNP reverse-map; a GENE + HGVS/AA query
+# resolves gene-first (enumerate + slug-match, all on our side). See the biobtree
+# key-scheme note — raw HGVS is not searchable, so we normalize it to OUR slug.
+_RSID_RE = re.compile(r"^rs\d+$", re.I)
+
+
+def _hgvs_keys(rec):
+    """Normalized HGVS match-keys for a record: the p./c. forms (with and without
+    the leading operator, since the demand comes bare — `acta1 "pro309ala"`) and
+    the 1-letter short (`R130Q`). All run through the same _norm_hgvs the slugs use."""
+    keys = set()
+    for form in (rec.get("hgvs_p"), rec.get("hgvs_c")):
+        if form:
+            keys.add(_norm_hgvs(form))
+            keys.add(_norm_hgvs(re.sub(r"^[pc]\.", "", form)))
+    short = missense_short(rec.get("hgvs_p"))
+    if short:
+        keys.add(_norm_hgvs(short))
+    return keys
+
+
+def resolve_rsid(rsid):
+    """rsID → the pathogenic-gated ClinVar page records it maps to (0, 1 or many —
+    an rsID is position-level and can cover several variations)."""
+    try:
+        variations = map_all(rsid, ">>dbsnp>>clinvar", cap=None)
+    except Exception:
+        return []
+    out, seen = [], set()
+    for v in variations:
+        vid = v.get("id")
+        if not vid or vid in seen:
+            continue
+        seen.add(vid)
+        rec = collect(vid)          # gates should_build + attaches the slug
+        if rec:
+            out.append(rec)
+    return out
+
+
+def resolve_query(q):
+    """(kind, term, [records]) for a free-text search: an rsID, or a GENE + HGVS/AA
+    query resolved gene-first. Records are light (no enrichment) — enough to
+    redirect or disambiguate; the page itself builds on the redirect."""
+    q = (q or "").strip()
+    if not q:
+        return ("empty", q, [])
+    if _RSID_RE.match(q):
+        return ("rsid", q.lower(), resolve_rsid(q.lower()))
+
+    # GENE + HGVS/AA. Splitting bare tokens (ACTA1 vs pro309ala, and genes like
+    # SLC2A1 that also carry digit-letter runs) can't be classified reliably, so
+    # don't guess — try each non-HGVS token as the gene and keep the one that hits.
+    toks = [t for t in re.split(r"[\s,]+", q) if t]
+    gene_candidates = [t for t in toks if "." not in t and ">" not in t]
+    if len(toks) < 2 or not gene_candidates:
+        return ("unparsed", q, [])
+    tried_gene = False
+    for g in gene_candidates:
+        recs = _records(g)
+        if not recs:
+            continue
+        tried_gene = True
+        qkey = _norm_hgvs(" ".join(t for t in toks if t != g))
+        hits = [r for r in recs if qkey in _hgvs_keys(r)]
+        if hits:
+            return ("query", q, hits)
+    return ("query" if tried_gene else "nogene", q, [])
+
+
+def _resolution_response(kind, term, hits):
+    """One hit → redirect to its page; else render the results/disambiguation page."""
+    if len(hits) == 1:
+        return RedirectResponse(f"{BASE}/{hits[0]['canonical_slug']}", status_code=307)
+    return HTMLResponse(_render("results.html", kind=kind, term=term, hits=hits))
+
+
 # ── disagreement browse view ────────────────────────────────────────────────────
 # The one signal no competitor surfaces (benchmark 2026-07): variants where the
 # evidence doesn't line up. Descriptive QC, not reclassification (HANDOVER §8).
@@ -151,11 +234,13 @@ async def _err(request, exc):
 
 
 # ── routes ─────────────────────────────────────────────────────────────────────
-@app.get("/", response_class=HTMLResponse)
-async def home():
+@app.get("/")
+async def home(q: str = ""):
+    if q.strip():
+        return _resolution_response(*resolve_query(q))
     demos = ["pten-p-arg173cys", "acta1-p-pro309ala", "asxl1-p-gly646trp",
              "pten-p-arg130gln", "acta1-c-809-1g-t"]
-    return _render("home.html", demos=demos)
+    return HTMLResponse(_render("home.html", demos=demos))
 
 
 @app.get("/disagreements", response_class=HTMLResponse)
@@ -187,6 +272,8 @@ async def disagreements_gene(gene: str):
 @app.get("/{slug}", response_class=HTMLResponse)
 async def variant_page(slug: str):
     slug = slug.lower().strip("/")
+    if _RSID_RE.match(slug):                       # rsID URL → dbSNP reverse-map
+        return _resolution_response("rsid", slug, resolve_rsid(slug))
     rec = _resolve(slug)
     if not rec:
         raise StarletteHTTPException(404, f"No variant page for “{slug}”.")
