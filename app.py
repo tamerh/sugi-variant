@@ -58,6 +58,10 @@ def stars(review_status):
 
 
 env.globals.update(label=variant_label, cls_class=cls_class, stars=stars)
+# Data-source attribution (AlphaMissense CC BY 4.0 + REVEL ODbL require it) — single
+# source of truth in render.py so HTML and the markdown twin can't drift.
+from sugivariant.render import DATA_SOURCES              # noqa: E402
+env.globals["data_sources"] = DATA_SOURCES
 
 app = FastAPI(title="Sugi Variant")
 # Serve at ROOT (like Sugi Predict): nginx `proxy_pass …:8013/;` strips the

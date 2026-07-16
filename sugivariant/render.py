@@ -4,6 +4,30 @@ gene/drug/disease renderers: every fact verbatim from the collected record.
 from sugivariant import links
 from sugivariant.util import table
 
+# Data sources + attribution. AlphaMissense (CC BY 4.0) and REVEL (ODbL) legally
+# REQUIRE attribution; the rest are credited as good practice. Everything here is
+# usable in this FREE/non-commercial product (see docs/variant-product-strategy).
+# Single source of truth — the HTML template reads the same list via env.globals.
+DATA_SOURCES = [
+    ("ClinVar", "NCBI — public domain"),
+    ("gnomAD v4.1", "Broad Institute"),
+    ("AlphaMissense", "Cheng et al. 2023, © Google DeepMind — CC BY 4.0"),
+    ("REVEL", "Ioannidis et al. 2016 — ODbL"),
+    ("SaProt", "Su et al. 2023 — MIT"),
+    ("SpliceAI", "Illumina — free for non-commercial use"),
+    ("Conservation (phyloP/phastCons/GERP)", "UCSC"),
+    ("ClinGen", "ClinGen"),
+    ("UniProt", "CC BY 4.0"),
+    ("Reactome / GO", "CC BY 4.0"),
+    ("MaveDB", "per-record license"),
+    ("CIViC", "CC0"),
+    ("Orphanet", "Orphanet"),
+]
+
+
+def attribution_md():
+    return "; ".join(f"{name} ({credit})" for name, credit in DATA_SOURCES)
+
 # ClinVar review status → gold-star tier (the standard 0-4 confidence scale).
 _STARS = {
     "practice guideline": 4,
@@ -308,7 +332,7 @@ def render_body(v, jsonld_tag=""):
         L.append("\n*Computational predictors are not independent (ClinGen SVI): "
                  "AlphaMissense (Cheng et al. 2023) carries the ACMG weight for missense "
                  "and conservation (phyloP/GERP/phastCons) for non-missense; REVEL "
-                 "(Pejaver-2022 calibrated tiers) and SaProt (Su et al. 2023, structure-"
+                 "(Pejaver-2022 calibrated strength bands) and SaProt (Su et al. 2023, structure-"
                  "aware, ClinVar-independent protein language model, raw LLR) are shown as orthogonal "
                  "agreement signals, not additive. gnomAD v4.1 popmax is the ACMG "
                  "BA1/BS1/PM2 frequency metric. Predictions, not a clinical determination.*")
@@ -381,8 +405,8 @@ def render_body(v, jsonld_tag=""):
               "condition, or type): "
               + ", ".join(f"[{s['label']}](/atlas/variant/{s['slug']}/)" for s in sim) + "."]
 
-    L += ["", f"*Source: NCBI ClinVar (variation {v['variation_id']}), plus AlphaMissense "
-          "and gnomAD as noted. Classifications reflect these databases as of the page's "
-          "build date and may change. Research/reference use — not medical advice; "
-          "consult the primary submitters and a clinician.*"]
+    L += ["", "### Data sources & attribution {#sources}", "", attribution_md(), "",
+          f"*Primary record: NCBI ClinVar (variation {v['variation_id']}). Classifications "
+          "reflect these databases as of the page's build date and may change. Free "
+          "reference use — not medical advice; consult the primary submitters and a clinician.*"]
     return "\n".join(L)

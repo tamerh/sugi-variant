@@ -269,28 +269,34 @@ def test_mechanism_narrative_gates():
 
 
 # ── REVEL (agreement signal, ClinGen tiers) + GERP (2026-07-13) ──────────────
-def test_revel_tier_thresholds():
-    from sugivariant.enrich import _revel_tier
-    assert _revel_tier(0.955) == "PP3_Strong"
-    assert _revel_tier(0.80) == "PP3_Moderate"
-    assert _revel_tier(0.70) == "PP3_Supporting"
-    assert _revel_tier(0.40) == "indeterminate"
-    assert _revel_tier(0.20) == "BP4_Supporting"
-    assert _revel_tier(0.10) == "BP4_Moderate"
-    assert _revel_tier(0.005) == "BP4_Strong"
+def test_revel_band_is_descriptive_not_acmg():
+    # §8: REVEL must NOT be labelled with ACMG codes (invites additive PP3/BP4 misuse)
+    from sugivariant.enrich import _revel_band
+    assert _revel_band(0.955) == "strongly pathogenic-leaning"
+    assert _revel_band(0.80) == "moderately pathogenic-leaning"
+    assert _revel_band(0.70) == "pathogenic-leaning"
+    assert _revel_band(0.40) == "indeterminate"
+    assert _revel_band(0.20) == "benign-leaning"
+    assert _revel_band(0.10) == "moderately benign-leaning"
+    assert _revel_band(0.005) == "strongly benign-leaning"
+    # no ACMG code ever leaks out of the band
+    for s in (0.0, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0):
+        assert "PP3" not in _revel_band(s) and "BP4" not in _revel_band(s)
 
 
 def test_revel_is_agreement_not_a_second_vote():
     from sugivariant.enrich import concordance
     am = {"class": "likely_pathogenic", "score": "0.99"}
-    revel = {"score": 0.955, "tier": "PP3_Strong", "direction": "pathogenic"}
+    revel = {"score": 0.955, "band": "strongly pathogenic-leaning", "direction": "pathogenic"}
     c = concordance("Pathogenic", am, None, revel=revel)
     # REVEL is shown as agreeing, but does NOT add a second concordant predictor
     assert any("REVEL" in ln and "agrees with AlphaMissense" in ln for ln in c["lines"])
     assert "1 independent predictor" in c["verdict"]        # AM only, not 2
+    # no ACMG code on the REVEL line (§8)
+    assert not any("PP3" in ln or "BP4" in ln for ln in c["lines"])
     # a benign REVEL vs pathogenic AM → "differs from" (still not a counted flag)
     d = concordance("Pathogenic", am, None,
-                    revel={"score": 0.1, "tier": "BP4_Moderate", "direction": "benign"})
+                    revel={"score": 0.1, "band": "moderately benign-leaning", "direction": "benign"})
     assert any("differs from AlphaMissense" in ln for ln in d["lines"])
 
 
@@ -311,7 +317,7 @@ def test_conservation_gerp_and_nonmissense_counts():
 def test_saprot_agreement_and_consensus():
     from sugivariant.enrich import concordance
     am = {"class": "likely_pathogenic", "score": "0.99"}
-    revel = {"score": 0.955, "tier": "PP3_Strong", "direction": "pathogenic"}
+    revel = {"score": 0.955, "band": "strongly pathogenic-leaning", "direction": "pathogenic"}
     esm = {"llr": -14.5, "damaging": True}
     c = concordance("Pathogenic", am, None, revel=revel, saprot=esm)
     # SaProt shown as an agreement signal (raw LLR), not a counted vote

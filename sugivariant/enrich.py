@@ -164,33 +164,36 @@ def conservation_for(coord):
     return {"phylop": phylop, "phastcons": phastcons, "gerp": gerp}
 
 
-# REVEL → ACMG evidence tier (ClinGen SVI / Pejaver 2022 calibrated thresholds).
-def _revel_tier(s):
+# REVEL → descriptive strength BAND (NOT an ACMG code). The thresholds are the
+# Pejaver-2022 calibration points, but §8 forbids presenting REVEL as an ACMG
+# PP3/BP4 vote (it is an agreement signal, not additive evidence). So we describe
+# the strength of REVEL's own leaning, never emit a PP3/BP4 code.
+def _revel_band(s):
     if s >= 0.932:
-        return "PP3_Strong"
+        return "strongly pathogenic-leaning"
     if s >= 0.773:
-        return "PP3_Moderate"
+        return "moderately pathogenic-leaning"
     if s >= 0.644:
-        return "PP3_Supporting"
+        return "pathogenic-leaning"
     if s > 0.290:
         return "indeterminate"
     if s >= 0.183:
-        return "BP4_Supporting"
+        return "benign-leaning"
     if s > 0.016:
-        return "BP4_Moderate"
-    return "BP4_Strong"
+        return "moderately benign-leaning"
+    return "strongly benign-leaning"
 
 
 def revel_for(coord):
-    """REVEL ensemble missense pathogenicity (0–1) by chr:pos:ref:alt, with its
-    ClinGen-calibrated ACMG tier + direction. Presented as an AGREEMENT signal
-    (not additive PP3 — see concordance)."""
+    """REVEL ensemble missense pathogenicity (0–1) by chr:pos:ref:alt, with a
+    descriptive strength band (Pejaver-2022 thresholds) + direction. Presented as
+    an AGREEMENT signal only — never an additive ACMG PP3/BP4 code (§8, ClinGen SVI)."""
     a = _coord_entry(coord, "revel")
     s = _f((a or {}).get("revel"))
     if s is None:
         return None
     direction = "pathogenic" if s >= 0.644 else "benign" if s <= 0.290 else "indeterminate"
-    return {"score": s, "tier": _revel_tier(s), "direction": direction}
+    return {"score": s, "band": _revel_band(s), "direction": direction}
 
 
 def _f(x):
@@ -302,7 +305,7 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
                 rel = "indeterminate"
             else:
                 rel = "agrees with" if (revel["direction"] == "pathogenic") == am_path else "differs from"
-            lines.append(f"REVEL {revel['score']} ({revel['tier']}) — {rel} AlphaMissense")
+            lines.append(f"REVEL {revel['score']} ({revel['band']}) — {rel} AlphaMissense")
         # SaProt — orthogonal (ClinVar-independent) protein-language-model opinion,
         # also an agreement signal (not additive). Raw LLR surfaced; ~-7.5 divides
         # the damaging/tolerated *read* only.

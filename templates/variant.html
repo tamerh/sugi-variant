@@ -69,7 +69,7 @@
           {% if v.am_percentile and v.am_percentile.top_pct <= 10 %}<span class="section-sub">(top {{ v.am_percentile.top_pct }}%)</span>{% endif %}
           <span class="section-sub">— ACMG-weighted</span></p>
         {% else %}<p class="section-sub">AlphaMissense — not a missense SNV</p>{% endif %}
-        {% if v.revel %}<p><b>REVEL</b> <span class="vv-num">{{ v.revel.score }}</span> <span class="section-sub">({{ v.revel.tier }} — agreement signal)</span></p>{% endif %}
+        {% if v.revel %}<p><b>REVEL</b> <span class="vv-num">{{ v.revel.score }}</span> <span class="section-sub">({{ v.revel.band }} — agreement signal)</span></p>{% endif %}
         {% if v.saprot %}<p><b>SaProt</b> <span class="vv-num">LLR {{ '%.2f'|format(v.saprot.llr) }}</span> <span class="section-sub">({{ 'damaging' if v.saprot.damaging else 'tolerated' }} — orthogonal, agreement signal)</span></p>{% endif %}
         {% if v.spliceai %}<p><b>SpliceAI</b> {{ v.spliceai.effect|replace('_',' ') }} <span class="vv-num">Δ{{ v.spliceai.score }}</span></p>{% endif %}
         {% if v.concordance and v.concordance.consensus %}<p class="vv-consensus {{ 'is-agree' if v.concordance.consensus.unanimous }}">⇒ <b>Consensus:</b> {{ v.concordance.consensus.summary }}</p>{% endif %}
@@ -172,7 +172,9 @@
       </p>
     </section>
 
-    <p class="vv-src section-sub">Sources: ClinVar, gnomAD v4.1, AlphaMissense, SpliceAI, conservation, ClinGen, UniProt, Reactome/GO, Orphanet{% if v.mavedb %}, MaveDB{% endif %}{% if v.civic %}, CIViC{% endif %}. Deterministic; every fact traced. Not a clinical determination.</p>
+    <p class="vv-src section-sub" id="sources"><b>Data sources &amp; attribution:</b>
+      {% for name, credit in data_sources %}{{ name }} ({{ credit }}){% if not loop.last %}; {% endif %}{% endfor %}.
+      Deterministic; every fact traced. Free reference use — not a clinical determination.</p>
   </div>
 </article>
 {% endblock %}
