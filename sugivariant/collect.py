@@ -70,6 +70,10 @@ def collect(variation_id):
     vcep = [{"id": c.get("id"), "assertion": c.get("assertion") or c.get("classification"),
              "panel": c.get("vcep") or c.get("panel"), "disease": c.get("disease")}
             for c in map_all(variation_id, ">>clinvar>>clingen_variant") if c.get("id")]
+    # Attach the full applied-ACMG-code record (authority tier) per VCEP assertion —
+    # one entry() call, and only for the ~3% of variants that HAVE a VCEP.
+    for c in vcep:
+        c["criteria"] = EN.clingen_criteria(c["id"])
 
     conditions = _order_conditions(conditions, vcep)
 

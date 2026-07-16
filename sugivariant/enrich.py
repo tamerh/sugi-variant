@@ -126,6 +126,29 @@ def alphamissense_for(coord):
             "short": a.get("protein_variant"), "uniprot": a.get("uniprot_id")}
 
 
+def clingen_criteria(ca_id):
+    """Full ClinGen VCEP variant-pathogenicity record by allele-registry (CA) id:
+    the applied ACMG codes, per-criterion rationale, and provenance — the authority
+    tier. We REPORT the expert panel's applied codes verbatim; we NEVER re-tally or
+    combine them into our own score (§8, ClinGen SVI). None if unavailable."""
+    if not ca_id:
+        return None
+    from sugibiobtree import entry
+    try:
+        a = (entry(ca_id, "clingen_variant") or {}).get("Attributes") or {}
+    except Exception:
+        return None
+    c = a.get("ClingenVariant") or {}
+    if not c.get("evidence_codes_met"):
+        return None
+    return {"codes_met": c.get("evidence_codes_met") or [],
+            "codes_not_met": c.get("evidence_codes_not_met") or [],
+            "summary": c.get("summary"), "moi": c.get("moi"),
+            "guideline": c.get("guideline"), "approval_date": c.get("approval_date"),
+            "published_date": c.get("published_date"),
+            "erepo": c.get("evidence_repo_link")}
+
+
 def am_isoform_mismatch(am, hgvs_p):
     """AlphaMissense is looked up by genomic coordinate and returns ITS transcript's
     protein change. If that residue disagrees with the ClinVar p.HGVS, AM is numbered

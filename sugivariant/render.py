@@ -368,6 +368,25 @@ def render_body(v, jsonld_tag=""):
         L.append(f"\n**ClinGen expert panel:** {c.get('assertion')} — {c.get('panel')} "
                  f"({c.get('disease')}). *Expert-panel curated (ACMG); the highest "
                  "ClinVar review tier.*")
+        cr = c.get("criteria")
+        if cr:
+            if cr.get("codes_met"):
+                L.append("**Applied ACMG criteria (met):** "
+                         + ", ".join(f"`{x}`" for x in cr["codes_met"]) + ".")
+            if cr.get("codes_not_met"):
+                L.append("*Considered but not met:* "
+                         + ", ".join(f"`{x}`" for x in cr["codes_not_met"]) + ".")
+            if cr.get("moi"):
+                L.append(f"Inheritance: {cr['moi']}.")
+            if cr.get("summary"):
+                L.append(f"\n> **Curation rationale (ClinGen, verbatim):** {cr['summary']}")
+            prov = [x for x in (cr.get("guideline"),
+                                f"approved {cr['approval_date']}" if cr.get("approval_date") else None,
+                                f"[ClinGen Evidence Repository]({cr['erepo']})" if cr.get("erepo") else None) if x]
+            if prov:
+                L.append("*Source: " + " · ".join(prov) + ".*")
+            L.append("*These are ClinGen's applied codes, reported verbatim — Sugi Variant does "
+                     "not re-tally or combine them into its own classification.*")
     subs = v.get("submissions") or []
     if subs:
         L += ["", "### Submitter classifications {#submitters}", "",

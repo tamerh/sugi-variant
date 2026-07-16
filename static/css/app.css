@@ -140,3 +140,8 @@
 .dz-banner b{color:var(--dz)}
 .dz-banner-go{display:inline-block;margin-left:.35rem;color:var(--dz);font-weight:600;white-space:nowrap}
 .dz-banner:hover .dz-banner-go{text-decoration:underline}
+
+/* ClinGen VCEP applied ACMG codes — authority tier, reported verbatim */
+.vv-acmg{display:inline-block;font-family:ui-monospace,monospace;font-size:.78rem;
+  background:var(--accent-soft,var(--vus-soft));color:var(--accent,#2563eb);
+  padding:.05rem .4rem;border-radius:5px;margin:0 .15rem .2rem 0;white-space:nowrap}

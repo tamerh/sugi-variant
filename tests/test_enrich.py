@@ -300,6 +300,12 @@ def test_revel_is_agreement_not_a_second_vote():
     assert any("differs from AlphaMissense" in ln for ln in d["lines"])
 
 
+def test_clingen_criteria_guards():
+    from sugivariant.enrich import clingen_criteria
+    assert clingen_criteria(None) is None       # no id → no fabrication, no biobtree call
+    assert clingen_criteria("") is None
+
+
 def test_am_isoform_mismatch():
     from sugivariant.enrich import am_isoform_mismatch
     # AM's transcript numbers the residue 309; ClinVar p.HGVS says 334 → mismatch flag

@@ -60,7 +60,9 @@
         <h3 class="vv-panel-h">Clinical <span class="vv-panel-src">ClinVar</span></h3>
         <p><b>{{ v.classification }}</b> · {{ st.glyph }} <span class="section-sub">({{ v.review_status }})</span></p>
         {% if v.consensus %}<p>Submitter consensus: {{ v.consensus.verdict }}.</p>{% endif %}
-        {% if v.vcep %}<p><b>ClinGen VCEP:</b> {{ v.vcep[0].assertion }} — {{ v.vcep[0].panel }}</p>{% endif %}
+        {% if v.vcep %}<p><b>ClinGen VCEP:</b> {{ v.vcep[0].assertion }} — {{ v.vcep[0].panel }}
+          {% if v.vcep[0].criteria and v.vcep[0].criteria.codes_met %}<br><span class="section-sub">Applied ACMG criteria (verbatim):</span> {% for x in v.vcep[0].criteria.codes_met %}<code class="vv-acmg">{{ x }}</code> {% endfor %}{% endif %}</p>
+          {% if v.vcep[0].criteria and v.vcep[0].criteria.erepo %}<p class="section-sub"><a href="{{ v.vcep[0].criteria.erepo }}" target="_blank" rel="noopener">ClinGen rationale &amp; evidence →</a> · <span title="Reported verbatim; Sugi Variant does not re-tally or combine these codes.">expert-panel codes, not re-tallied</span></p>{% endif %}{% endif %}
         {% if v.timeline and v.timeline.n > 1 %}<p class="section-sub">{{ v.timeline.n }} submissions ({{ v.timeline.first }}–{{ v.timeline.last }}); {{ 'stable' if v.timeline.stable else 'have differed' }}.</p>{% endif %}
       </section>
       <section class="vv-panel">
