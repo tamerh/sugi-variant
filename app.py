@@ -368,6 +368,38 @@ async def disagreements_gene(gene: str):
                    cats=DISAGREEMENT_CATEGORIES, meta=CAT_META)
 
 
+_CLS_ORDER = ["Pathogenic", "Pathogenic/Likely pathogenic", "Likely pathogenic",
+              "Conflicting classifications of pathogenicity"]
+_HUB_CAP = 300   # per-classification display cap (sitemap carries the full set)
+
+
+@app.get("/gene/{gene}", response_class=HTMLResponse)
+async def gene_hub(gene: str):
+    g = gene.upper().strip("/")
+    ix = _index()
+    rows = IX.gene_rows(ix, g) if ix else None
+    if not rows:                                   # not indexed yet → live build fallback
+        recs = _records(g)
+        if not recs:
+            raise StarletteHTTPException(404, f"No variants built for “{g}”.")
+        rows = sorted(({"slug": x["canonical_slug"], "hgvs_p": x.get("hgvs_p"),
+                        "hgvs_c": x.get("hgvs_c"), "classification": x["classification"],
+                        "stars": review_stars(x.get("review_status")),
+                        "primary_condition": (x.get("conditions") or [{}])[0].get("name"),
+                        "flag": (disagreement_flag(x) or {}).get("category")} for x in recs),
+                      key=lambda r: (-r["stars"], r["slug"]))
+    # group by classification, cap the display per group (full set is in the sitemap)
+    groups = []
+    seen = {r["classification"] for r in rows}
+    for cls in _CLS_ORDER + sorted(seen - set(_CLS_ORDER)):
+        items = [r for r in rows if r["classification"] == cls]
+        if items:
+            groups.append({"cls": cls, "total": len(items), "shown": items[:_HUB_CAP]})
+    flagged = sum(1 for r in rows if r["flag"])
+    return _render("gene_hub.html", gene=g, groups=groups, total=len(rows),
+                   flagged=flagged, cap=_HUB_CAP)
+
+
 @app.get("/{slug}", response_class=HTMLResponse)
 async def variant_page(slug: str):
     slug = slug.lower().strip("/")

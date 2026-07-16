@@ -125,6 +125,14 @@ def gene_slugs(conn, gene):
         "SELECT slug FROM variant WHERE gene=? ORDER BY slug", (gene.upper(),))]
 
 
+def gene_rows(conn, gene):
+    """All light variant rows for a gene (for the /gene/{SYM} hub), best first
+    (review stars desc, then slug)."""
+    return [dict(r) for r in conn.execute(
+        "SELECT slug, hgvs_p, hgvs_c, classification, stars, primary_condition, flag "
+        "FROM variant WHERE gene=? ORDER BY stars DESC, slug", (gene.upper(),))]
+
+
 # Sitemap inclusion gate: advertise to Google only pages with assertion criteria
 # (>=1 star) AND a named condition. The thin 0-star / no-condition tail is still
 # SERVED (the resolver answers any hit) — just not advertised, to avoid the

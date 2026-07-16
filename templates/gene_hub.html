@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ gene }} — pathogenic variants{% endblock %}
+{% block description %}{{ total }} clinically significant (pathogenic / likely-pathogenic / conflicting) {{ gene }} variants, each with cross-sourced evidence — ClinVar, gnomAD, AlphaMissense, conservation and more.{% endblock %}
+{% block head %}<link rel="canonical" href="https://sugi.bio/variant/gene/{{ gene }}">{% endblock %}
+{% block content %}
+<div class="container">
+  <p class="breadcrumb"><a href="{{ base }}/">Sugi Variant</a><span>/</span>{{ gene }}</p>
+
+  <section class="hero hero-tight">
+    <h1 class="hero-title">{{ gene }} — clinically significant variants</h1>
+    <p class="hero-lead"><strong>{{ total }}</strong> pathogenic / likely-pathogenic / conflicting
+    {{ gene }} variants, each assembled from ClinVar + gnomAD + AlphaMissense + conservation and more.
+    {% if flagged %}<a href="{{ base }}/disagreements/{{ gene }}">{{ flagged }} carry an evidence disagreement →</a>{% endif %}</p>
+    <p class="dz-summary">
+      {% for grp in groups %}<span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(grp.cls) }}">{{ grp.total }}</span> {{ grp.cls }}{% if not loop.last %} · {% endif %}{% endfor %}
+    </p>
+  </section>
+
+  <section class="entity-main">
+    {% for grp in groups %}
+    <div class="dz-group">
+      <h2 class="section-title">{{ grp.cls }} <span class="dz-count">{{ grp.total }}</span></h2>
+      {% if grp.total > cap %}<p class="section-sub" style="margin:-0.4rem 0 0.6rem">Showing the top {{ cap }} by review status; the full set is in the <a href="{{ base }}/sitemap.xml">sitemap</a>.</p>{% endif %}
+      <ul class="gh-list">
+        {% for r in grp.shown %}
+        <li class="gh-row">
+          <a href="{{ base }}/{{ r.slug }}"><b>{{ r.hgvs_p or r.hgvs_c }}</b></a>
+          <span class="gh-stars" title="{{ r.stars }}/4 review">{{ '★' * r.stars }}{{ '☆' * (4 - r.stars) }}</span>
+          {% if r.primary_condition %}<span class="gh-cond section-sub">{{ r.primary_condition }}</span>{% endif %}
+          {% if r.flag %}<a class="gh-flag" href="{{ base }}/disagreements/{{ gene }}" title="evidence disagreement">⚠</a>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </section>
+</div>
+{% endblock %}

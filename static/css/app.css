@@ -145,3 +145,13 @@
 .vv-acmg{display:inline-block;font-family:ui-monospace,monospace;font-size:.78rem;
   background:var(--accent-soft,var(--vus-soft));color:var(--accent,#2563eb);
   padding:.05rem .4rem;border-radius:5px;margin:0 .15rem .2rem 0;white-space:nowrap}
+
+/* gene hub — variant list */
+.gh-list{list-style:none;padding:0;margin:0;display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.3rem .9rem}
+.gh-row{display:flex;align-items:baseline;gap:.5rem;padding:.28rem 0;border-bottom:1px solid var(--line2,#eef1f4);font-size:.92rem}
+.gh-row>a:first-child{font-family:ui-monospace,monospace;text-decoration:none;color:var(--accent,#2563eb)}
+.gh-row>a:first-child:hover{text-decoration:underline}
+.gh-stars{color:var(--path,#c0392b);font-size:.75rem;letter-spacing:-1px}
+.gh-cond{margin-left:auto;max-width:14ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gh-flag{color:var(--flag);text-decoration:none}

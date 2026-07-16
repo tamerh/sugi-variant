@@ -11,7 +11,7 @@
   <div class="container container-wide">
     <p class="breadcrumb">
       <a href="{{ base }}/">Sugi Variant</a><span>/</span>
-      <a href="https://sugi.bio/atlas/gene/{{ v.gene_symbol }}" target="_blank" rel="noopener">{{ v.gene_symbol }}</a><span>/</span>
+      <a href="{{ base }}/gene/{{ v.gene_symbol }}">{{ v.gene_symbol }}</a><span>/</span>
       {{ v.hgvs_p or v.hgvs_c }}
     </p>
 
