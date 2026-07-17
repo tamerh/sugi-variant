@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Variant set{% endblock %}
+{% block head %}<meta name="robots" content="noindex,follow">{% endblock %}
+{% block content %}
+<div class="container">
+
+  {% if not rows and not missing %}
+  {# ── empty state: paste box ── #}
+  <section class="hero hero-tight">
+    <p class="hero-eyebrow">Sugi Variant · set</p>
+    <h1 class="hero-title">Review a set of variants</h1>
+    <p class="hero-lead">Paste variants — one per line — as <b>GENE change</b>, <b>rsID</b>, or <b>GRCh38 coordinate</b>.
+      You'll get a shareable page comparing them, and a <b>review worklist</b> of the ones whose evidence disagrees.
+      Nothing is uploaded or stored; the link <em>is</em> your set.</p>
+  </section>
+  <section class="entity-main">
+    <form action="{{ base }}/set" method="get">
+      <textarea name="q" class="set-paste" rows="8" placeholder="PTEN R130Q&#10;BRCA2 c.1000C>T&#10;rs121909229&#10;17:7673803:C:T"></textarea>
+      <p style="margin:.7rem 0"><button type="submit" class="btn btn-primary">Build set →</button>
+        <span class="section-sub">up to {{ 60 }} variants</span></p>
+    </form>
+  </section>
+  {% else %}
+
+  {# ── populated set ── #}
+  <section class="hero hero-tight">
+    <p class="breadcrumb"><a href="{{ base }}/">Sugi Variant</a><span>/</span>set</p>
+    <h1 class="hero-title">Variant set{% if stats %} — {{ stats.n }} variant{{ 's' if stats.n != 1 }}{% endif %}</h1>
+    {% if stats %}<p class="hero-lead">
+      Across <b>{{ stats.genes }}</b> gene{{ 's' if stats.genes != 1 }} and <b>{{ stats.conditions }}</b> condition{{ 's' if stats.conditions != 1 }}.
+      {% if stats.flagged %}<b class="set-flag-hl">{{ stats.flagged }} flagged for review</b>{% if stats.high_sev %} ({{ stats.high_sev }} high-severity){% endif %} — where the evidence disagrees.{% else %}No evidence disagreements in this set.{% endif %}
+    </p>{% endif %}
+    {% if missing %}<p class="section-sub">Unmatched ({{ missing|length }}): {{ missing|join(', ') }} — not in the pathogenic-gated corpus, or unparseable.</p>{% endif %}
+    {% if capped %}<p class="section-sub">Showing the first {{ 60 }} variants (set cap).</p>{% endif %}
+    <p class="dz-summary">
+      <a class="btn btn-ghost" href="{{ base }}/set">＋ New set</a>
+    </p>
+  </section>
+
+  {% if stats %}
+  <section class="entity-main">
+    {# summary strip #}
+    <div class="vd-tiles" style="margin-top:0">
+      <div class="vd-tile"><div class="lab">Variants</div><div class="val">{{ stats.n }}</div><div class="sub">{{ stats.genes }} gene{{ 's' if stats.genes != 1 }}</div></div>
+      <div class="vd-tile"><div class="lab">Flagged for review</div><div class="val" style="color:var(--flag)">{{ stats.flagged }}</div><div class="sub">{{ stats.high_sev }} high-severity</div></div>
+      {% for cls, n in stats.cls.items() %}<div class="vd-tile"><div class="lab">{{ cls|replace('Conflicting classifications of pathogenicity','Conflicting') }}</div><div class="val vv-cls-{{ cls_class(cls) }}" style="color:var(--cls)">{{ n }}</div></div>{% endfor %}
+    </div>
+
+    {# review worklist — the headline #}
+    {% if worklist %}
+    <h2 class="section-title">Review worklist <span class="dz-count">{{ worklist|length }}</span></h2>
+    <p class="section-sub" style="margin:-.4rem 0 .6rem">Variants whose independent evidence disagrees — a QC signal for a second look, not a reclassification.</p>
+    {% endif %}
+
+    <div class="table-wrapper">
+      <table class="data-table set-table">
+        <thead><tr><th>Variant</th><th>Gene</th><th>Classification</th><th>Review</th><th>Evidence QC</th><th>Condition</th></tr></thead>
+        <tbody>
+          {% for r in rows %}
+          <tr class="{{ 'set-flagged' if r.flag }}">
+            <td><a href="{{ base }}/{{ r.slug }}"><b>{{ r.hgvs_p or r.hgvs_c }}</b></a></td>
+            <td><a href="{{ base }}/gene/{{ r.gene }}">{{ r.gene }}</a></td>
+            <td><span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(r.classification) }}">{{ r.classification|replace('Conflicting classifications of pathogenicity','Conflicting') }}</span></td>
+            <td><span class="rv-badge rv{{ r.stars }} rv-sm" title="{{ r.review_status }}">{{ tier_label(r.stars) }}</span></td>
+            <td>{% if r.flag %}<span class="dz-chip dz-tone-{{ meta[r.flag].tone }}" title="{{ meta[r.flag].blurb }}">{{ meta[r.flag].label }}</span>{% else %}<span class="section-sub">—</span>{% endif %}</td>
+            <td class="section-sub">{{ r.primary_condition or '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if gene_groups %}
+    <h2 class="section-title">Same-gene co-occurrence</h2>
+    <p class="section-sub" style="margin:-.4rem 0 .6rem">Multiple variants in one gene. A neutral observation — <b>phase (in cis/trans) is not determinable from this data</b>; for a recessive gene this may warrant phasing/segregation review. Sugi Variant does not assert compound heterozygosity.</p>
+    <ul class="dz-genes">
+      {% for gene, items in gene_groups %}
+      <li><a class="dz-gene" href="{{ base }}/gene/{{ gene }}"><span class="dz-gene-name">{{ gene }}</span>
+        <span class="dz-gene-counts"><span class="dz-chip dz-tone-info">{{ items|length }}</span></span></a></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    <p class="vv-src section-sub" style="margin-top:1.6rem">This set view <b>describes</b> each variant's authoritative evidence and rolls up counts;
+      it computes no combined classification, risk, or diagnosis. Each row's full evidence is on its variant page.
+      Reference/research use — not medical advice. The link is a shareable permalink; nothing is uploaded or stored.</p>
+  </section>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

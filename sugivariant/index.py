@@ -193,6 +193,23 @@ def suggest(conn, q, limit=8):
     return out
 
 
+def set_rows(conn, slugs):
+    """Resolve a list of requested slugs (canonical or alias) to light variant rows
+    via the alias table — no per-gene build. Returns (found_rows, missing_slugs),
+    order-preserving and deduped by VCV."""
+    found, missing, seen = [], [], set()
+    for s in slugs:
+        r = conn.execute(
+            "SELECT v.* FROM alias a JOIN variant v ON v.vcv=a.vcv WHERE a.key=? LIMIT 1",
+            ((s or "").lower(),)).fetchone()
+        if r and r["vcv"] not in seen:
+            seen.add(r["vcv"])
+            found.append(dict(r))
+        elif not r:
+            missing.append(s)
+    return found, missing
+
+
 def corpus_stats(conn):
     """Headline counts for the home page."""
     return {

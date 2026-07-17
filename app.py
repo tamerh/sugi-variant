@@ -311,6 +311,54 @@ async def home(q: str = ""):
                                 n_genes=s["genes"], n_flagged=s["flagged"]))
 
 
+_SET_MAX = 60
+_FLAG_SEVERITY = {"predictor_vs_clinvar": 3, "resolves_conflicting": 2,
+                  "lof_resolves_conflicting": 2, "predictors_split": 1}
+
+
+@app.get("/set", response_class=HTMLResponse)
+async def variant_set(v: str = "", q: str = ""):
+    ix = _index()
+    # paste box → resolve each line via the shared resolver → canonical permalink
+    if q.strip():
+        slugs = []
+        for line in re.split(r"[\n;]+", q):
+            line = line.strip()
+            if not line:
+                continue
+            for h in resolve_query(line)[2]:
+                if h["canonical_slug"] not in slugs:
+                    slugs.append(h["canonical_slug"])
+        if slugs:
+            return RedirectResponse(f"{BASE}/set?v=" + ",".join(slugs[:_SET_MAX]), status_code=307)
+        miss = [ln.strip() for ln in re.split(r"[\n;]+", q) if ln.strip()]
+        return HTMLResponse(_render("set.html", rows=[], missing=miss, stats=None,
+                                    worklist=[], gene_groups=[], meta=CAT_META, nav="set", capped=False))
+    reqs = [s.strip() for s in v.split(",") if s.strip()]
+    capped = len(reqs) > _SET_MAX
+    reqs = reqs[:_SET_MAX]
+    if not ix or not reqs:
+        return HTMLResponse(_render("set.html", rows=[], missing=[], stats=None,
+                                    worklist=[], gene_groups=[], meta=CAT_META, nav="set", capped=False))
+    found, missing = IX.set_rows(ix, reqs)
+    import collections
+    flagged = [r for r in found if r["flag"]]
+    genes = collections.Counter(r["gene"] for r in found)
+    conds = {r["primary_condition"] for r in found if r["primary_condition"]}
+    sev = lambda r: _FLAG_SEVERITY.get(r["flag"], 0)
+    worklist = sorted(flagged, key=lambda r: (-sev(r), r["gene"], r["slug"]))
+    rows = sorted(found, key=lambda r: (0 if r["flag"] else 1, -sev(r), r["gene"], r["slug"]))
+    gene_groups = [(g, [r for r in rows if r["gene"] == g]) for g, cnt in genes.most_common() if cnt > 1]
+    stats = {"n": len(found), "genes": len(genes), "conditions": len(conds),
+             "flagged": len(flagged), "high_sev": sum(1 for r in flagged if sev(r) >= 3),
+             "cls": dict(collections.Counter(r["classification"] for r in found).most_common()),
+             "tiers": dict(collections.Counter(tier_label(r["stars"]) for r in found).most_common()),
+             "flag_ct": dict(collections.Counter(r["flag"] for r in flagged))}
+    return HTMLResponse(_render("set.html", rows=rows, missing=missing, stats=stats,
+                                worklist=worklist, gene_groups=gene_groups, meta=CAT_META,
+                                severity=_FLAG_SEVERITY, nav="set", capped=capped))
+
+
 @app.get("/suggest.json")
 async def suggest(q: str = ""):
     from fastapi.responses import JSONResponse
