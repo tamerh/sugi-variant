@@ -392,7 +392,7 @@ def home(q: str = ""):
         return _resolution_response(*resolve_query(q))
     s = _corpus_stats()
     return HTMLResponse(_render("home.html", n_variants=s["variants"],
-                                n_genes=s["genes"], n_flagged=s["flagged"]))
+                                n_genes=s["genes"], n_flagged=s["flagged"], nav="home"))
 
 
 _SET_MAX = 60

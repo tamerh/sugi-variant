@@ -243,3 +243,15 @@
 .set-table td:last-child,.set-table td:nth-child(5){white-space:normal}
 .set-flagged{background:color-mix(in srgb, var(--flag) 7%, transparent)}
 .set-table tbody tr{border-top:1px solid var(--line2,#eef1f4)}
+
+/* ── autocomplete: per-row action hint (add a variant / open a gene) ── */
+.ac-act{margin-left:.5rem;flex:none;font-size:.6rem;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--muted,#9aa3ad);border:1px solid var(--line2,#e5e7eb);border-radius:5px;padding:.05rem .32rem;opacity:0}
+.ac-item.ac-sel .ac-act,.ac-item:hover .ac-act{opacity:1}
+.ac-hint{margin:.55rem auto 0;text-align:center;font-size:.8rem;color:var(--fg-soft,#6b7280)}
+.ac-hint kbd{font-family:ui-monospace,monospace;font-size:.72rem;border:1px solid var(--border,#d1d5db);
+  border-bottom-width:2px;border-radius:5px;padding:.02rem .3rem;background:var(--bg,#fff)}
+
+/* ── footer: keep the tagline + links centred regardless of context ── */
+.site-footer,.site-footer .container{text-align:center}
+.site-footer-tagline{margin-left:auto;margin-right:auto}
