@@ -142,6 +142,22 @@ def gene_slugs(conn, gene):
         "SELECT slug FROM variant WHERE gene=? ORDER BY slug", (gene.upper(),))]
 
 
+def directory_genes(conn):
+    """[(gene, variant_count)] for every gene that has at least one built variant —
+    the /genes A-Z directory."""
+    return [(r["gene"], r["n"]) for r in conn.execute(
+        "SELECT gene, COUNT(*) n FROM variant GROUP BY gene ORDER BY gene")]
+
+
+def corpus_stats(conn):
+    """Headline counts for the home page."""
+    return {
+        "variants": conn.execute("SELECT COUNT(*) FROM variant").fetchone()[0],
+        "genes": conn.execute("SELECT COUNT(DISTINCT gene) FROM variant").fetchone()[0],
+        "flagged": conn.execute("SELECT COUNT(*) FROM variant WHERE flag IS NOT NULL").fetchone()[0],
+    }
+
+
 def gene_rows(conn, gene):
     """All light variant rows for a gene (for the /gene/{SYM} hub), best first
     (review stars desc, then slug)."""

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Genes{% endblock %}
+{% block description %}Browse all {{ "{:,}".format(total) }} genes with clinically significant variants in Sugi Variant.{% endblock %}
+{% block content %}
+<div class="container">
+  <section class="hero hero-tight">
+    <p class="hero-eyebrow">Sugi Variant · browse</p>
+    <h1 class="hero-title">Genes</h1>
+    <p class="hero-lead"><strong>{{ "{:,}".format(total) }}</strong> genes carry at least one pathogenic,
+      likely-pathogenic or conflicting variant. Pick a gene for its variants and evidence.</p>
+    <p class="dz-summary">
+      {% for letter in groups %}<a class="gh-flag" style="text-decoration:none" href="#L{{ letter }}">{{ letter }}</a>{% if not loop.last %} · {% endif %}{% endfor %}
+    </p>
+  </section>
+
+  <section class="entity-main">
+    {% for letter, items in groups.items() %}
+    <div class="dz-group" id="L{{ letter }}">
+      <h2 class="section-title">{{ letter }} <span class="dz-count">{{ items|length }}</span></h2>
+      <ul class="dz-genes">
+        {% for it in items %}
+        <li>
+          <a class="dz-gene" href="{{ base }}/gene/{{ it.gene }}">
+            <span class="dz-gene-name">{{ it.gene }}</span>
+            <span class="dz-gene-counts"><span class="dz-chip dz-tone-info">{{ it.n }}</span></span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </section>
+</div>
+{% endblock %}

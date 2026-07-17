@@ -290,13 +290,49 @@ async def _err(request, exc):
 
 
 # ── routes ─────────────────────────────────────────────────────────────────────
+_STATS_CACHE = None
+
+
+def _corpus_stats():
+    global _STATS_CACHE
+    if _STATS_CACHE is None:
+        ix = _index()
+        _STATS_CACHE = (IX.corpus_stats(ix) if ix
+                        else {"variants": 0, "genes": 0, "flagged": 0})
+    return _STATS_CACHE
+
+
 @app.get("/")
 async def home(q: str = ""):
     if q.strip():
         return _resolution_response(*resolve_query(q))
-    demos = ["pten-p-arg173cys", "acta1-p-pro309ala", "asxl1-p-gly646trp",
-             "pten-p-arg130gln", "acta1-c-809-1g-t"]
-    return HTMLResponse(_render("home.html", demos=demos))
+    s = _corpus_stats()
+    return HTMLResponse(_render("home.html", n_variants=s["variants"],
+                                n_genes=s["genes"], n_flagged=s["flagged"]))
+
+
+@app.get("/about", response_class=HTMLResponse)
+async def about():
+    return _render("about.html", nav="about")
+
+
+@app.get("/method", response_class=HTMLResponse)
+async def method():
+    return _render("method.html", nav="method")
+
+
+@app.get("/genes", response_class=HTMLResponse)
+async def genes_directory():
+    ix = _index()
+    if not ix:
+        raise StarletteHTTPException(503, "Gene directory needs the resolution index.")
+    import collections
+    groups = collections.OrderedDict()
+    for gene, n in IX.directory_genes(ix):
+        letter = gene[0].upper() if gene and gene[0].isalpha() else "#"
+        groups.setdefault(letter, []).append({"gene": gene, "n": n})
+    total = sum(len(v) for v in groups.values())
+    return _render("genes.html", groups=groups, total=total, nav="genes")
 
 
 _PUB = "https://sugi.bio" + (BASE or "/variant")

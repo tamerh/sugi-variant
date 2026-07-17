@@ -1,16 +1,40 @@
 {% extends "base.html" %}
+{% block title %}Sugi Variant{% endblock %}
 {% block content %}
-<div class="container">
-  <section class="hero">
-    <p class="hero-eyebrow">Sugi Variant · prototype</p>
-    <h1 class="hero-title">Every clinically significant variant — narrated, cross-sourced, citable.</h1>
-    <p class="hero-lead">ClinVar-anchored variant pages integrating gnomAD v4.1, AlphaMissense, SpliceAI, conservation, ClinGen, MaveDB, Reactome pathways and a plain-language patient view. Server-rendered and deterministic.</p>
-  </section>
-  <section class="entity-main">
-    <h2 class="section-title">Example variants</h2>
-    <ul class="vv-mini">
-      {% for s in demos %}<li><a href="{{ base }}/{{ s }}">{{ s }}</a></li>{% endfor %}
-    </ul>
-  </section>
-</div>
+<section class="hero-search">
+  <div class="hero-search-dots"></div>
+  <div class="container hero-search-content">
+    <p class="hero-search-eyebrow">cross-sourced human variant reference</p>
+    <h1 class="hero-search-title">Sugi Variant</h1>
+    <p class="hero-search-sub">One deterministic, cited reference page for every clinically significant human
+      variant — <b>{{ "{:,}".format(n_variants) }}</b> pathogenic, likely-pathogenic and conflicting variants
+      across <b>{{ "{:,}".format(n_genes) }}</b> genes. ClinVar, gnomAD&nbsp;v4.1, AlphaMissense, conservation,
+      SpliceAI, ClinGen VCEP codes and more, assembled into one place. Search a variant, gene, or rsID.</p>
+
+    <form class="hero-search-box" action="{{ base }}/" method="get" role="search">
+      <span class="search-icon-large" aria-hidden="true">⌕</span>
+      <input id="q2" name="q" type="search" placeholder="e.g. PTEN R130Q · BRCA2 c.1000C>T · rs121909229 · TP53"
+             autocomplete="off" aria-label="Search Sugi Variant" enterkeyhint="search">
+    </form>
+
+    <p class="hero-chips-label">Try:</p>
+    <div class="hero-chips">
+      <a class="hero-chip hero-chip-target" href="{{ base }}/pten-p-arg130gln">PTEN R130Q</a>
+      <a class="hero-chip hero-chip-target" href="{{ base }}/tp53-p-arg175his">TP53 R175H</a>
+      <a class="hero-chip hero-chip-drug" href="{{ base }}/rs121909229">rs121909229</a>
+      <a class="hero-chip hero-chip-drug" href="{{ base }}/gene/BRCA2">BRCA2 gene</a>
+      <a class="hero-chip hero-chip-drug" href="{{ base }}/disagreements">evidence disagreements</a>
+    </div>
+
+    <div class="hero-stats">
+      <span class="hero-stat"><strong>{{ "{:,}".format(n_variants) }}</strong> variants</span>
+      <span class="hero-stat-sep">·</span>
+      <span class="hero-stat"><strong>{{ "{:,}".format(n_genes) }}</strong> genes</span>
+      <span class="hero-stat-sep">·</span>
+      <span class="hero-stat"><strong>{{ "{:,}".format(n_flagged) }}</strong> QC-flagged</span>
+      <span class="hero-stat-sep">·</span>
+      <span class="hero-stat">open &amp; free</span>
+    </div>
+  </div>
+</section>
 {% endblock %}
