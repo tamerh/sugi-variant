@@ -37,6 +37,12 @@
   }
   // The box may hold a comma-separated list; suggestions are for the token
   // currently being typed (everything after the last comma).
+  // Grow the hero <textarea> to fit its content (CSS caps it at ~4 lines, then scrolls).
+  function autogrow(el) {
+    if (el.tagName !== "TEXTAREA") return;
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }
   function tokens(input) { return input.value.split(","); }
   function currentToken(input) {
     var t = tokens(input);
@@ -76,11 +82,13 @@
     t = t.filter(Boolean);
     t.push(it.label);
     input.value = t.join(", ") + ", ";
+    autogrow(input);
     hide();
     input.focus();
+    position(input);
   }
   function onInput(e) {
-    curInput = e.target; position(curInput);
+    curInput = e.target; autogrow(curInput); position(curInput);
     clearTimeout(timer);
     timer = setTimeout(function () { query(curInput); }, 110);
   }
@@ -90,11 +98,16 @@
     else if (e.key === "ArrowUp") { if (!open) return; e.preventDefault(); sel = Math.max(sel - 1, -1); render(); }
     else if (e.key === "Enter") {
       if (open && sel >= 0) { e.preventDefault(); pick(e.target, sel); }  // add / open the highlighted item
-      // otherwise fall through: the form submits and resolves the box (1 → variant, many → set)
+      else if (e.target.tagName === "TEXTAREA") {                         // submit instead of a newline
+        e.preventDefault();
+        var f = e.target.form;
+        if (f) { if (f.requestSubmit) f.requestSubmit(); else f.submit(); }
+      }
+      // (a plain <input> submits its form on Enter natively)
     }
     else if (e.key === "Escape") { hide(); }
   }
-  Array.prototype.forEach.call(document.querySelectorAll('input[type=search][name=q]'), function (inp) {
+  Array.prototype.forEach.call(document.querySelectorAll('input[type=search][name=q], textarea.hero-search-input'), function (inp) {
     inp.setAttribute("autocomplete", "off");
     inp.addEventListener("input", onInput);
     inp.addEventListener("keydown", onKey);

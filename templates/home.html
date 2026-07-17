@@ -13,8 +13,8 @@
 
     <form class="hero-search-box" action="{{ base }}/" method="get" role="search">
       <span class="search-icon-large" aria-hidden="true">⌕</span>
-      <input id="q2" name="q" type="search" placeholder="e.g. PTEN R130Q  ·  rs121909229  ·  or a comma-separated list for a set"
-             autocomplete="off" aria-label="Search Sugi Variant" enterkeyhint="search">
+      <textarea id="q2" name="q" rows="1" class="hero-search-input" placeholder="e.g. PTEN R130Q, TP53 R175H, rs121909229"
+             autocomplete="off" aria-label="Search Sugi Variant" enterkeyhint="search"></textarea>
     </form>
     <p class="ac-hint"><kbd>Enter</kbd> to open · pick a variant to <b>add</b> another and build a set</p>
 

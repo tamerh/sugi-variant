@@ -261,3 +261,11 @@
 /* ── footer: bulletproof centering (each line centered as a flex item) ── */
 .site-footer .container{display:flex;flex-direction:column;align-items:center;text-align:center}
 .site-footer-tagline{max-width:70ch}
+
+/* ── hero search as an auto-growing textarea (wrap a multi-variant list) ── */
+.hero-search-box textarea.hero-search-input{
+  flex:1;border:none;outline:none;background:transparent;resize:none;
+  padding:.82rem 0;font-size:1rem;line-height:1.45;color:var(--fg);font-family:inherit;
+  max-height:calc(1.45em * 4 + 1.64rem);overflow-y:auto;overflow-x:hidden}
+.hero-search-box textarea.hero-search-input::placeholder{color:var(--fg-soft)}
+.hero-search-box{align-items:center}
