@@ -10,12 +10,17 @@ same-page alias.
 import re
 
 # ClinVar `name` looks like: "NM_001100.4(ACTA1):c.983_985del (p.Lys328del)".
-_C_RE = re.compile(r"(c\.[^\s)]+)")
+# The nucleotide-level form is coding c. for protein genes, n. for non-coding RNA
+# genes (RMRP, RNU4-2, TERC…), or m. for mitochondrial genes (MT-TL1 m.3243A>G).
+# The negative lookbehind stops c/n/m matching inside a token (e.g. the M in NM_).
+_C_RE = re.compile(r"(?<![A-Za-z])((?:c|n|m)\.[^\s)]+)")
 _P_RE = re.compile(r"\(p\.([^)]+)\)")
 
 
 def parse_hgvs(name):
-    """(c_form, p_form) from a ClinVar `name`; either may be None."""
+    """(nucleotide_form, p_form) from a ClinVar `name`; either may be None. The
+    nucleotide form is c./n./m. — so ncRNA and mitochondrial variants (which have no
+    p. change) still yield a slug instead of being dropped."""
     c = _C_RE.search(name or "")
     p = _P_RE.search(name or "")
     return (c.group(1) if c else None), (f"p.{p.group(1)}" if p else None)

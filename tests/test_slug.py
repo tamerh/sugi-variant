@@ -44,6 +44,19 @@ def test_hgvs_operators_dont_collide():
     assert "plus" in intron_after and "minus" in intron_before
 
 
+def test_ncrna_and_mito_hgvs_parse_and_slug():
+    # ncRNA (n.) and mitochondrial (m.) variants have no p. change — they must still
+    # parse + slug (else they're dropped: RMRP, RNU4-2, TERC, MT-TL1…).
+    c, p = parse_hgvs("NR_003051.4(RMRP):n.71A>G")
+    assert c == "n.71A>G" and p is None
+    assert variant_slugs("RMRP", c, p)[0] == "rmrp-n-71a-g"
+    c2, _ = parse_hgvs("NC_012920.1(MT-TL1):m.3243A>G")
+    assert c2 == "m.3243A>G"
+    assert variant_slugs("MT-TL1", c2, None)[0] == "mt-tl1-m-3243a-g"
+    # the c/n/m match must not fire inside a transcript token (the M in NM_)
+    assert parse_hgvs("NM_000546.6(TP53):c.743G>A")[0] == "c.743G>A"
+
+
 def test_gene_symbol_with_dash_preserved():
     # a gene like NKX2-1 must not get mangled by the HGVS operator mapping
     from sugivariant.slug import variant_slugs
