@@ -70,9 +70,13 @@ app = FastAPI(title="Sugi Variant")
 # in templates ({{ base }}) to generate the public /variant/… links.
 app.mount("/static", StaticFiles(directory=str(ROOT / "static")), name="static")
 
-# ── record resolution (in-process per-gene cache; ISR html-cache on top) ───────
+# ── record resolution (in-memory + persistent per-gene record cache) ───────────
+# A gene's enriched records are expensive to build (a whale like BRCA2 ≈ minutes),
+# so once built they're persisted to disk (gzip pickle) and loaded on later hits —
+# this survives restarts and stops the cold-build Cloudflare timeout.
 _GENE_CACHE = {}
-_SLUG_SEP = re.compile(r"-[pc]-")
+_RECORDS_DIR = CACHE_DIR / "records"
+_SLUG_SEP = re.compile(r"-[pcnm]-")   # p./c./n.(ncRNA)/m.(mito)
 
 
 def _gene_of(slug):
@@ -82,9 +86,29 @@ def _gene_of(slug):
 
 def _records(gene):
     g = gene.upper()
-    if g not in _GENE_CACHE:
-        _GENE_CACHE[g] = enriched_records(g) or []
-    return _GENE_CACHE[g]
+    if g in _GENE_CACHE:
+        return _GENE_CACHE[g]
+    import gzip
+    import pickle
+    path = _RECORDS_DIR / f"{g}.pkl.gz"
+    if path.exists():
+        try:
+            with gzip.open(path, "rb") as f:
+                _GENE_CACHE[g] = pickle.load(f)
+            return _GENE_CACHE[g]
+        except Exception:
+            pass
+    recs = enriched_records(g) or []
+    _GENE_CACHE[g] = recs
+    try:
+        _RECORDS_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        with gzip.open(tmp, "wb") as f:
+            pickle.dump(recs, f)
+        tmp.replace(path)            # atomic
+    except Exception:
+        pass
+    return recs
 
 
 def _resolve(slug):
@@ -276,7 +300,10 @@ async def _cache_html(request, call_next):
         for k in ("content-length", "content-type"):
             h.pop(k, None)
         h["ETag"] = etag
-        h["Cache-Control"] = "no-cache, stale-if-error=86400"
+        # CDN-cacheable: browsers revalidate via ETag (max-age=0), but Cloudflare
+        # caches for a day (s-maxage) and serves stale while revalidating — so a page
+        # built once is served fast from the edge instead of rebuilding the gene.
+        h["Cache-Control"] = "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800, stale-if-error=86400"
         if request.headers.get("if-none-match") == etag:
             return Response(status_code=304, headers=h)
         return HTMLResponse(content=body, headers=h)
