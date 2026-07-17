@@ -300,6 +300,35 @@ def test_revel_is_agreement_not_a_second_vote():
     assert any("differs from AlphaMissense" in ln for ln in d["lines"])
 
 
+def test_molecular_consequence():
+    from sugivariant.enrich import molecular_consequence as mc
+    assert mc({"hgvs_p": "p.Gln592fs"})["type"] == "frameshift"
+    assert mc({"hgvs_p": "p.Ser1146Ter"})["type"] == "nonsense"
+    assert mc({"hgvs_p": "p.Met1?"})["type"] == "start_loss"
+    assert mc({"hgvs_c": "c.588+1G>C"})["type"] == "splice"       # canonical +1
+    assert mc({"hgvs_c": "c.2312-1G>A"})["type"] == "splice"      # canonical -1
+    assert mc({"hgvs_c": "c.1100+13A>G"}) is None                 # deep intronic, NOT canonical
+    assert mc({"hgvs_p": "p.Lys328del"})["type"] == "inframe_indel"
+    assert mc({"hgvs_p": "p.Lys328del"})["lof"] is False
+    # nonsense/frameshift/splice are all predicted-LoF
+    assert mc({"hgvs_p": "p.Gln592fs"})["lof"] is True
+    assert mc({"hgvs_p": "p.Arg130Gln"}) is None                  # plain missense → typed by AM, not here
+
+
+def test_lof_context_needs_lof_and_uses_constraint():
+    from sugivariant.enrich import lof_context
+    rec = {"consequence": {"label": "nonsense (stop-gain)", "lof": True},
+           "gene_context": {"constraint": {"loeuf": "0.12", "pli": "0.99"}}}
+    lc = lof_context(rec)
+    assert lc["intolerant"] is True and lc["loeuf"] == "0.12"
+    # in-frame (lof False) → no context
+    assert lof_context({"consequence": {"label": "in-frame indel", "lof": False}}) is None
+    # LoF but tolerant gene → present but not flagged intolerant
+    rec2 = {"consequence": {"label": "frameshift", "lof": True},
+            "gene_context": {"constraint": {"loeuf": "1.2", "pli": "0.01"}}}
+    assert lof_context(rec2)["intolerant"] is False
+
+
 def test_clingen_criteria_guards():
     from sugivariant.enrich import clingen_criteria
     assert clingen_criteria(None) is None       # no id → no fabrication, no biobtree call

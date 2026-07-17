@@ -126,6 +126,49 @@ def alphamissense_for(coord):
             "short": a.get("protein_variant"), "uniprot": a.get("uniprot_id")}
 
 
+def molecular_consequence(rec):
+    """Deterministic molecular consequence from HGVS grammar — DESCRIPTIVE typing,
+    never an applied PVS1/ACMG code (§8). Predicted-LoF classes (nonsense /
+    frameshift / canonical splice ±1,2 / start-loss) set lof=True. {type, label, lof}
+    or None. Mainly for the non-missense ~51% where the predictor panel is dark."""
+    p = rec.get("hgvs_p") or ""
+    c = rec.get("hgvs_c") or ""
+    if "fs" in p:
+        return {"type": "frameshift", "label": "frameshift", "lof": True}
+    if re.match(r"p\.Met1(\?|=|[A-Za-z]{3})", p):
+        return {"type": "start_loss", "label": "start-loss", "lof": True}
+    if re.match(r"p\.Ter\d", p) or "ext" in p:
+        return {"type": "stop_loss", "label": "stop-loss", "lof": True}
+    if "Ter" in p or re.search(r"\*\d*$", p):
+        return {"type": "nonsense", "label": "nonsense (stop-gain)", "lof": True}
+    if re.search(r"\d[+-][12](?![0-9])", c):
+        return {"type": "splice", "label": "canonical splice-site (±1/±2)", "lof": True}
+    if "delins" in p:
+        return {"type": "inframe_delins", "label": "in-frame delins", "lof": False}
+    if any(k in p for k in ("del", "dup", "ins")) and "fs" not in p:
+        return {"type": "inframe_indel", "label": "in-frame indel", "lof": False}
+    return None
+
+
+def lof_context(rec):
+    """Descriptive loss-of-function mechanism read: a predicted-LoF consequence
+    paired with the gene's population constraint (LOEUF/pLI, already in
+    gene_context). NOT an applied PVS1 code (§8) — it says 'predicted LoF in a
+    LoF-intolerant gene', it does not assign ACMG evidence. {label, loeuf, pli,
+    intolerant} or None."""
+    cons = rec.get("consequence")
+    if not cons or not cons.get("lof"):
+        return None
+    con = (rec.get("gene_context") or {}).get("constraint") or {}
+    loeuf, pli = con.get("loeuf"), con.get("pli")
+    try:
+        intolerant = ((loeuf is not None and float(loeuf) < 0.35)
+                      or (pli is not None and float(pli) >= 0.9))
+    except (TypeError, ValueError):
+        intolerant = False
+    return {"label": cons["label"], "loeuf": loeuf, "pli": pli, "intolerant": intolerant}
+
+
 def clingen_criteria(ca_id):
     """Full ClinGen VCEP variant-pathogenicity record by allele-registry (CA) id:
     the applied ACMG codes, per-criterion rationale, and provenance — the authority

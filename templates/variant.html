@@ -72,6 +72,8 @@
           <span class="section-sub">— ACMG-weighted</span></p>
           {% if v.am_isoform_mismatch %}<p class="section-sub" style="color:var(--flag)">⚠ Isoform check: AlphaMissense is numbered on a different transcript (AM {{ v.am_isoform_mismatch.am }} vs ClinVar {{ v.am_isoform_mismatch.clinvar }}) — verify the residue.</p>{% endif %}
         {% else %}<p class="section-sub"><b>Missense predictors do not apply</b> to this variant type (AlphaMissense/REVEL/SaProt score substitutions only); conservation{% if v.spliceai %}/SpliceAI{% endif %} carries the computational signal here.</p>{% endif %}
+        {% if v.lof_context %}<p><b>Consequence</b> {{ v.lof_context.label }} <span class="section-sub">— predicted loss-of-function{% if v.lof_context.intolerant %} in a LoF-intolerant gene{% endif %}{% if v.lof_context.loeuf is not none %} (LOEUF {{ v.lof_context.loeuf }}{% if v.lof_context.pli is not none %}, pLI {{ v.lof_context.pli }}{% endif %}){% endif %}; descriptive, not an applied PVS1 code</span></p>
+        {% elif v.consequence %}<p><b>Consequence</b> {{ v.consequence.label }}</p>{% endif %}
         {% if v.revel %}<p><b>REVEL</b> <span class="vv-num">{{ v.revel.score }}</span> <span class="section-sub">({{ v.revel.band }} — agreement signal)</span></p>{% endif %}
         {% if v.saprot %}<p><b>SaProt</b> <span class="vv-num">LLR {{ '%.2f'|format(v.saprot.llr) }}</span> <span class="section-sub">({{ 'damaging' if v.saprot.damaging else 'tolerated' }} — orthogonal, agreement signal)</span></p>{% endif %}
         {% if v.spliceai %}<p><b>SpliceAI</b> {{ v.spliceai.effect|replace('_',' ') }} <span class="vv-num">Δ{{ v.spliceai.score }}</span></p>{% endif %}

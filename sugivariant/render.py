@@ -319,17 +319,36 @@ def render_body(v, jsonld_tag=""):
     if exprs:
         L.append("\n**All HGVS expressions:** " + ", ".join(f"`{e}`" for e in exprs))
 
-    # Computational & population evidence — the cross-source concordance readout
+    # Computational & population evidence — the cross-source concordance readout.
+    # Renders when there's a concordance verdict OR a molecular-consequence read
+    # (non-missense LoF variants often have no coordinate → no verdict, but the
+    # consequence/LoF-context is still the key computational signal for them).
     conc = v.get("concordance") or {}
-    if conc.get("verdict"):
-        L += ["", "## Computational & population evidence {#evidence}", "",
-              f"**Concordance:** {conc['verdict']}.", ""]
-        L += [f"- {ln}" for ln in conc.get("lines", [])]
+    if conc.get("verdict") or v.get("lof_context") or v.get("consequence"):
+        L += ["", "## Computational & population evidence {#evidence}", ""]
+        if conc.get("verdict"):
+            L += [f"**Concordance:** {conc['verdict']}.", ""]
+            L += [f"- {ln}" for ln in conc.get("lines", [])]
         mm = v.get("am_isoform_mismatch")
         if mm:
             L.append(f"- ⚠ **Isoform check:** AlphaMissense is numbered on a different transcript "
                      f"(AM **{mm['am']}** vs ClinVar **{mm['clinvar']}**) — the AlphaMissense read here "
                      "may be for a different residue; verify against the ClinVar transcript.")
+        lof = v.get("lof_context")
+        if lof:
+            con = ", ".join(filter(None, [
+                f"LOEUF {lof['loeuf']}" if lof.get("loeuf") is not None else None,
+                f"pLI {lof['pli']}" if lof.get("pli") is not None else None]))
+            if lof["intolerant"]:
+                tail = (f" The gene is **loss-of-function-intolerant** ({con}), supporting a "
+                        "loss-of-function disease mechanism." if con else "")
+            else:
+                tail = (f" Gene constraint: {con} — not strongly LoF-depleted at the population "
+                        "level, so weigh against the gene's known disease mechanism." if con else "")
+            L.append(f"- Molecular consequence: **{lof['label']}** — a predicted loss-of-function "
+                     f"variant.{tail} *Descriptive; not an applied PVS1 code.*")
+        elif v.get("consequence"):
+            L.append(f"- Molecular consequence: **{v['consequence']['label']}**.")
         pctl = v.get("am_percentile")
         if pctl and pctl["top_pct"] <= 10:      # only when it's a genuine standout
             L.append(f"- AlphaMissense ranks this among the **top {pctl['top_pct']}%** "
