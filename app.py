@@ -311,6 +311,14 @@ async def home(q: str = ""):
                                 n_genes=s["genes"], n_flagged=s["flagged"]))
 
 
+@app.get("/suggest.json")
+async def suggest(q: str = ""):
+    from fastapi.responses import JSONResponse
+    ix = _index()
+    items = IX.suggest(ix, q) if ix else []
+    return JSONResponse(items, headers={"Cache-Control": "public, max-age=60"})
+
+
 @app.get("/about", response_class=HTMLResponse)
 async def about():
     return _render("about.html", nav="about")

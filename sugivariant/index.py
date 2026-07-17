@@ -149,6 +149,44 @@ def directory_genes(conn):
         "SELECT gene, COUNT(*) n FROM variant GROUP BY gene ORDER BY gene")]
 
 
+def suggest(conn, q, limit=8):
+    """Type-ahead suggestions. A single token → matching GENES (prefix). A gene +
+    partial change (e.g. 'PTEN R130') → matching VARIANTS via the alias keys. Returns
+    [{kind, label, sub, url}] (url is relative to the app base)."""
+    q = (q or "").strip()
+    if len(q) < 2:
+        return []
+    toks = [t for t in re.split(r"[\s,]+", q) if t]
+    gene_tok = next((t for t in toks if "." not in t and ">" not in t), None)
+    rest = " ".join(t for t in toks if t != gene_tok).strip() if gene_tok else ""
+    out = []
+    # gene + partial change → variant suggestions (match the normalized alias keys)
+    if gene_tok and rest:
+        key = f"{_norm(gene_tok)}-%{_norm_hgvs(rest)}%"
+        seen = set()
+        for r in conn.execute(
+                "SELECT v.slug, v.gene, v.hgvs_p, v.hgvs_c, v.classification "
+                "FROM alias a JOIN variant v ON v.vcv=a.vcv WHERE a.key LIKE ? LIMIT ?",
+                (key, limit * 2)):
+            if r["slug"] in seen:
+                continue
+            seen.add(r["slug"])
+            out.append({"kind": "variant", "url": r["slug"], "sub": r["classification"],
+                        "label": f"{r['gene']} {r['hgvs_p'] or r['hgvs_c']}"})
+            if len(out) >= limit:
+                break
+        if out:
+            return out
+    # otherwise → gene prefix suggestions (most-populated first)
+    pref = (gene_tok or toks[0]).upper() + "%"
+    for r in conn.execute(
+            "SELECT gene, n FROM gene_meta WHERE gene LIKE ? AND n>0 ORDER BY n DESC, gene LIMIT ?",
+            (pref, limit)):
+        out.append({"kind": "gene", "url": f"gene/{r['gene']}", "label": r["gene"],
+                    "sub": f"{r['n']} variants"})
+    return out
+
+
 def corpus_stats(conn):
     """Headline counts for the home page."""
     return {

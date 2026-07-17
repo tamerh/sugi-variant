@@ -102,6 +102,8 @@
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && menu.open) { close(); if (summary) summary.focus(); } });
     })();
   </script>
+  <script>window.BASE = "{{ base }}";</script>
+  <script src="{{ base }}/static/js/suggest.js?v={{ css_v() }}" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
