@@ -450,7 +450,7 @@ async def gene_hub(gene: str):
                    flagged=flagged, cap=_HUB_CAP)
 
 
-_VIEW_TEMPLATES = {"2": "variant_v2.html", "3": "variant_v3.html"}
+_VIEW_TEMPLATES = {"datasheet": "variant_v3.html", "classic": "variant_classic.html"}
 
 
 @app.get("/{slug}", response_class=HTMLResponse)
