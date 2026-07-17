@@ -45,13 +45,14 @@
   function render() {
     if (!items.length) { hide(); return; }
     box.innerHTML = items.map(function (it, i) {
-      var act = it.kind === "gene" ? "open" : "add";
-      return '<a class="ac-item' + (i === sel ? " ac-sel" : "") + '" role="option" data-i="' + i +
+      var isGene = it.kind === "gene";
+      var cls = "ac-item" + (i === sel ? " ac-sel" : "") + (isGene ? "" : " ac-add");
+      return '<a class="' + cls + '" role="option" data-i="' + i +
         '" href="' + BASE + "/" + it.url + '">' +
         '<span class="ac-kind ac-' + it.kind + '">' + it.kind + "</span>" +
         '<span class="ac-label">' + esc(it.label) + "</span>" +
         (it.sub ? '<span class="ac-sub">' + esc(it.sub) + "</span>" : "") +
-        '<span class="ac-act">' + act + "</span></a>";
+        '<span class="ac-act">' + (isGene ? "Open" : "Add") + "</span></a>";
     }).join("");
     box.style.display = "block";
   }
