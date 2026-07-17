@@ -306,3 +306,6 @@
 .ds-title,.ds-hgvs,.ds-ids,.vv-title,.vv-hgvs,.vv-ids{overflow-wrap:anywhere;word-break:break-word}
 /* safety net: any long token in body text wraps instead of overflowing */
 .vd-main p,.vd-card p,.vd-card dd,.vd-card li,.entity-main p{overflow-wrap:anywhere}
+/* classic view identity: grid item must be allowed to shrink (min-width:0) so a
+   long HGVS wraps instead of forcing the grid wider than the page */
+.vv-ident dd{min-width:0;overflow-wrap:anywhere;word-break:break-word}
