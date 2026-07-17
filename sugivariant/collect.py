@@ -8,7 +8,7 @@ ACMG assertion. Positional in-silico predictions (AlphaMissense/SpliceAI) are
 optional annotations, joined by substitution/position — never page generators.
 """
 from sugibiobtree import entry, map_all
-from sugivariant.slug import parse_hgvs, variant_slugs
+from sugivariant.slug import parse_hgvs, variant_slugs, name_gene
 from sugivariant import enrich as EN
 
 # Classifications we build pages for (Phase 1 gate: the high-value + most-searched
@@ -54,7 +54,10 @@ def collect(variation_id):
     if not should_build(cls):
         return None
 
-    gene = v.get("gene_symbol")
+    # Prefer the transcript gene from the HGVS name (authoritative) over ClinVar's
+    # primary gene_symbol, which for a genomic overlap can mis-file a host gene's
+    # variant under an antisense/lncRNA gene (e.g. a TTN variant under TTN-AS1).
+    gene = name_gene(v.get("name")) or v.get("gene_symbol")
     c_form, p_form = parse_hgvs(v.get("name"))
     canonical, slugs = variant_slugs(gene, c_form, p_form)
     if not canonical:

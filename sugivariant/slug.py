@@ -17,6 +17,18 @@ _C_RE = re.compile(r"(?<![A-Za-z])((?:c|n|m)\.[^\s)]+)")
 _P_RE = re.compile(r"\(p\.([^)]+)\)")
 
 
+_NAME_GENE_RE = re.compile(r"\(([^()]+)\):[cnmg]\.")
+
+
+def name_gene(name):
+    """The gene from a ClinVar NAME's transcript — 'NM_…(TTN):c.…' -> 'TTN'. This is
+    the AUTHORITATIVE gene (the transcript the variant is annotated on). Preferred
+    over ClinVar's primary gene_symbol, which for a genomic overlap can point at an
+    antisense/lncRNA gene (e.g. TTN-AS1) and mis-file the host gene's variant."""
+    m = _NAME_GENE_RE.search(name or "")
+    return m.group(1) if m else None
+
+
 def parse_hgvs(name):
     """(nucleotide_form, p_form) from a ClinVar `name`; either may be None. The
     nucleotide form is c./n./m. — so ncRNA and mitochondrial variants (which have no

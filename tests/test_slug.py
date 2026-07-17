@@ -62,3 +62,13 @@ def test_gene_symbol_with_dash_preserved():
     from sugivariant.slug import variant_slugs
     canonical, _ = variant_slugs("NKX2-1", None, "p.Arg100His")
     assert canonical == "nkx2-1-p-arg100his"
+
+
+def test_name_gene_prefers_transcript_gene():
+    from sugivariant.slug import name_gene
+    # authoritative gene = the transcript in the name (not ClinVar's overlap gene_symbol)
+    assert name_gene("NM_001267550.2(TTN):c.70690_70691dup (p.Thr23565fs)") == "TTN"
+    assert name_gene("NR_003051.4(RMRP):n.71A>G") == "RMRP"
+    assert name_gene("NC_012920.1(MT-TL1):m.3243A>G") == "MT-TL1"
+    assert name_gene("NM_004006.3(NKX2-1):c.100A>G") == "NKX2-1"   # dash in gene preserved
+    assert name_gene("no gene here") is None
