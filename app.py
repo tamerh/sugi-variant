@@ -377,9 +377,18 @@ def _corpus_stats():
     return _STATS_CACHE
 
 
+_SET_SPLIT = re.compile(r"[\n;,]+")
+
+
 @app.get("/")
 def home(q: str = ""):
-    if q.strip():
+    q = q.strip()
+    if q:
+        # a comma / newline / semicolon list of 2+ items → a variant set
+        parts = [p for p in (s.strip() for s in _SET_SPLIT.split(q)) if p]
+        if len(parts) > 1:
+            from urllib.parse import quote
+            return RedirectResponse(f"{BASE}/set?q={quote(q)}", status_code=307)
         return _resolution_response(*resolve_query(q))
     s = _corpus_stats()
     return HTMLResponse(_render("home.html", n_variants=s["variants"],
@@ -397,7 +406,7 @@ def variant_set(v: str = "", q: str = ""):
     # paste box → resolve each line via the shared resolver → canonical permalink
     if q.strip():
         slugs = []
-        for line in re.split(r"[\n;]+", q):
+        for line in _SET_SPLIT.split(q):
             line = line.strip()
             if not line:
                 continue
@@ -406,7 +415,7 @@ def variant_set(v: str = "", q: str = ""):
                     slugs.append(h["canonical_slug"])
         if slugs:
             return RedirectResponse(f"{BASE}/set?v=" + ",".join(slugs[:_SET_MAX]), status_code=307)
-        miss = [ln.strip() for ln in re.split(r"[\n;]+", q) if ln.strip()]
+        miss = [ln.strip() for ln in _SET_SPLIT.split(q) if ln.strip()]
         return HTMLResponse(_render("set.html", rows=[], missing=miss, stats=None,
                                     worklist=[], gene_groups=[], meta=CAT_META, nav="set", capped=False))
     reqs = [s.strip() for s in v.split(",") if s.strip()]

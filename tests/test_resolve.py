@@ -40,3 +40,16 @@ def test_non_missense_has_no_short_key():
     keys = _hgvs_keys(rec)
     assert _norm_hgvs("c.983_985del") in keys
     assert _norm_hgvs("p.Lys328del") in keys  # still matchable by the p. form
+
+
+def test_multi_variant_query_routes_to_set():
+    """A comma/newline/semicolon list of 2+ items is a set, not a single lookup —
+    the home handler must redirect it to /set (pure: no biobtree call)."""
+    from starlette.testclient import TestClient
+    import app
+    c = TestClient(app.app, follow_redirects=False)
+    r = c.get("/", params={"q": "PTEN R130Q, BRCA2 c.1000C>T, rs121909229"})
+    assert r.status_code == 307 and "/set?q=" in r.headers["location"]
+    # a single variant still goes through single-variant resolution (not /set)
+    assert app._SET_SPLIT.split("PTEN R130Q") == ["PTEN R130Q"]
+    assert len([p for p in app._SET_SPLIT.split("A;B\nC") if p]) == 3
