@@ -50,15 +50,20 @@
   }
   function render() {
     if (!items.length) { hide(); return; }
+    // Row is a <div> (not a link) so it carries no underline and can hold two
+    // independent action buttons. Variants → Add (to the set) + Open; genes → Open.
     box.innerHTML = items.map(function (it, i) {
       var isGene = it.kind === "gene";
       var cls = "ac-item" + (i === sel ? " ac-sel" : "") + (isGene ? "" : " ac-add");
-      return '<a class="' + cls + '" role="option" data-i="' + i +
-        '" href="' + BASE + "/" + it.url + '">' +
+      var acts = isGene
+        ? '<span class="ac-act ac-act-open" data-act="open">Open</span>'
+        : '<span class="ac-act ac-act-add" data-act="add">Add</span>' +
+          '<span class="ac-act ac-act-open" data-act="open">Open</span>';
+      return '<div class="' + cls + '" role="option" data-i="' + i + '">' +
         '<span class="ac-kind ac-' + it.kind + '">' + it.kind + "</span>" +
         '<span class="ac-label">' + esc(it.label) + "</span>" +
         (it.sub ? '<span class="ac-sub">' + esc(it.sub) + "</span>" : "") +
-        '<span class="ac-act">' + (isGene ? "Open" : "Add") + "</span></a>";
+        '<span class="ac-acts">' + acts + "</span></div>";
     }).join("");
     box.style.display = "block";
   }
@@ -72,13 +77,15 @@
         items = d || []; sel = -1; position(input); render();
       }).catch(hide);
   }
-  // Pick a suggestion: genes navigate; variants append to the box for a set.
-  function pick(input, i) {
+  function open(i) {
+    var it = items[i];
+    if (it) window.location.href = BASE + "/" + it.url;
+  }
+  function add(input, i) {                      // append a variant token to build a set
     var it = items[i];
     if (!it) return;
-    if (it.kind === "gene") { window.location.href = BASE + "/" + it.url; return; }
     var t = tokens(input).map(function (s) { return s.trim(); });
-    t.pop();                                   // drop the partial being typed
+    t.pop();                                    // drop the partial being typed
     t = t.filter(Boolean);
     t.push(it.label);
     input.value = t.join(", ") + ", ";
@@ -86,6 +93,14 @@
     hide();
     input.focus();
     position(input);
+  }
+  // The row's default action (keyboard Enter / clicking the row body): genes open,
+  // variants add. An explicit Open button always navigates.
+  function pick(input, i, act) {
+    var it = items[i];
+    if (!it) return;
+    if (act === "open" || it.kind === "gene") { open(i); return; }
+    add(input, i);
   }
   function onInput(e) {
     curInput = e.target; autogrow(curInput); position(curInput);
@@ -116,10 +131,11 @@
   });
   box.addEventListener("mousedown", function (e) { e.preventDefault(); });   // keep input focus on click
   box.addEventListener("click", function (e) {
-    var a = e.target.closest(".ac-item");
-    if (!a || !curInput) return;
+    var row = e.target.closest(".ac-item");
+    if (!row || !curInput) return;
     e.preventDefault();
-    pick(curInput, +a.getAttribute("data-i"));
+    var btn = e.target.closest(".ac-act");                 // clicked a specific button?
+    pick(curInput, +row.getAttribute("data-i"), btn && btn.getAttribute("data-act"));
   });
   window.addEventListener("resize", function () { if (curInput) position(curInput); });
   window.addEventListener("scroll", function () { if (curInput && box.style.display !== "none") position(curInput); }, true);

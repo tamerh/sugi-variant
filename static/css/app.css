@@ -244,16 +244,18 @@
 .set-flagged{background:color-mix(in srgb, var(--flag) 7%, transparent)}
 .set-table tbody tr{border-top:1px solid var(--line2,#eef1f4)}
 
-/* ── autocomplete: per-row action button (Add a variant / Open a gene) ── */
-.ac-item{align-items:center}                 /* was baseline — center the button vertically */
-.ac-act{margin-left:.6rem;flex:none;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
-  border-radius:6px;padding:.22rem .55rem;line-height:1;white-space:nowrap;
-  color:var(--accent,#2563eb);background:var(--accent-soft,#eef2ff);
+/* ── autocomplete: per-row action buttons (Add a variant / Open) ── */
+.ac-item{align-items:center;text-decoration:none}          /* div rows: no link underline */
+.ac-acts{display:flex;gap:.4rem;flex:none;margin-left:.6rem}
+.ac-act{cursor:pointer;flex:none;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  border-radius:6px;padding:.22rem .55rem;line-height:1;white-space:nowrap;transition:background .1s,color .1s}
+.ac-act-add{color:var(--conflict,#8e44ad);background:var(--conflict-soft,#f5eefa);
+  border:1px solid color-mix(in srgb,var(--conflict,#8e44ad) 35%,transparent)}
+.ac-act-open{color:var(--accent,#2563eb);background:var(--accent-soft,#eef2ff);
   border:1px solid color-mix(in srgb,var(--accent,#2563eb) 35%,transparent)}
-.ac-item.ac-add .ac-act{color:var(--conflict,#8e44ad);background:var(--conflict-soft,#f5eefa);
-  border-color:color-mix(in srgb,var(--conflict,#8e44ad) 35%,transparent)}
-.ac-item.ac-sel .ac-act,.ac-item:hover .ac-act{color:#fff;background:var(--accent,#2563eb);border-color:var(--accent,#2563eb)}
-.ac-item.ac-add.ac-sel .ac-act,.ac-item.ac-add:hover .ac-act{background:var(--conflict,#8e44ad);border-color:var(--conflict,#8e44ad)}
+/* the highlighted row fills its primary button; hovering a button fills that button */
+.ac-item.ac-add.ac-sel .ac-act-add,.ac-act-add:hover{color:#fff;background:var(--conflict,#8e44ad);border-color:var(--conflict,#8e44ad)}
+.ac-item:not(.ac-add).ac-sel .ac-act-open,.ac-act-open:hover{color:#fff;background:var(--accent,#2563eb);border-color:var(--accent,#2563eb)}
 .ac-hint{margin:.55rem auto 0;text-align:center;font-size:.8rem;color:var(--fg-soft,#6b7280)}
 .ac-hint kbd{font-family:ui-monospace,monospace;font-size:.72rem;border:1px solid var(--border,#d1d5db);
   border-bottom-width:2px;border-radius:5px;padding:.02rem .3rem;background:var(--bg,#fff)}
