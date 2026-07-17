@@ -279,3 +279,23 @@
   border-color:color-mix(in srgb,var(--conflict,#8e44ad) 32%,transparent)}
 .hero-chip-set:hover{border-color:var(--conflict,#8e44ad)}
 [data-theme="dark"] .hero-chip-set{color:var(--conflict,#c39bd3)}
+
+/* ── set page: toolbar (filter / flagged-only / copy) + sortable headers ── */
+.set-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem .9rem;margin:0 0 .9rem}
+.set-filter{flex:1 1 240px;min-width:160px;max-width:380px;padding:.45rem .7rem;
+  border:1px solid var(--border,#e5e7eb);border-radius:8px;background:var(--bg,#fff);color:var(--fg);
+  font:inherit;font-size:.9rem}
+.set-filter:focus{outline:none;border-color:var(--accent,#2563eb);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,#2563eb) 14%,transparent)}
+.set-toggle{display:inline-flex;align-items:center;gap:.4rem;font-size:.9rem;color:var(--fg-muted,#6b7280);
+  cursor:pointer;user-select:none;white-space:nowrap}
+.set-toggle input{accent-color:var(--flag,#c77800)}
+.set-toggle-n{background:var(--flag,#c77800);color:#fff;border-radius:999px;padding:.02rem .42rem;
+  font-size:.74rem;font-weight:700;font-variant-numeric:tabular-nums}
+.set-copy{cursor:pointer}
+.set-copy.is-copied{color:var(--ok,#2e7d32);border-color:var(--ok,#2e7d32)}
+.set-table th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+.set-table th.sortable:hover{color:var(--accent,#2563eb)}
+.set-table th[data-dir]{color:var(--accent,#2563eb)}
+.set-table th[data-dir]::after{content:"▲";font-size:.62em;margin-left:.32em;vertical-align:middle}
+.set-table th[data-dir="desc"]::after{content:"▼"}
+.set-nomatch{padding:.8rem 0}
