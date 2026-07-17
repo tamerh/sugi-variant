@@ -57,6 +57,23 @@ def test_ncrna_and_mito_hgvs_parse_and_slug():
     assert parse_hgvs("NM_000546.6(TP53):c.743G>A")[0] == "c.743G>A"
 
 
+def test_long_delins_slug_is_capped_and_stable():
+    # a delins with a huge inserted sequence must not yield a 300+ char URL
+    from sugivariant.slug import variant_slugs, _cap, _SLUG_MAX
+    seq = "ggaaacgaatggaatcatcatcgaat" * 12          # ~312 bp of satellite DNA
+    c = f"c.919+15_919+17delins{seq.upper()}"
+    canonical, slugs = variant_slugs("TP53", c, None)
+    assert len(canonical) <= _SLUG_MAX
+    assert canonical.startswith("tp53-c-919-plus-15-919-plus-17delins")
+    # deterministic: same input → same slug every time
+    assert variant_slugs("TP53", c, None)[0] == canonical
+    # distinct long inserts → distinct slugs (hash disambiguates)
+    other = variant_slugs("TP53", c + "AAA", None)[0]
+    assert other != canonical
+    # a normal-length slug is returned untouched
+    assert _cap("tp53-p-arg175his") == "tp53-p-arg175his"
+
+
 def test_gene_symbol_with_dash_preserved():
     # a gene like NKX2-1 must not get mangled by the HGVS operator mapping
     from sugivariant.slug import variant_slugs

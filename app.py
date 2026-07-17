@@ -130,9 +130,21 @@ def _resolve(slug):
     gene = _gene_of(slug)
     if not gene:
         return None
-    for r in _records(gene):
+    recs = _records(gene)
+    for r in recs:
         if r["canonical_slug"] == slug or slug in (r.get("slugs") or []):
             return r
+    # Fallback: a legacy/alias-only slug (e.g. the pre-cap URL of an over-long
+    # delins) lives in the index alias table but not in the record's current slug
+    # list — resolve it to a VCV and match the record by id.
+    ix = _index()
+    if ix:
+        hits = IX.lookup(ix, slug)
+        if hits:
+            vcv = str(hits[0]["vcv"])
+            for r in recs:
+                if str(r.get("variation_id")) == vcv:
+                    return r
     return None
 
 

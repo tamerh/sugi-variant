@@ -62,7 +62,9 @@ def variant_keys(rec):
         keys.add(f"{g}-{_norm_hgvs(short)}")
     for form in (rec.get("hgvs_p"), rec.get("hgvs_c")):
         if form:
-            keys.add(f"{g}-{_norm_hgvs(re.sub(r'^[pc][.]', '', form))}")
+            keys.add(f"{g}-{_norm_hgvs(re.sub(r'^[pc][.]', '', form))}")  # operator-stripped
+            keys.add(f"{g}-{_norm_hgvs(form)}")   # full form incl. c./p. — the pre-cap slug, so an
+                                                  # over-long variant's old (uncapped) URL still resolves
     return {k for k in keys if k}
 
 

@@ -7,7 +7,10 @@ search demand comes as both `acta1 "pro309ala"` and `"c.925c>g" acta1`.
 Canonical = the p. form when present (the more-searched shape); the c. form is a
 same-page alias.
 """
+import hashlib
 import re
+
+_SLUG_MAX = 72
 
 # ClinVar `name` looks like: "NM_001100.4(ACTA1):c.983_985del (p.Lys328del)".
 # The nucleotide-level form is coding c. for protein genes, n. for non-coding RNA
@@ -58,17 +61,29 @@ def _norm_hgvs(s):
     return s.strip("-")
 
 
+def _cap(slug):
+    """Bound a slug's length. A large delins/ins insertion sequence (satellite DNA,
+    etc.) would otherwise yield a 300+ char URL. Keep a readable prefix and append a
+    short deterministic hash of the full form — stable across builds and collision-
+    safe. Normal variants (well under the cap) are returned unchanged."""
+    if len(slug) <= _SLUG_MAX:
+        return slug
+    h = hashlib.sha1(slug.encode()).hexdigest()[:8]
+    return slug[:_SLUG_MAX - 9].rstrip("-") + "-" + h
+
+
 def variant_slugs(gene, c_form, p_form):
     """(canonical_slug, [all_slugs]) — canonical is the p. form when present,
     else c.; every distinct form is emitted as an alias so either query shape
-    lands the same page. None,[] if neither HGVS parses."""
+    lands the same page. None,[] if neither HGVS parses. Over-long slugs (huge
+    delins insertions) are capped to a prefix + hash so URLs stay sane."""
     g = _norm(gene)
     if not g:
         return None, []
     out = []
     for form in (p_form, c_form):        # p. first → canonical
         if form:
-            slug = f"{g}-{_norm_hgvs(form)}"
+            slug = _cap(f"{g}-{_norm_hgvs(form)}")
             if slug not in out:
                 out.append(slug)
     return (out[0] if out else None), out
