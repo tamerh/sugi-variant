@@ -13,14 +13,14 @@
     <p class="breadcrumb">
       <a href="{{ base }}/">Sugi Variant</a><span>/</span>
       <a href="{{ base }}/gene/{{ v.gene_symbol }}">{{ v.gene_symbol }}</a><span>/</span>
-      {{ v.hgvs_p or v.hgvs_c }}
+      {{ hgvs_disp(v.hgvs_p or v.hgvs_c) }}
     </p>
 
     {# ── ZONE A · VERDICT CARD ─────────────────────────────────────────── #}
     <section class="vv-verdict vv-cls-{{ cls_class(v.classification) }}">
       <div class="vv-verdict-head">
-        <h1 class="vv-title">{{ v.gene_symbol }} <span class="vv-hgvs">{{ v.hgvs_p or v.hgvs_c }}</span>
-          {% if v.hgvs_p and v.hgvs_c %}<span class="vv-hgvs-alt">({{ v.hgvs_c }})</span>{% endif %}</h1>
+        <h1 class="vv-title">{{ v.gene_symbol }} <span class="vv-hgvs">{{ hgvs_disp(v.hgvs_p or v.hgvs_c) }}</span>
+          {% if v.hgvs_p and v.hgvs_c %}<span class="vv-hgvs-alt">({{ hgvs_disp(v.hgvs_c) }})</span>{% endif %}</h1>
         <p class="vv-ids">
           {% if v.rsid %}<a href="https://www.ncbi.nlm.nih.gov/snp/{{ v.rsid }}/">{{ v.rsid }}</a> · {% endif %}
           <a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/{{ v.variation_id }}/">VCV{{ v.variation_id }}</a>

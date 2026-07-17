@@ -299,3 +299,10 @@
 .set-table th[data-dir]::after{content:"▲";font-size:.62em;margin-left:.32em;vertical-align:middle}
 .set-table th[data-dir="desc"]::after{content:"▼"}
 .set-nomatch{padding:.8rem 0}
+
+/* ── never let a long HGVS (huge delins) push the page into horizontal scroll ── */
+.vd-head-main{min-width:0}
+.vd-title,.vd-hgvs,.vd-ids,.vd-dl dd,.breadcrumb{overflow-wrap:anywhere;word-break:break-word;min-width:0}
+.ds-title,.ds-hgvs,.ds-ids,.vv-title,.vv-hgvs,.vv-ids{overflow-wrap:anywhere;word-break:break-word}
+/* safety net: any long token in body text wraps instead of overflowing */
+.vd-main p,.vd-card p,.vd-card dd,.vd-card li,.entity-main p{overflow-wrap:anywhere}

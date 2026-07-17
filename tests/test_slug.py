@@ -89,3 +89,16 @@ def test_name_gene_prefers_transcript_gene():
     assert name_gene("NC_012920.1(MT-TL1):m.3243A>G") == "MT-TL1"
     assert name_gene("NM_004006.3(NKX2-1):c.100A>G") == "NKX2-1"   # dash in gene preserved
     assert name_gene("no gene here") is None
+
+
+def test_short_hgvs_collapses_long_insertions():
+    from sugivariant.render import short_hgvs
+    long_c = "c.919+15_919+17delins" + "ACGT" * 90        # 360 bp insert
+    out = short_hgvs(long_c)
+    assert out.startswith("c.919+15_919+17delins") and "[360 bp]" in out and len(out) < 50
+    # protein insertion counted in residues
+    assert "[15 aa]" in short_hgvs("p.Lys1_Thr2ins" + "Gly" * 15)
+    # normal HGVS untouched
+    assert short_hgvs("c.925C>G") == "c.925C>G"
+    assert short_hgvs("p.Arg175His") == "p.Arg175His"
+    assert short_hgvs(None) is None

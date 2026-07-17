@@ -32,7 +32,7 @@
         {% for r in groups[cat] %}
         <li class="dz-row">
           <a class="dz-row-link" href="{{ base }}/{{ r.slug }}">
-            <span class="dz-row-name">{{ gene }} <b>{{ r.hgvs_p or r.hgvs_c }}</b></span>
+            <span class="dz-row-name">{{ gene }} <b>{{ hgvs_disp(r.hgvs_p or r.hgvs_c) }}</b></span>
             <span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(r.classification) }}">{{ r.classification|replace('Conflicting classifications of pathogenicity','Conflicting') }}</span>
             <span class="rv-badge rv{{ r.stars }} rv-sm" title="{{ r.stars }}-star review">{{ tier_label(r.stars) }}</span>
           </a>

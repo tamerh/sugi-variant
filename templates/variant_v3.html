@@ -9,10 +9,10 @@
 <article class="entity-page ds">
   <div class="container container-narrow">
     <p class="breadcrumb"><a href="{{ base }}/">Sugi Variant</a><span>/</span>
-      <a href="{{ base }}/gene/{{ v.gene_symbol }}">{{ v.gene_symbol }}</a><span>/</span>{{ v.hgvs_p or v.hgvs_c }}</p>
+      <a href="{{ base }}/gene/{{ v.gene_symbol }}">{{ v.gene_symbol }}</a><span>/</span>{{ hgvs_disp(v.hgvs_p or v.hgvs_c) }}</p>
 
     <header class="ds-head vv-cls-{{ cls_class(v.classification) }}">
-      <h1 class="ds-title">{{ v.gene_symbol }} <span class="vd-hgvs">{{ v.hgvs_p or v.hgvs_c }}</span></h1>
+      <h1 class="ds-title">{{ v.gene_symbol }} <span class="vd-hgvs">{{ hgvs_disp(v.hgvs_p or v.hgvs_c) }}</span></h1>
       <div class="ds-verdict">
         <span class="vv-pill vv-pill-cls">{{ v.classification }}</span>
         <span class="rv-badge {{ st.cls }}" title="{{ v.review_status }}">{{ st.label }}</span>

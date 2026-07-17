@@ -1,8 +1,28 @@
 """Deterministic markdown renderer for a variant record — NO model. Mirrors the
 gene/drug/disease renderers: every fact verbatim from the collected record.
 """
+import re
+
 from sugivariant import links
 from sugivariant.util import table
+
+# A delins/ins/dup can carry a huge inserted sequence (satellite DNA, etc.). For
+# DISPLAY, collapse a long run to a short preview + length so it doesn't blow out
+# the page title/heading. The full HGVS is still shown (wrapped) in the identity
+# section, and resolution is unaffected (this is presentation only).
+_LONG_INS_RE = re.compile(r"((?:delins|ins|dup))([A-Za-z]{25,})")
+
+
+def short_hgvs(s, keep=10):
+    if not s:
+        return s
+    m = _LONG_INS_RE.search(s)
+    if not m:
+        return s
+    seq = m.group(2)
+    nt = set(seq.upper()) <= set("ACGTN")
+    n, unit = (len(seq), "bp") if nt else (len(seq) // 3, "aa")
+    return s[:m.start(2)] + f"{seq[:keep]}…[{n} {unit}]"
 
 # Data sources + attribution. AlphaMissense (CC BY 4.0) and REVEL (ODbL) legally
 # REQUIRE attribution; the rest are credited as good practice. Everything here is
@@ -58,9 +78,10 @@ def _review(review_status):
 
 
 def _label(v):
-    """Human page label: 'ACTA1 p.Gln248Lys (c.742C>A)'."""
+    """Human page label: 'ACTA1 p.Gln248Lys (c.742C>A)'. Long insertions are
+    collapsed for display (see short_hgvs)."""
     g = v.get("gene_symbol") or ""
-    p, c = v.get("hgvs_p"), v.get("hgvs_c")
+    p, c = short_hgvs(v.get("hgvs_p")), short_hgvs(v.get("hgvs_c"))
     core = f"{g} {p}" if p else f"{g} {c}" if c else g
     return core + (f" ({c})" if p and c else "")
 

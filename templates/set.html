@@ -57,7 +57,7 @@
       {% for r in worklist %}
       <li class="dz-row dz-tone-{{ meta[r.flag].tone }}">
         <a class="dz-row-link" href="{{ base }}/{{ r.slug }}">
-          <span class="dz-row-name">{{ r.gene }} <b>{{ r.hgvs_p or r.hgvs_c }}</b></span>
+          <span class="dz-row-name">{{ r.gene }} <b>{{ hgvs_disp(r.hgvs_p or r.hgvs_c) }}</b></span>
           <span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(r.classification) }}">{{ r.classification|replace('Conflicting classifications of pathogenicity','Conflicting') }}</span>
           <span class="dz-chip dz-tone-{{ meta[r.flag].tone }}">{{ meta[r.flag].label }}</span>
         </a>
@@ -90,7 +90,7 @@
         <tbody>
           {% for r in rows %}
           <tr class="{{ 'set-flagged' if r.flag }}" data-flag="{{ 1 if r.flag else 0 }}">
-            <td data-sv="{{ r.hgvs_p or r.hgvs_c }}"><a href="{{ base }}/{{ r.slug }}"><b>{{ r.hgvs_p or r.hgvs_c }}</b></a></td>
+            <td data-sv="{{ r.hgvs_p or r.hgvs_c }}"><a href="{{ base }}/{{ r.slug }}"><b>{{ hgvs_disp(r.hgvs_p or r.hgvs_c) }}</b></a></td>
             <td data-sv="{{ r.gene }}"><a href="{{ base }}/gene/{{ r.gene }}">{{ r.gene }}</a></td>
             <td data-sv="{{ clsrank.get(r.classification, 9) }}"><span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(r.classification) }}">{{ r.classification|replace('Conflicting classifications of pathogenicity','Conflicting') }}</span></td>
             <td data-sv="{{ r.stars }}"><span class="rv-badge rv{{ r.stars }} rv-sm" title="{{ r.review_status }}">{{ tier_label(r.stars) }}</span></td>

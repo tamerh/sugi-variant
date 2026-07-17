@@ -57,7 +57,8 @@ def stars(review_status):
     return review_tier(review_status)
 
 
-env.globals.update(label=variant_label, cls_class=cls_class, stars=stars)
+from sugivariant.render import short_hgvs as _short_hgvs   # noqa: E402
+env.globals.update(label=variant_label, cls_class=cls_class, stars=stars, hgvs_disp=_short_hgvs)
 # Data-source attribution (AlphaMissense CC BY 4.0 + REVEL ODbL require it) — single
 # source of truth in render.py so HTML and the markdown twin can't drift.
 from sugivariant.render import data_provenance           # noqa: E402

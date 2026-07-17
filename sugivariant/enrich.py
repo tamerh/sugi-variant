@@ -765,8 +765,9 @@ def mechanism_narrative(rec, pathways):
     top_fn = (pathways or {}).get("top_function")
     if not (disease_pw or top_fn):
         return None
+    from sugivariant.render import short_hgvs   # local: render has no top-level enrich dep
     gene = rec.get("gene_symbol")
-    pchange = rec.get("hgvs_p") or rec.get("hgvs_c")
+    pchange = short_hgvs(rec.get("hgvs_p") or rec.get("hgvs_c"))
     vtype = (rec.get("variant_type") or "variant").lower()
     lead = f"This {vtype} alters {gene} at {pchange}"
     st = rec.get("structural") or {}
