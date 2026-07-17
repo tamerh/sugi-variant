@@ -84,6 +84,15 @@ def _gene_of(slug):
     return slug[:m.start()] if m else None
 
 
+import threading                                        # noqa: E402
+_GENE_LOCKS, _LOCKS_LOCK = {}, threading.Lock()
+
+
+def _gene_lock(g):
+    with _LOCKS_LOCK:
+        return _GENE_LOCKS.setdefault(g, threading.Lock())
+
+
 def _records(gene):
     g = gene.upper()
     if g in _GENE_CACHE:
@@ -91,23 +100,29 @@ def _records(gene):
     import gzip
     import pickle
     path = _RECORDS_DIR / f"{g}.pkl.gz"
-    if path.exists():
-        try:
-            with gzip.open(path, "rb") as f:
-                _GENE_CACHE[g] = pickle.load(f)
+    # per-gene lock: only ONE thread builds a given gene; concurrent hits wait and
+    # then get the cached result (no duplicate multi-minute whale builds).
+    with _gene_lock(g):
+        if g in _GENE_CACHE:
             return _GENE_CACHE[g]
-        except Exception:
-            pass
-    recs = enriched_records(g) or []
-    _GENE_CACHE[g] = recs
-    try:
-        _RECORDS_DIR.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
-        with gzip.open(tmp, "wb") as f:
-            pickle.dump(recs, f)
-        tmp.replace(path)            # atomic
-    except Exception:
-        pass
+        if path.exists():
+            try:
+                with gzip.open(path, "rb") as f:
+                    _GENE_CACHE[g] = pickle.load(f)
+                return _GENE_CACHE[g]
+            except Exception:
+                pass
+        recs = enriched_records(g) or []
+        _GENE_CACHE[g] = recs
+        if recs:                     # don't persist empty/invalid-gene results
+            try:
+                _RECORDS_DIR.mkdir(parents=True, exist_ok=True)
+                tmp = path.with_suffix(".tmp")
+                with gzip.open(tmp, "wb") as f:
+                    pickle.dump(recs, f)
+                tmp.replace(path)    # atomic
+            except Exception:
+                pass
     return recs
 
 
@@ -330,7 +345,7 @@ def _corpus_stats():
 
 
 @app.get("/")
-async def home(q: str = ""):
+def home(q: str = ""):
     if q.strip():
         return _resolution_response(*resolve_query(q))
     s = _corpus_stats()
@@ -344,7 +359,7 @@ _FLAG_SEVERITY = {"predictor_vs_clinvar": 3, "resolves_conflicting": 2,
 
 
 @app.get("/set", response_class=HTMLResponse)
-async def variant_set(v: str = "", q: str = ""):
+def variant_set(v: str = "", q: str = ""):
     ix = _index()
     # paste box → resolve each line via the shared resolver → canonical permalink
     if q.strip():
@@ -387,7 +402,7 @@ async def variant_set(v: str = "", q: str = ""):
 
 
 @app.get("/suggest.json")
-async def suggest(q: str = ""):
+def suggest(q: str = ""):
     from fastapi.responses import JSONResponse
     ix = _index()
     items = IX.suggest(ix, q) if ix else []
@@ -395,17 +410,17 @@ async def suggest(q: str = ""):
 
 
 @app.get("/about", response_class=HTMLResponse)
-async def about():
+def about():
     return _render("about.html", nav="about")
 
 
 @app.get("/method", response_class=HTMLResponse)
-async def method():
+def method():
     return _render("method.html", nav="method")
 
 
 @app.get("/genes", response_class=HTMLResponse)
-async def genes_directory():
+def genes_directory():
     ix = _index()
     if not ix:
         raise StarletteHTTPException(503, "Gene directory needs the resolution index.")
@@ -432,7 +447,7 @@ def _index_lastmod():
 
 
 @app.get("/sitemap.xml")
-async def sitemap():
+def sitemap():
     # Sitemap INDEX (not a flat urlset): a 600k-URL urlset breaches the sitemaps.org
     # 50k/50MB cap and Google silently drops it. One child sitemap per gene, each
     # well under the cap.
@@ -451,7 +466,7 @@ async def sitemap():
 
 
 @app.get("/sitemap-{gene}.xml")
-async def sitemap_gene(gene: str):
+def sitemap_gene(gene: str):
     ix = _index()
     if not ix:
         raise StarletteHTTPException(503, "Sitemap needs the resolution index.")
@@ -468,7 +483,7 @@ async def sitemap_gene(gene: str):
 
 
 @app.get("/disagreements", response_class=HTMLResponse)
-async def disagreements_hub():
+def disagreements_hub():
     # Counts only for genes already built (cold BRCA2 ≈ minutes) — link the rest.
     featured = []
     for g in FEATURED_GENES:
@@ -481,7 +496,7 @@ async def disagreements_hub():
 
 
 @app.get("/disagreements/{gene}", response_class=HTMLResponse)
-async def disagreements_gene(gene: str):
+def disagreements_gene(gene: str):
     gene = gene.upper().strip("/")
     recs = _records(gene)
     if not recs:
@@ -499,7 +514,7 @@ _HUB_CAP = 300   # per-classification display cap (sitemap carries the full set)
 
 
 @app.get("/gene/{gene}", response_class=HTMLResponse)
-async def gene_hub(gene: str):
+def gene_hub(gene: str):
     g = gene.upper().strip("/")
     ix = _index()
     rows = IX.gene_rows(ix, g) if ix else None
@@ -529,7 +544,7 @@ _VIEW_TEMPLATES = {"datasheet": "variant_v3.html", "classic": "variant_classic.h
 
 
 @app.get("/{slug}", response_class=HTMLResponse)
-async def variant_page(slug: str, view: str = ""):
+def variant_page(slug: str, view: str = ""):
     slug = slug.lower().strip("/")
     if _RSID_RE.match(slug):                       # rsID URL → dbSNP reverse-map
         return _resolution_response("rsid", slug, resolve_rsid(slug))
