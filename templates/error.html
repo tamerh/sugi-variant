@@ -1,9 +1,36 @@
 {% extends "base.html" %}
 {% block title %}{{ code }}{% endblock %}
 {% block content %}
-<div class="container"><section class="entity-main" style="text-align:center;padding:3rem 1rem">
-  <h1 class="section-title" style="justify-content:center">{{ code }}</h1>
-  <p>{{ detail or "Something went wrong." }}</p>
-  <p><a class="btn btn-ghost" href="{{ base }}/">← Home</a></p>
-</section></div>
+<div class="container container-narrow">
+  <section class="entity-main" style="text-align:center;padding:clamp(2rem,6vw,4rem) 1rem">
+    <p class="hero-eyebrow" style="justify-content:center">Sugi Variant · {{ code }}</p>
+    <h1 class="hero-title" style="text-wrap:balance">
+      {% if code == 404 %}That page isn’t here{% else %}Something went wrong{% endif %}
+    </h1>
+    <p class="hero-lead" style="margin-left:auto;margin-right:auto">
+      {% if code == 404 %}
+        {{ detail or "No page at that address." }} It may be a variant we don’t build (we cover only
+        Pathogenic / Likely-pathogenic / Conflicting), or a typo. Search for a variant, gene, or rsID:
+      {% else %}
+        {{ detail or "An unexpected error occurred." }}
+      {% endif %}
+    </p>
+
+    {% if code == 404 %}
+    <form class="hero-search-box" action="{{ base }}/" method="get" role="search"
+          style="max-width:32rem;margin:1.4rem auto 0">
+      <span class="search-icon-large" aria-hidden="true">⌕</span>
+      <input name="q" type="search" placeholder="e.g. PTEN R130Q · rs121909229 · BRCA2"
+             autocomplete="off" aria-label="Search Sugi Variant" enterkeyhint="search">
+    </form>
+    <div class="hero-chips" style="justify-content:center;margin-top:1.2rem">
+      <a class="hero-chip hero-chip-target" href="{{ base }}/genes">Browse genes</a>
+      <a class="hero-chip hero-chip-drug" href="{{ base }}/disagreements">Evidence disagreements</a>
+      <a class="hero-chip hero-chip-drug" href="{{ base }}/about">About</a>
+    </div>
+    {% else %}
+    <p style="margin-top:1.4rem"><a class="btn btn-ghost" href="{{ base }}/">← Home</a></p>
+    {% endif %}
+  </section>
+</div>
 {% endblock %}
