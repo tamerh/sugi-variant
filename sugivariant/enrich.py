@@ -152,21 +152,34 @@ def molecular_consequence(rec):
 
 def lof_context(rec):
     """Descriptive loss-of-function mechanism read: a predicted-LoF consequence
-    paired with the gene's population constraint (LOEUF/pLI, already in
-    gene_context). NOT an applied PVS1 code (§8) — it says 'predicted LoF in a
-    LoF-intolerant gene', it does not assign ACMG evidence. {label, loeuf, pli,
-    intolerant} or None."""
+    paired with the evidence that LoF causes disease for this gene. The PRIMARY
+    signal is ClinGen dosage haploinsufficiency (curated: score 3 = sufficient
+    evidence); gnomAD constraint (LOEUF/pLI) is supporting population evidence.
+    NOT an applied PVS1 code (§8) — it never assigns ACMG evidence. Returns
+    {label, loeuf, pli, haplo, haploinsufficient, constrained, lof_disease_gene}
+    or None."""
     cons = rec.get("consequence")
     if not cons or not cons.get("lof"):
         return None
-    con = (rec.get("gene_context") or {}).get("constraint") or {}
-    loeuf, pli = con.get("loeuf"), con.get("pli")
+    gc = rec.get("gene_context") or {}
+    con, dos = gc.get("constraint") or {}, gc.get("dosage") or {}
+    loeuf, pli, haplo = con.get("loeuf"), con.get("pli"), dos.get("haplo")
+
+    def _int(x):
+        try:
+            return int(float(x))
+        except (TypeError, ValueError):
+            return None
+
+    haploinsufficient = _int(haplo) == 3          # ClinGen: sufficient evidence
     try:
-        intolerant = ((loeuf is not None and float(loeuf) < 0.35)
-                      or (pli is not None and float(pli) >= 0.9))
+        constrained = ((loeuf is not None and float(loeuf) < 0.35)
+                       or (pli is not None and float(pli) >= 0.9))
     except (TypeError, ValueError):
-        intolerant = False
-    return {"label": cons["label"], "loeuf": loeuf, "pli": pli, "intolerant": intolerant}
+        constrained = False
+    return {"label": cons["label"], "loeuf": loeuf, "pli": pli, "haplo": haplo,
+            "haploinsufficient": haploinsufficient, "constrained": constrained,
+            "lof_disease_gene": haploinsufficient or constrained}
 
 
 def clingen_criteria(ca_id):
@@ -475,7 +488,8 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
 
 
 # Category order for the /disagreements browse view (higher = surfaced first).
-DISAGREEMENT_CATEGORIES = ("predictor_vs_clinvar", "resolves_conflicting", "predictors_split")
+DISAGREEMENT_CATEGORIES = ("predictor_vs_clinvar", "resolves_conflicting",
+                           "lof_resolves_conflicting", "predictors_split")
 
 
 def disagreement_flag(rec):
@@ -484,11 +498,13 @@ def disagreement_flag(rec):
     {category, label, reason, severity} or None.
 
     The three disagreements no competitor surfaces (benchmark 2026-07):
-      predictor_vs_clinvar — a pathogenic/LP ClinVar call the predictors lean against
-                             (AlphaMissense — the ACMG-weighted tool — calls benign, or
-                             the in-silico consensus is majority-tolerant)
-      resolves_conflicting — ClinVar is 'conflicting', but the predictors are unanimous
-      predictors_split     — the independent predictors disagree with each other
+      predictor_vs_clinvar     — a pathogenic/LP ClinVar call the predictors lean against
+                                 (AlphaMissense — the ACMG-weighted tool — calls benign, or
+                                 the in-silico consensus is majority-tolerant)
+      resolves_conflicting     — ClinVar 'conflicting', but the missense predictors agree
+      lof_resolves_conflicting — ClinVar 'conflicting', but it's a predicted loss-of-function
+                                 change in a LoF-intolerant gene (the non-missense analog)
+      predictors_split         — the independent predictors disagree with each other
 
     Descriptive only — a QC signal, NOT a reclassification (ClinGen SVI, HANDOVER §8)."""
     c = rec.get("concordance") or {}
@@ -507,6 +523,14 @@ def disagreement_flag(rec):
     if is_conf and total >= 2 and cons.get("unanimous"):
         return {"category": "resolves_conflicting", "label": "Resolves a conflicting call",
                 "reason": f"ClinVar conflicting; {cons.get('summary')}", "severity": 2}
+    # non-missense: a predicted-LoF change in a LoF-intolerant gene is a mechanism-based
+    # resolving signal on a conflicting call (brings the non-missense half into the QC view).
+    lof = rec.get("lof_context")
+    if is_conf and lof and lof.get("lof_disease_gene"):
+        why = ("a gene with sufficient ClinGen haploinsufficiency evidence"
+               if lof.get("haploinsufficient") else "a LoF-intolerant gene")
+        return {"category": "lof_resolves_conflicting", "label": "LoF resolves a conflicting call",
+                "reason": f"ClinVar conflicting; predicted {lof['label']} in {why}", "severity": 2}
     if total >= 2 and not cons.get("unanimous"):
         return {"category": "predictors_split", "label": "Predictors split",
                 "reason": cons.get("summary"), "severity": 1}

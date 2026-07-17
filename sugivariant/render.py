@@ -339,12 +339,15 @@ def render_body(v, jsonld_tag=""):
             con = ", ".join(filter(None, [
                 f"LOEUF {lof['loeuf']}" if lof.get("loeuf") is not None else None,
                 f"pLI {lof['pli']}" if lof.get("pli") is not None else None]))
-            if lof["intolerant"]:
-                tail = (f" The gene is **loss-of-function-intolerant** ({con}), supporting a "
-                        "loss-of-function disease mechanism." if con else "")
+            if lof.get("haploinsufficient"):
+                tail = (" ClinGen curates **sufficient evidence for haploinsufficiency** in this gene"
+                        + (f" (constraint {con})" if con else "")
+                        + ", supporting a loss-of-function disease mechanism.")
+            elif lof.get("constrained"):
+                tail = f" The gene is **loss-of-function-intolerant** ({con}), supporting a loss-of-function disease mechanism."
             else:
-                tail = (f" Gene constraint: {con} — not strongly LoF-depleted at the population "
-                        "level, so weigh against the gene's known disease mechanism." if con else "")
+                tail = (f" Gene constraint: {con} — not strongly LoF-depleted, and no curated "
+                        "haploinsufficiency; weigh against the gene's known mechanism." if con else "")
             L.append(f"- Molecular consequence: **{lof['label']}** — a predicted loss-of-function "
                      f"variant.{tail} *Descriptive; not an applied PVS1 code.*")
         elif v.get("consequence"):

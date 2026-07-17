@@ -98,6 +98,25 @@ def test_disagreement_flag():
     assert disagreement_flag(rec("Pathogenic", None)) is None
 
 
+def test_disagreement_flag_non_missense_lof():
+    from sugivariant.enrich import disagreement_flag
+    # conflicting + predicted-LoF in a LoF-intolerant gene → non-missense QC flag
+    r = {"classification": "Conflicting classifications of pathogenicity",
+         "concordance": {"consensus": None, "flags": []},
+         "lof_context": {"label": "nonsense (stop-gain)", "haploinsufficient": True,
+                         "constrained": False, "lof_disease_gene": True}}
+    d = disagreement_flag(r)
+    assert d["category"] == "lof_resolves_conflicting"
+    assert "haploinsufficiency" in d["reason"]
+    # same LoF but neither haploinsufficient nor constrained → no flag (signal weak)
+    r["lof_context"] = {"label": "nonsense (stop-gain)", "lof_disease_gene": False}
+    assert disagreement_flag(r) is None
+    # LoF-disease gene but ClinVar pathogenic (not conflicting) → no flag (nothing to resolve)
+    r2 = dict(r); r2["classification"] = "Pathogenic"
+    r2["lof_context"] = {"label": "frameshift", "lof_disease_gene": True, "haploinsufficient": True}
+    assert disagreement_flag(r2) is None
+
+
 def test_residue_hotspot():
     idx = {309: [{"hgvs_p": "p.Pro309Ala", "label": "ACTA1 p.Pro309Ala", "slug": "a", "classification": "Pathogenic"},
                  {"hgvs_p": "p.Pro309Leu", "label": "ACTA1 p.Pro309Leu", "slug": "b", "classification": "Pathogenic"}]}
@@ -315,18 +334,24 @@ def test_molecular_consequence():
     assert mc({"hgvs_p": "p.Arg130Gln"}) is None                  # plain missense → typed by AM, not here
 
 
-def test_lof_context_needs_lof_and_uses_constraint():
+def test_lof_context_uses_haploinsufficiency_and_constraint():
     from sugivariant.enrich import lof_context
-    rec = {"consequence": {"label": "nonsense (stop-gain)", "lof": True},
-           "gene_context": {"constraint": {"loeuf": "0.12", "pli": "0.99"}}}
-    lc = lof_context(rec)
-    assert lc["intolerant"] is True and lc["loeuf"] == "0.12"
+    # pLI-constrained gene → lof_disease_gene via constraint
+    lc = lof_context({"consequence": {"label": "nonsense (stop-gain)", "lof": True},
+                      "gene_context": {"constraint": {"loeuf": "0.12", "pli": "0.99"}}})
+    assert lc["constrained"] is True and lc["lof_disease_gene"] is True
+    # ClinGen haploinsufficiency=3 catches a LoF-disease gene pLI MISSES (e.g. LDLR-like)
+    lc2 = lof_context({"consequence": {"label": "frameshift", "lof": True},
+                       "gene_context": {"constraint": {"loeuf": "1.1", "pli": "0.0"},
+                                        "dosage": {"haplo": "3"}}})
+    assert lc2["haploinsufficient"] is True and lc2["lof_disease_gene"] is True
+    # neither haploinsufficient nor constrained → not a LoF-disease gene
+    lc3 = lof_context({"consequence": {"label": "frameshift", "lof": True},
+                       "gene_context": {"constraint": {"loeuf": "1.2", "pli": "0.01"},
+                                        "dosage": {"haplo": "0"}}})
+    assert lc3["lof_disease_gene"] is False
     # in-frame (lof False) → no context
     assert lof_context({"consequence": {"label": "in-frame indel", "lof": False}}) is None
-    # LoF but tolerant gene → present but not flagged intolerant
-    rec2 = {"consequence": {"label": "frameshift", "lof": True},
-            "gene_context": {"constraint": {"loeuf": "1.2", "pli": "0.01"}}}
-    assert lof_context(rec2)["intolerant"] is False
 
 
 def test_clingen_criteria_guards():
