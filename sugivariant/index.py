@@ -91,13 +91,30 @@ def index_gene(conn, gene, recs=None):
     return len(recs)
 
 
-def build_index(genes, db_path):
-    """Full/partial build over a gene list. Idempotent per gene (re-runnable)."""
+def build_index(genes, db_path, skip_done=True, log_every=200):
+    """Full/partial build over a gene list. RESUMABLE: genes already in gene_meta are
+    skipped (idempotent + survives interruption). Per-gene failures are recorded as
+    n=-1 and skipped, not fatal — re-run after deleting the -1 rows to retry them."""
+    import time
     conn = open_db(db_path)
-    total = 0
-    for g in genes:
-        total += index_gene(conn, g.upper())
+    done = ({r["gene"] for r in conn.execute("SELECT gene FROM gene_meta")} if skip_done else set())
+    todo = [g.upper() for g in genes if g.upper() not in done]
+    total, failed, t0 = 0, 0, time.time()
+    print(f"  {len(done)} already done, {len(todo)} to build", flush=True)
+    for i, g in enumerate(todo, 1):
+        try:
+            total += index_gene(conn, g)
+        except Exception as e:
+            failed += 1
+            conn.execute("INSERT OR REPLACE INTO gene_meta VALUES(?,?)", (g, -1))
+            conn.commit()
+            print(f"  ERR {g}: {str(e)[:80]}", flush=True)
+        if i % log_every == 0:
+            dt = time.time() - t0
+            print(f"  {i}/{len(todo)} genes · {total} variants · {failed} failed · "
+                  f"{dt:.0f}s · {i/dt:.2f} genes/s", flush=True)
     conn.close()
+    print(f"  built {total} variants, {failed} genes failed", flush=True)
     return total
 
 
@@ -172,10 +189,16 @@ def stats(conn):
 
 
 if __name__ == "__main__":
-    import sys
-    db = os.environ.get("INDEX_DB", "cache/index.db")
-    genes = sys.argv[1:]
-    print(f"building {db} over {len(genes)} genes…")
-    n = build_index(genes, db)
-    print(f"indexed {n} variants -> {db} ({os.path.getsize(db)/1024/1024:.1f} MB)")
-    print(stats(open_db(db)))
+    import argparse
+    ap = argparse.ArgumentParser(description="Build the resolution index (resumable).")
+    ap.add_argument("--genes-file", help="one gene symbol per line")
+    ap.add_argument("--db", default=os.environ.get("INDEX_DB", "cache/index.db"))
+    ap.add_argument("genes", nargs="*", help="gene symbols (or use --genes-file)")
+    a = ap.parse_args()
+    genes = a.genes
+    if a.genes_file:
+        genes = [ln.strip() for ln in open(a.genes_file) if ln.strip() and not ln.startswith("#")]
+    print(f"building {a.db} over {len(genes)} genes (resumable)…", flush=True)
+    build_index(genes, a.db)
+    sz = os.path.getsize(a.db) / 1024 / 1024
+    print(f"-> {a.db} ({sz:.1f} MB) | {stats(open_db(a.db))}")
