@@ -40,9 +40,10 @@ _STARS = {
 }
 
 
-def _stars(review_status):
-    n = _STARS.get((review_status or "").strip().lower(), 0)
-    return ("★" * n + "☆" * (4 - n)) + f" ({n}/4)"
+def _review(review_status):
+    """Named review-status tier for markdown prose (no ★ rating metaphor)."""
+    from sugivariant.enrich import review_tier
+    return review_tier(review_status)["label"]
 
 
 def _label(v):
@@ -61,7 +62,7 @@ def declarative(v):
     cls = v.get("classification") or "classified"
     gene = v.get("gene_symbol")
     rs = v.get("review_status") or ""
-    lead = f"**{label}** is classified **{cls}** in {gene} (ClinVar, {_stars(rs)}"
+    lead = f"**{label}** is classified **{cls}** in {gene} (ClinVar, {_review(rs)}"
     n_sub = v.get("submitter_count") or 0   # same count as At-a-glance (audit P2b)
     if n_sub:
         lead += f", {n_sub} submitter" + ("s" if n_sub != 1 else "")
@@ -281,7 +282,7 @@ def render_body(v, jsonld_tag=""):
     L.append("**At a glance:** "
              + " · ".join(filter(None, [
                  v.get("classification"),
-                 f"review {_stars(v.get('review_status'))}",
+                 f"review: {_review(v.get('review_status'))}",
                  (f"rsID {v['rsid']}" if v.get("rsid") else None),
                  (f"{v['submitter_count']} submitter"
                   + ("s" if v.get("submitter_count") != 1 else "")
@@ -351,7 +352,7 @@ def render_body(v, jsonld_tag=""):
     # Clinical significance + consensus + per-submitter table
     cons = v.get("consensus")
     L += ["", "## Clinical significance {#significance}", "",
-          f"**{v.get('classification')}** — review status {_stars(v.get('review_status'))} "
+          f"**{v.get('classification')}** — review status {_review(v.get('review_status'))} "
           f"*({v.get('review_status')})*"
           + (f", last evaluated {v['last_evaluated']}." if v.get("last_evaluated") else ".")]
     if cons:

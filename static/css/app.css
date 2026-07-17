@@ -155,3 +155,14 @@
 .gh-stars{color:var(--path,#c0392b);font-size:.75rem;letter-spacing:-1px}
 .gh-cond{margin-left:auto;max-width:14ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gh-flag{color:var(--flag);text-decoration:none}
+
+/* ClinVar review-status TIER badge (replaces the ★ rating metaphor). Authority
+   gradient: filled (expert/guideline) → outlined (multiple) → faint (none). */
+.rv-badge{display:inline-block;font-size:.72rem;font-weight:600;padding:.12rem .5rem;
+  border-radius:6px;letter-spacing:.01em;white-space:nowrap;border:1px solid transparent;line-height:1.55}
+.rv-sm{font-size:.66rem;padding:.04rem .4rem;font-weight:500}
+.rv4{background:var(--accent,#2563eb);color:#fff}
+.rv3{background:var(--accent,#2563eb);color:#fff}
+.rv2{background:transparent;color:var(--accent,#2563eb);border-color:var(--accent,#2563eb)}
+.rv1{background:transparent;color:var(--muted,#6b7280);border-color:var(--border,#e5e7eb)}
+.rv0{background:transparent;color:var(--muted,#9aa4b2);border-color:var(--border,#e5e7eb);border-style:dashed}

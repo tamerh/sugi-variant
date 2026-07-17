@@ -34,7 +34,7 @@
           <a class="dz-row-link" href="{{ base }}/{{ r.canonical_slug }}">
             <span class="dz-row-name">{{ r.gene_symbol }} <b>{{ r.hgvs_p or r.hgvs_c }}</b></span>
             <span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(r.classification) }}">{{ r.classification }}</span>
-            <span class="dz-stars" title="{{ r.review_status }}">{{ s.glyph }}</span>
+            <span class="rv-badge {{ s.cls }} rv-sm" title="{{ r.review_status }}">{{ s.label }}</span>
           </a>
           <p class="dz-reason">{{ it.flag.reason }}</p>
         </li>

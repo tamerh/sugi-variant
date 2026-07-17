@@ -912,6 +912,34 @@ def review_stars(review_status):
     return _STAR_N.get((review_status or "").strip().lower(), 0)
 
 
+# Named review-status tier (replaces the ★ rating metaphor — this is who reviewed
+# the variant and how, not a quality score). label = short human name; cls = tier
+# key for colour (rv4 = most authoritative … rv0 = unreviewed).
+_REVIEW_LABEL = {
+    "practice guideline": "Practice guideline",
+    "reviewed by expert panel": "Expert panel",
+    "criteria provided, multiple submitters, no conflicts": "Multiple submitters",
+    "criteria provided, single submitter": "Single submitter",
+    "criteria provided, conflicting classifications": "Conflicting submitters",
+    "no assertion criteria provided": "No assertion criteria",
+    "no classification provided": "Not classified",
+}
+_TIER_FALLBACK = {4: "Practice guideline", 3: "Expert panel", 2: "Multiple submitters",
+                  1: "Single submitter", 0: "No assertion criteria"}
+
+
+def review_tier(review_status):
+    n = review_stars(review_status)
+    label = _REVIEW_LABEL.get((review_status or "").strip().lower()) or _TIER_FALLBACK.get(n, "Unreviewed")
+    return {"n": n, "label": label, "cls": f"rv{n}"}
+
+
+def tier_label(n):
+    """Short review-tier label from the numeric tier alone (for index-backed rows
+    that carry only the tier, not the full review-status string)."""
+    return _TIER_FALLBACK.get(n, "Unreviewed")
+
+
 def plain_summary(rec):
     """Deterministic plain-language one-liner for patients (NOT an LLM). The
     confidence phrasing is CALIBRATED to classification strength + review stars +

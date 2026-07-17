@@ -24,7 +24,7 @@ from sugivariant.build import enriched_records            # noqa: E402
 from sugivariant.collect import collect                   # noqa: E402
 from sugivariant.render import _label as variant_label    # noqa: E402
 from sugivariant.slug import _norm, _norm_hgvs            # noqa: E402
-from sugivariant.enrich import (review_stars,             # noqa: E402
+from sugivariant.enrich import (review_stars, review_tier, tier_label,  # noqa: E402
                                 missense_short, disagreement_flag,
                                 DISAGREEMENT_CATEGORIES)
 from sugivariant import index as IX                       # noqa: E402
@@ -53,8 +53,8 @@ def cls_class(classification):
 
 
 def stars(review_status):
-    n = review_stars(review_status)
-    return {"n": n, "glyph": "★" * n + "☆" * (4 - n)}
+    # named review-status tier (not a ★ rating) — {n, label, cls}
+    return review_tier(review_status)
 
 
 env.globals.update(label=variant_label, cls_class=cls_class, stars=stars)
@@ -62,6 +62,7 @@ env.globals.update(label=variant_label, cls_class=cls_class, stars=stars)
 # source of truth in render.py so HTML and the markdown twin can't drift.
 from sugivariant.render import DATA_SOURCES              # noqa: E402
 env.globals["data_sources"] = DATA_SOURCES
+env.globals["tier_label"] = tier_label
 
 app = FastAPI(title="Sugi Variant")
 # Serve at ROOT (like Sugi Predict): nginx `proxy_pass …:8013/;` strips the

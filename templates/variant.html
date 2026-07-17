@@ -27,7 +27,7 @@
       </div>
       <div class="vv-verdict-row">
         <span class="vv-pill vv-pill-cls">{{ v.classification }}</span>
-        <span class="vv-stars" title="{{ v.review_status }}">{{ st.glyph }} <span class="vv-stars-n">{{ st.n }}/4</span></span>
+        <span class="rv-badge {{ st.cls }}" title="ClinVar review status: {{ v.review_status }}">{{ st.label }}</span>
         {% if v.submitter_count %}<span class="vv-meta">{{ v.submitter_count }} submitter{{ 's' if v.submitter_count != 1 }}</span>{% endif %}
         {% if v.last_evaluated %}<span class="vv-meta">last eval {{ v.last_evaluated }}</span>{% endif %}
       </div>
@@ -58,7 +58,7 @@
     <div class="vv-panels">
       <section class="vv-panel">
         <h3 class="vv-panel-h">Clinical <span class="vv-panel-src">ClinVar</span></h3>
-        <p><b>{{ v.classification }}</b> · {{ st.glyph }} <span class="section-sub">({{ v.review_status }})</span></p>
+        <p><b>{{ v.classification }}</b> · <span class="rv-badge {{ st.cls }}">{{ st.label }}</span> <span class="section-sub">({{ v.review_status }})</span></p>
         {% if v.consensus %}<p>Submitter consensus: {{ v.consensus.verdict }}.</p>{% endif %}
         {% if v.vcep %}<p><b>ClinGen VCEP:</b> {{ v.vcep[0].assertion }} — {{ v.vcep[0].panel }}
           {% if v.vcep[0].criteria and v.vcep[0].criteria.codes_met %}<br><span class="section-sub">Applied ACMG criteria (verbatim):</span> {% for x in v.vcep[0].criteria.codes_met %}<code class="vv-acmg">{{ x }}</code> {% endfor %}{% endif %}</p>

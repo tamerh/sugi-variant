@@ -25,7 +25,7 @@
         {% for r in grp.shown %}
         <li class="gh-row">
           <a href="{{ base }}/{{ r.slug }}"><b>{{ r.hgvs_p or r.hgvs_c }}</b></a>
-          <span class="gh-stars" title="{{ r.stars }}/4 review">{{ '★' * r.stars }}{{ '☆' * (4 - r.stars) }}</span>
+          <span class="rv-badge rv{{ r.stars }} rv-sm">{{ tier_label(r.stars) }}</span>
           {% if r.primary_condition %}<span class="gh-cond section-sub">{{ r.primary_condition }}</span>{% endif %}
           {% if r.flag %}<a class="gh-flag" href="{{ base }}/disagreements/{{ gene }}" title="evidence disagreement">⚠</a>{% endif %}
         </li>
