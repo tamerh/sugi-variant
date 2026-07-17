@@ -164,10 +164,16 @@ def suggest(conn, q, limit=8):
     if gene_tok and rest:
         key = f"{_norm(gene_tok)}-%{_norm_hgvs(rest)}%"
         seen = set()
+        # best-first: higher review tier, then stronger classification, then slug
         for r in conn.execute(
                 "SELECT v.slug, v.gene, v.hgvs_p, v.hgvs_c, v.classification "
-                "FROM alias a JOIN variant v ON v.vcv=a.vcv WHERE a.key LIKE ? LIMIT ?",
-                (key, limit * 2)):
+                "FROM alias a JOIN variant v ON v.vcv=a.vcv WHERE a.key LIKE ? "
+                "ORDER BY v.stars DESC, "
+                "  CASE WHEN v.classification='Pathogenic' THEN 0 "
+                "       WHEN v.classification LIKE 'Pathogenic/%' THEN 1 "
+                "       WHEN v.classification LIKE 'Likely%' THEN 2 ELSE 3 END, v.slug "
+                "LIMIT ?",
+                (key, limit * 3)):
             if r["slug"] in seen:
                 continue
             seen.add(r["slug"])
