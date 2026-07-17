@@ -85,10 +85,8 @@
   background:var(--bg,#fff);padding:.15rem .5rem;border-radius:6px}
 .vv-patient-lead{font-size:1.02rem;margin:.3rem 0 .7rem}
 .vv-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.8rem}
-/* patient card fills the dashboard width: lead + CTA left, facts panel right */
-.vv-patient-body{display:grid;gap:.6rem 1.8rem;align-items:start}
-@media(min-width:760px){.vv-patient-body.is-split{grid-template-columns:minmax(0,1fr) minmax(240px,.72fr)}}
-.vv-patient-facts{align-self:start;background:color-mix(in srgb,var(--bg,#fff) 65%,transparent);
+/* patient card lives in the dashboard main column; facts sit in a subtle panel */
+.vv-patient-facts{margin:.5rem 0 0;background:color-mix(in srgb,var(--bg,#fff) 65%,transparent);
   border:1px solid color-mix(in srgb,var(--accent,#2563eb) 18%,transparent);border-radius:10px;padding:.75rem .95rem}
 [data-theme="dark"] .vv-patient-facts{background:color-mix(in srgb,var(--bg,#111) 45%,transparent)}
 .vv-src{margin-top:2rem;border-top:1px solid var(--border,#e5e7eb);padding-top:.8rem}
