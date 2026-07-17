@@ -271,3 +271,11 @@
   max-height:calc(1.45em * 4 + 1.64rem);overflow-y:auto;overflow-x:hidden}
 .hero-search-box textarea.hero-search-input::placeholder{color:var(--fg-soft)}
 .hero-search-box{align-items:center}
+
+/* ── home: multi-variant "set" example chips (purple, QC tone) ── */
+.hero-chips-label-tight{margin-top:1.3rem}
+.hero-chip-set{color:var(--conflict,#8e44ad);
+  background:color-mix(in srgb,var(--conflict,#8e44ad) 10%,transparent);
+  border-color:color-mix(in srgb,var(--conflict,#8e44ad) 32%,transparent)}
+.hero-chip-set:hover{border-color:var(--conflict,#8e44ad)}
+[data-theme="dark"] .hero-chip-set{color:var(--conflict,#c39bd3)}
