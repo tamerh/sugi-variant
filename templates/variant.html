@@ -120,19 +120,24 @@
     </div>
 
     {# ── Patient ── #}
+    {% set d = v.digest %}
+    {% set has_facts = (d and (d.inheritance or d.onset or d.prevalence)) or (v.condition_links and v.condition_links.trial_count) %}
     <section class="vv-patient" id="patients">
       <h2 class="vv-patient-h">🛈 For patients &amp; families <span class="vv-patient-badge">plain-language · not medical advice</span></h2>
-      <p class="vv-patient-lead">{{ v.plain }}</p>
-      {% set d = v.digest %}
-      {% if d or (v.condition_links and v.condition_links.trial_count) %}
-      <dl class="vd-dl vv-patient-facts">
-        {% if d and d.inheritance %}<dt>Typical inheritance</dt><dd>{{ d.inheritance[:3]|join(', ') }}</dd>{% endif %}
-        {% if d and d.onset %}<dt>Age of onset</dt><dd>{{ d.onset|join(', ') }}</dd>{% endif %}
-        {% if d and d.prevalence %}<dt>Prevalence</dt><dd>{{ d.prevalence }}</dd>{% endif %}
-        {% if v.condition_links and v.condition_links.trial_count %}<dt>Clinical trials</dt><dd>{{ v.condition_links.trial_count }} for this condition</dd>{% endif %}
-      </dl>{% endif %}
-      <p class="vv-cta">{% if v.condition_links and v.condition_links.gard %}<a class="btn btn-ghost" href="https://rarediseases.info.nih.gov/diseases/{{ v.condition_links.gard }}/index">Condition support (GARD)</a>{% endif %}
-        <a class="btn btn-ghost" href="https://findageneticcounselor.nsgc.org/">Find a genetic counselor</a></p>
+      <div class="vv-patient-body{{ ' is-split' if has_facts }}">
+        <div class="vv-patient-text">
+          <p class="vv-patient-lead">{{ v.plain }}</p>
+          <p class="vv-cta">{% if v.condition_links and v.condition_links.gard %}<a class="btn btn-ghost" href="https://rarediseases.info.nih.gov/diseases/{{ v.condition_links.gard }}/index">Condition support (GARD)</a>{% endif %}
+            <a class="btn btn-ghost" href="https://findageneticcounselor.nsgc.org/">Find a genetic counselor</a></p>
+        </div>
+        {% if has_facts %}
+        <dl class="vd-dl vv-patient-facts">
+          {% if d and d.inheritance %}<dt>Typical inheritance</dt><dd>{{ d.inheritance[:3]|join(', ') }}</dd>{% endif %}
+          {% if d and d.onset %}<dt>Age of onset</dt><dd>{{ d.onset|join(', ') }}</dd>{% endif %}
+          {% if d and d.prevalence %}<dt>Prevalence</dt><dd>{{ d.prevalence }}</dd>{% endif %}
+          {% if v.condition_links and v.condition_links.trial_count %}<dt>Clinical trials</dt><dd>{{ v.condition_links.trial_count }} for this condition</dd>{% endif %}
+        </dl>{% endif %}
+      </div>
     </section>
 
     <p class="vv-src section-sub" id="sources"><b>Sources &amp; versions:</b>
