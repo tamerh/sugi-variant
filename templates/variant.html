@@ -72,7 +72,7 @@
           <span class="section-sub">— ACMG-weighted</span></p>
           {% if v.am_isoform_mismatch %}<p class="section-sub" style="color:var(--flag)">⚠ Isoform check: AlphaMissense is numbered on a different transcript (AM {{ v.am_isoform_mismatch.am }} vs ClinVar {{ v.am_isoform_mismatch.clinvar }}) — verify the residue.</p>{% endif %}
         {% else %}<p class="section-sub"><b>Missense predictors do not apply</b> to this variant type (AlphaMissense/REVEL/SaProt score substitutions only); conservation{% if v.spliceai %}/SpliceAI{% endif %} carries the computational signal here.</p>{% endif %}
-        {% if v.lof_context %}<p><b>Consequence</b> {{ v.lof_context.label }} <span class="section-sub">— predicted loss-of-function{% if v.lof_context.haploinsufficient %} in a haploinsufficient gene (ClinGen){% elif v.lof_context.constrained %} in a LoF-intolerant gene{% endif %}{% if v.lof_context.loeuf is not none %} (LOEUF {{ v.lof_context.loeuf }}{% if v.lof_context.pli is not none %}, pLI {{ v.lof_context.pli }}{% endif %}){% endif %}; descriptive, not an applied PVS1 code</span></p>
+        {% if v.lof_context %}{% set lc = v.lof_context %}<p><b>Consequence</b> {{ lc.label }} <span class="section-sub">— predicted loss-of-function{% if lc.lof_disease_gene %}{% if lc.haploinsufficient %} in a haploinsufficient gene (ClinGen){% if lc.constrained %} (LOEUF {{ lc.loeuf }}, pLI {{ lc.pli }}){% endif %}{% else %} in a LoF-intolerant gene (LOEUF {{ lc.loeuf }}, pLI {{ lc.pli }}){% endif %}{% elif lc.loeuf is not none %} (gene constraint LOEUF {{ lc.loeuf }}, pLI {{ lc.pli }}){% endif %}{% if lc.nmd_caveat %}; NMD-escape possible for C-terminal truncations{% endif %}; descriptive, not an applied PVS1 code</span></p>
         {% elif v.consequence %}<p><b>Consequence</b> {{ v.consequence.label }}</p>{% endif %}
         {% if v.revel %}<p><b>REVEL</b> <span class="vv-num">{{ v.revel.score }}</span> <span class="section-sub">({{ v.revel.band }} — agreement signal)</span></p>{% endif %}
         {% if v.saprot %}<p><b>SaProt</b> <span class="vv-num">LLR {{ '%.2f'|format(v.saprot.llr) }}</span> <span class="section-sub">({{ 'damaging' if v.saprot.damaging else 'tolerated' }} — orthogonal, agreement signal)</span></p>{% endif %}
@@ -141,7 +141,7 @@
     <section class="entity-main">
       <h2 class="section-title">Identity</h2>
       <dl class="vv-ident">
-        <dt>Gene</dt><dd><a href="https://sugi.bio/atlas/gene/{{ v.gene_symbol }}">{{ v.gene_symbol }}</a></dd>
+        <dt>Gene</dt><dd><a href="{{ base }}/gene/{{ v.gene_symbol }}">{{ v.gene_symbol }}</a></dd>
         {% if v.hgvs_p %}<dt>Protein (p.)</dt><dd>{{ v.hgvs_p }}</dd>{% endif %}
         {% if v.hgvs_c %}<dt>Coding (c.)</dt><dd>{{ v.hgvs_c }}</dd>{% endif %}
         {% if v.rsid %}<dt>dbSNP</dt><dd><a href="https://www.ncbi.nlm.nih.gov/snp/{{ v.rsid }}/">{{ v.rsid }}</a></dd>{% endif %}

@@ -162,7 +162,8 @@ def _gene_context_zone(v):
         bits.append(f"ClinGen dosage — haploinsufficiency {dos.get('haplo')}, triplosensitivity {dos.get('triplo')} (0–3 scale)")
     if bits:
         L.append(f"**{v.get('gene_symbol')}** population constraint: " + "; ".join(bits)
-                 + ". *Higher constraint = the gene tolerates damage poorly (supports a disease role).*")
+                 + ". *Lower LOEUF and higher pLI indicate a gene that tolerates loss-of-function "
+                 "poorly; ClinGen dosage is the curated haploinsufficiency call.*")
     if val:
         L += ["", "Curated gene–disease validity (ClinGen):", ""]
         L += [f"- **{x['disease']}** — {x['classification']} ({x['moi']})" for x in val]
@@ -350,15 +351,22 @@ def render_body(v, jsonld_tag=""):
             con = ", ".join(filter(None, [
                 f"LOEUF {lof['loeuf']}" if lof.get("loeuf") is not None else None,
                 f"pLI {lof['pli']}" if lof.get("pli") is not None else None]))
-            if lof.get("haploinsufficient"):
-                tail = (" ClinGen curates **sufficient evidence for haploinsufficiency** in this gene"
-                        + (f" (constraint {con})" if con else "")
-                        + ", supporting a loss-of-function disease mechanism.")
-            elif lof.get("constrained"):
-                tail = f" The gene is **loss-of-function-intolerant** ({con}), supporting a loss-of-function disease mechanism."
+            if lof.get("lof_disease_gene"):     # germline + (haploinsufficient or constrained)
+                if lof.get("haploinsufficient"):
+                    # cite constraint numbers ONLY when they also support (else they contradict
+                    # the haploinsufficiency claim — e.g. ASXL1 pLI≈0)
+                    basis = ("ClinGen curates **sufficient evidence for haploinsufficiency** in this gene"
+                             + (f" (constraint {con})" if con and lof.get("constrained") else ""))
+                else:
+                    basis = f"the gene is **loss-of-function-intolerant** ({con})"
+                tail = f" {basis}, supporting a loss-of-function disease mechanism."
+            elif con:
+                tail = f" Gene population constraint: {con}."
             else:
-                tail = (f" Gene constraint: {con} — not strongly LoF-depleted, and no curated "
-                        "haploinsufficiency; weigh against the gene's known mechanism." if con else "")
+                tail = ""
+            if lof.get("nmd_caveat"):
+                tail += (" For a truncating variant the loss-of-function impact is position-dependent — "
+                         "C-terminal / last-exon truncations may escape nonsense-mediated decay.")
             L.append(f"- Molecular consequence: **{lof['label']}** — a predicted loss-of-function "
                      f"variant.{tail} *Descriptive; not an applied PVS1 code.*")
         elif v.get("consequence"):
@@ -447,7 +455,7 @@ def render_body(v, jsonld_tag=""):
               f"Residue **{hs['position']}** carries **{len(others)} other pathogenic "
               f"ClinVar variant" + ("s" if len(others) != 1 else "")
               + "** — a recurrently-mutated position: "
-              + ", ".join(f"[{o['label']}](/atlas/variant/{o['slug']}/)" for o in others[:12])
+              + ", ".join(f"[{o['label']}](/variant/{o['slug']})" for o in others[:12])
               + ". *Positional co-occurrence of independent ClinVar records, not "
               "functional proof.*"]
 
@@ -462,7 +470,7 @@ def render_body(v, jsonld_tag=""):
         L += ["", "## Similar variants {#similar}", "",
               "Related " + v.get("gene_symbol", "") + " variant pages (same residue, "
               "condition, or type): "
-              + ", ".join(f"[{s['label']}](/atlas/variant/{s['slug']}/)" for s in sim) + "."]
+              + ", ".join(f"[{s['label']}](/variant/{s['slug']})" for s in sim) + "."]
 
     L += ["", "### Data sources & attribution {#sources}", "", attribution_md(), "",
           f"*Primary record: NCBI ClinVar (variation {v['variation_id']}). Classifications "

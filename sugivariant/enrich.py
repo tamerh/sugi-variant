@@ -134,22 +134,24 @@ def dataset_versions():
     per-dataset build date. HANDOVER §7: the single biobtree 'dev' version stamp lies,
     so pin per-dataset last_built instead. Cached; {} if meta is unreachable."""
     global _DATASET_VERSIONS
-    if _DATASET_VERSIONS is None:
-        _DATASET_VERSIONS = {}
-        try:
-            import urllib.request
-            import json as _json
-            import os
-            base = os.environ.get("BIOBTREE_WS", "http://localhost:9291")
-            with urllib.request.urlopen(base + "/ws/meta", timeout=5) as r:
-                meta = _json.load(r)
-            for v in (meta.get("datasets") or {}).values():
-                g, lb = v.get("group"), v.get("last_built")
-                if g and lb and g not in _DATASET_VERSIONS:
-                    _DATASET_VERSIONS[g] = lb[:10]
-        except Exception:
-            _DATASET_VERSIONS = {}
-    return _DATASET_VERSIONS
+    if _DATASET_VERSIONS:                      # cache only a SUCCESSFUL (non-empty) fetch —
+        return _DATASET_VERSIONS               # a transient failure must not permanently disable this
+    out = {}
+    try:
+        import urllib.request
+        import json as _json
+        import os
+        base = os.environ.get("BIOBTREE_WS", "http://localhost:9291")
+        with urllib.request.urlopen(base + "/ws/meta", timeout=5) as r:
+            meta = _json.load(r)
+        for v in (meta.get("datasets") or {}).values():
+            g, lb = v.get("group"), v.get("last_built")
+            if g and lb and g not in out:
+                out[g] = lb[:10]
+    except Exception:
+        return {}                              # leave the cache empty → retried on the next call
+    _DATASET_VERSIONS = out
+    return out
 
 
 def molecular_consequence(rec):
@@ -174,6 +176,12 @@ def molecular_consequence(rec):
     if any(k in p for k in ("del", "dup", "ins")) and "fs" not in p:
         return {"type": "inframe_indel", "label": "in-frame indel", "lof": False}
     return None
+
+
+# Somatic/myeloid disease contexts where a germline dosage-mechanism narrative would
+# be §8-inappropriate (the ASXL1/CHIP audit case). Deliberately narrow — clear somatic
+# drivers only; hereditary-cancer conditions are germline and must NOT match.
+_SOMATIC_COND_RE = re.compile(r"leukemi|myelodysplas|myeloproliferat|myeloid|clonal h", re.I)
 
 
 def lof_context(rec):
@@ -203,9 +211,21 @@ def lof_context(rec):
                        or (pli is not None and float(pli) >= 0.9))
     except (TypeError, ValueError):
         constrained = False
+    # §8: a germline dosage / LoF-disease-mechanism narrative must NOT attach to a
+    # SOMATIC-condition variant (the ASXL1/CHIP hazard). Suppress when the variant's
+    # primary condition is a somatic/myeloid context; a germline Orphanet digest always
+    # overrides. (Gating on the digest alone was too strict — it dropped germline genes
+    # like LDLR whose condition has no Orphanet Disease entry.)
+    primary = ((rec.get("conditions") or [{}])[0].get("name") or "")
+    germline = not _SOMATIC_COND_RE.search(primary)   # the DISPLAYED (primary) condition governs
+    # NMD: for a truncating change, LoF impact is position-dependent (C-terminal /
+    # last-exon truncations may escape nonsense-mediated decay). We have no exon model,
+    # so flag the caveat rather than assert clean LoF.
+    nmd_caveat = cons["type"] in ("nonsense", "frameshift")
     return {"label": cons["label"], "loeuf": loeuf, "pli": pli, "haplo": haplo,
             "haploinsufficient": haploinsufficient, "constrained": constrained,
-            "lof_disease_gene": haploinsufficient or constrained}
+            "germline": germline, "nmd_caveat": nmd_caveat,
+            "lof_disease_gene": germline and (haploinsufficient or constrained)}
 
 
 def clingen_criteria(ca_id):
@@ -555,8 +575,10 @@ def disagreement_flag(rec):
     if is_conf and lof and lof.get("lof_disease_gene"):
         why = ("a gene with sufficient ClinGen haploinsufficiency evidence"
                if lof.get("haploinsufficient") else "a LoF-intolerant gene")
-        return {"category": "lof_resolves_conflicting", "label": "LoF resolves a conflicting call",
-                "reason": f"ClinVar conflicting; predicted {lof['label']} in {why}", "severity": 2}
+        nmd = " (verify NMD-escape for C-terminal truncations)" if lof.get("nmd_caveat") else ""
+        return {"category": "lof_resolves_conflicting", "label": "Predicted LoF vs a conflicting call",
+                "reason": f"ClinVar conflicting; predicted {lof['label']} in {why}{nmd} — flagged for review",
+                "severity": 2}
     if total >= 2 and not cons.get("unanimous"):
         return {"category": "predictors_split", "label": "Predictors split",
                 "reason": cons.get("summary"), "severity": 1}

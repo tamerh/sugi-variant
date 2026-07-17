@@ -336,19 +336,26 @@ def test_molecular_consequence():
 
 def test_lof_context_uses_haploinsufficiency_and_constraint():
     from sugivariant.enrich import lof_context
-    # pLI-constrained gene → lof_disease_gene via constraint
-    lc = lof_context({"consequence": {"label": "nonsense (stop-gain)", "lof": True},
-                      "gene_context": {"constraint": {"loeuf": "0.12", "pli": "0.99"}}})
+    GERM = {"conditions": [{"name": "Cowden syndrome 1"}]}   # germline (non-somatic) condition
+    # pLI-constrained + germline → lof_disease_gene via constraint
+    lc = lof_context({"consequence": {"label": "nonsense (stop-gain)", "lof": True, "type": "nonsense"},
+                      "gene_context": {"constraint": {"loeuf": "0.12", "pli": "0.99"}}, **GERM})
     assert lc["constrained"] is True and lc["lof_disease_gene"] is True
-    # ClinGen haploinsufficiency=3 catches a LoF-disease gene pLI MISSES (e.g. LDLR-like)
-    lc2 = lof_context({"consequence": {"label": "frameshift", "lof": True},
+    assert lc["nmd_caveat"] is True                         # nonsense → NMD caveat flagged
+    # ClinGen haploinsufficiency=3 catches a LoF-disease gene pLI MISSES (LDLR-like)
+    lc2 = lof_context({"consequence": {"label": "frameshift", "lof": True, "type": "frameshift"},
                        "gene_context": {"constraint": {"loeuf": "1.1", "pli": "0.0"},
-                                        "dosage": {"haplo": "3"}}})
+                                        "dosage": {"haplo": "3"}}, **GERM})
     assert lc2["haploinsufficient"] is True and lc2["lof_disease_gene"] is True
+    # §8: a SOMATIC/myeloid condition → mechanism NOT asserted even in a haploinsufficient gene
+    lc_som = lof_context({"consequence": {"label": "frameshift", "lof": True, "type": "frameshift"},
+                          "gene_context": {"dosage": {"haplo": "3"}},
+                          "conditions": [{"name": "Acute myeloid leukemia"}]})
+    assert lc_som["haploinsufficient"] is True and lc_som["lof_disease_gene"] is False
     # neither haploinsufficient nor constrained → not a LoF-disease gene
-    lc3 = lof_context({"consequence": {"label": "frameshift", "lof": True},
+    lc3 = lof_context({"consequence": {"label": "frameshift", "lof": True, "type": "frameshift"},
                        "gene_context": {"constraint": {"loeuf": "1.2", "pli": "0.01"},
-                                        "dosage": {"haplo": "0"}}})
+                                        "dosage": {"haplo": "0"}}, **GERM})
     assert lc3["lof_disease_gene"] is False
     # in-frame (lof False) → no context
     assert lof_context({"consequence": {"label": "in-frame indel", "lof": False}}) is None

@@ -240,10 +240,10 @@ CAT_META = {
         "blurb": "ClinVar submitters conflict, but the independent predictors "
                  "unanimously agree — a resolving in-silico read."},
     "lof_resolves_conflicting": {
-        "label": "LoF resolves a conflicting call", "tone": "info",
-        "blurb": "ClinVar submitters conflict, but it's a predicted loss-of-function "
-                 "change in a loss-of-function-intolerant gene — a mechanism-based "
-                 "resolving signal (the non-missense analog)."},
+        "label": "Predicted LoF vs a conflicting call", "tone": "info",
+        "blurb": "ClinVar submitters conflict, and it's a predicted loss-of-function "
+                 "change in a gene where LoF causes disease — flagged for review, not "
+                 "resolved (verify NMD-escape for C-terminal truncations). Non-missense."},
     "predictors_split": {
         "label": "Predictors split", "tone": "warn",
         "blurb": "The independent predictors disagree with each other — read with care."},
