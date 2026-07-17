@@ -29,14 +29,14 @@
       <h2 class="section-title">{{ meta[cat].label }} <span class="dz-count">{{ counts[cat] }}</span></h2>
       <p class="section-sub" style="margin:-0.4rem 0 0.8rem">{{ meta[cat].blurb }}</p>
       <ul class="dz-list">
-        {% for it in groups[cat] %}{% set r = it.rec %}{% set s = stars(r.review_status) %}
+        {% for r in groups[cat] %}
         <li class="dz-row">
-          <a class="dz-row-link" href="{{ base }}/{{ r.canonical_slug }}">
-            <span class="dz-row-name">{{ r.gene_symbol }} <b>{{ r.hgvs_p or r.hgvs_c }}</b></span>
-            <span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(r.classification) }}">{{ r.classification }}</span>
-            <span class="rv-badge {{ s.cls }} rv-sm" title="{{ r.review_status }}">{{ s.label }}</span>
+          <a class="dz-row-link" href="{{ base }}/{{ r.slug }}">
+            <span class="dz-row-name">{{ gene }} <b>{{ r.hgvs_p or r.hgvs_c }}</b></span>
+            <span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(r.classification) }}">{{ r.classification|replace('Conflicting classifications of pathogenicity','Conflicting') }}</span>
+            <span class="rv-badge rv{{ r.stars }} rv-sm" title="{{ r.stars }}-star review">{{ tier_label(r.stars) }}</span>
           </a>
-          <p class="dz-reason">{{ it.flag.reason }}</p>
+          {% if r.primary_condition %}<p class="dz-reason">{{ r.primary_condition }}</p>{% endif %}
         </li>
         {% endfor %}
       </ul>

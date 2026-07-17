@@ -136,6 +136,39 @@ def _resolve(slug):
     return None
 
 
+_FAST_PATH_MIN = 1500   # genes bigger than this get a single-variant fast build on a cold hit
+
+
+def _resolve_page(slug):
+    """Resolve a variant for its page WITHOUT a multi-minute whale build on the request
+    path. If the gene is already cached (memory/disk) or small, do the full build (rich
+    page). If it's a big gene not yet built, build just THIS variant (~1-2s), serve it,
+    and warm the full gene in the background so the next hit is complete."""
+    gene = _gene_of(slug)
+    if not gene:
+        return None
+    g = gene.upper()
+    if g in _GENE_CACHE or (_RECORDS_DIR / f"{g}.pkl.gz").exists():
+        return _resolve(slug)
+    ix = _index()
+    if not ix or IX.gene_count(ix, g) <= _FAST_PATH_MIN:
+        return _resolve(slug)                       # small/medium gene → full build is fast
+    hits = IX.lookup(ix, slug)
+    if not hits:
+        return _resolve(slug)
+    from sugivariant.collect import attach_enrichment
+    try:
+        rec = collect(str(hits[0]["vcv"]))
+        if not rec:
+            return _resolve(slug)
+        attach_enrichment(rec, {})                  # single-variant enrichment (no per-gene caches)
+        rec["_partial"] = True
+    except Exception:
+        return _resolve(slug)
+    threading.Thread(target=lambda: _records(g), daemon=True).start()   # warm the full gene
+    return rec
+
+
 def _render(tpl, **ctx):
     return env.get_template(tpl).render(**ctx)
 
@@ -497,14 +530,23 @@ def disagreements_hub():
 
 @app.get("/disagreements/{gene}", response_class=HTMLResponse)
 def disagreements_gene(gene: str):
-    gene = gene.upper().strip("/")
-    recs = _records(gene)
-    if not recs:
-        raise StarletteHTTPException(404, f"No variants built for “{gene}”.")
-    groups = _grouped_flags(recs)
+    g = gene.upper().strip("/")
+    ix = _index()
+    rows = IX.gene_rows(ix, g) if ix else None
+    if not rows:                                   # not indexed yet → live build fallback
+        recs = _records(g)
+        if not recs:
+            raise StarletteHTTPException(404, f"No variants built for “{g}”.")
+        rows = sorted(({"slug": x["canonical_slug"], "hgvs_p": x.get("hgvs_p"),
+                        "hgvs_c": x.get("hgvs_c"), "classification": x["classification"],
+                        "stars": review_stars(x.get("review_status")),
+                        "primary_condition": (x.get("conditions") or [{}])[0].get("name"),
+                        "flag": (disagreement_flag(x) or {}).get("category")} for x in recs),
+                      key=lambda r: (-r["stars"], r["slug"]))
+    groups = {cat: [r for r in rows if r["flag"] == cat] for cat in DISAGREEMENT_CATEGORIES}
     counts = {k: len(v) for k, v in groups.items()}
-    return _render("disagreements_gene.html", gene=gene, groups=groups, counts=counts,
-                   flagged=sum(counts.values()), total=len(recs),
+    return _render("disagreements_gene.html", gene=g, groups=groups, counts=counts,
+                   flagged=sum(counts.values()), total=len(rows),
                    cats=DISAGREEMENT_CATEGORIES, meta=CAT_META)
 
 
@@ -548,7 +590,7 @@ def variant_page(slug: str, view: str = ""):
     slug = slug.lower().strip("/")
     if _RSID_RE.match(slug):                       # rsID URL → dbSNP reverse-map
         return _resolution_response("rsid", slug, resolve_rsid(slug))
-    rec = _resolve(slug)
+    rec = _resolve_page(slug)
     if not rec:
         raise StarletteHTTPException(404, f"No variant page for “{slug}”.")
     # ?view= selects a layout preview (Default / Dashboard / Datasheet); the switcher

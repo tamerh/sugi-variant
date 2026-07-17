@@ -210,6 +210,11 @@ def set_rows(conn, slugs):
     return found, missing
 
 
+def gene_count(conn, gene):
+    r = conn.execute("SELECT n FROM gene_meta WHERE gene=?", (gene.upper(),)).fetchone()
+    return (r["n"] if r else 0) or 0
+
+
 def corpus_stats(conn):
     """Headline counts for the home page."""
     return {
