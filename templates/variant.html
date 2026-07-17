@@ -177,9 +177,9 @@
       </p>
     </section>
 
-    <p class="vv-src section-sub" id="sources"><b>Data sources &amp; attribution:</b>
-      {% for name, credit in data_sources %}{{ name }} ({{ credit }}){% if not loop.last %}; {% endif %}{% endfor %}.
-      Deterministic; every fact traced. Free reference use — not a clinical determination.</p>
+    <p class="vv-src section-sub" id="sources"><b>Data sources, versions &amp; attribution:</b>
+      {% for name, credit, built in data_provenance() %}{{ name }} ({{ credit }}{% if built %}, built {{ built }}{% endif %}){% if not loop.last %}; {% endif %}{% endfor %}.
+      Deterministic; every fact traced to its source and dataset build date. Free reference use — not a clinical determination.</p>
   </div>
 </article>
 {% endblock %}

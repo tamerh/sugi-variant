@@ -126,6 +126,32 @@ def alphamissense_for(coord):
             "short": a.get("protein_variant"), "uniprot": a.get("uniprot_id")}
 
 
+_DATASET_VERSIONS = None
+
+
+def dataset_versions():
+    """{biobtree group → last_built date YYYY-MM-DD} from the live meta — the HONEST
+    per-dataset build date. HANDOVER §7: the single biobtree 'dev' version stamp lies,
+    so pin per-dataset last_built instead. Cached; {} if meta is unreachable."""
+    global _DATASET_VERSIONS
+    if _DATASET_VERSIONS is None:
+        _DATASET_VERSIONS = {}
+        try:
+            import urllib.request
+            import json as _json
+            import os
+            base = os.environ.get("BIOBTREE_WS", "http://localhost:9291")
+            with urllib.request.urlopen(base + "/ws/meta", timeout=5) as r:
+                meta = _json.load(r)
+            for v in (meta.get("datasets") or {}).values():
+                g, lb = v.get("group"), v.get("last_built")
+                if g and lb and g not in _DATASET_VERSIONS:
+                    _DATASET_VERSIONS[g] = lb[:10]
+        except Exception:
+            _DATASET_VERSIONS = {}
+    return _DATASET_VERSIONS
+
+
 def molecular_consequence(rec):
     """Deterministic molecular consequence from HGVS grammar — DESCRIPTIVE typing,
     never an applied PVS1/ACMG code (§8). Predicted-LoF classes (nonsense /

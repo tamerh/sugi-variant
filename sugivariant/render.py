@@ -8,25 +8,36 @@ from sugivariant.util import table
 # REQUIRE attribution; the rest are credited as good practice. Everything here is
 # usable in this FREE/non-commercial product (see docs/variant-product-strategy).
 # Single source of truth — the HTML template reads the same list via env.globals.
+# (name, license/credit, biobtree group). The group joins to the live per-dataset
+# build date (enrich.dataset_versions) so provenance shows the HONEST version.
 DATA_SOURCES = [
-    ("ClinVar", "NCBI — public domain"),
-    ("gnomAD v4.1", "Broad Institute"),
-    ("AlphaMissense", "Cheng et al. 2023, © Google DeepMind — CC BY 4.0"),
-    ("REVEL", "Ioannidis et al. 2016 — ODbL"),
-    ("SaProt", "Su et al. 2023 — MIT"),
-    ("SpliceAI", "Illumina — free for non-commercial use"),
-    ("Conservation (phyloP/phastCons/GERP)", "UCSC"),
-    ("ClinGen", "ClinGen"),
-    ("UniProt", "CC BY 4.0"),
-    ("Reactome / GO", "CC BY 4.0"),
-    ("MaveDB", "per-record license"),
-    ("CIViC", "CC0"),
-    ("Orphanet", "Orphanet"),
+    ("ClinVar", "NCBI — public domain", "clinvar"),
+    ("gnomAD v4.1", "Broad Institute", "gnomad_variant"),
+    ("AlphaMissense", "Cheng et al. 2023, © Google DeepMind — CC BY 4.0", "alphamissense"),
+    ("REVEL", "Ioannidis et al. 2016 — ODbL", "revel"),
+    ("SaProt", "Su et al. 2023 — MIT", "saprot"),
+    ("SpliceAI", "Illumina — free for non-commercial use", "spliceai"),
+    ("Conservation (phyloP/phastCons/GERP)", "UCSC", "conservation"),
+    ("ClinGen", "ClinGen", "clingen"),
+    ("UniProt", "CC BY 4.0", "uniprot"),
+    ("Reactome / GO", "CC BY 4.0", "reactome"),
+    ("MaveDB", "per-record license", "mavedb"),
+    ("CIViC", "CC0", "civic_variant"),
+    ("Orphanet", "Orphanet", "orphanet"),
 ]
 
 
+def data_provenance():
+    """[(name, license, built_date)] — sources joined to their live biobtree build
+    date (None if unknown). The auditability payload: what, under what licence, as of when."""
+    from sugivariant.enrich import dataset_versions
+    ver = dataset_versions()
+    return [(name, lic, ver.get(group)) for name, lic, group in DATA_SOURCES]
+
+
 def attribution_md():
-    return "; ".join(f"{name} ({credit})" for name, credit in DATA_SOURCES)
+    return "; ".join(f"{n} ({lic}" + (f", built {b}" if b else "") + ")"
+                     for n, lic, b in data_provenance())
 
 # ClinVar review status → gold-star tier (the standard 0-4 confidence scale).
 _STARS = {

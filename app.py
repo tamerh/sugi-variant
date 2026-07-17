@@ -60,8 +60,8 @@ def stars(review_status):
 env.globals.update(label=variant_label, cls_class=cls_class, stars=stars)
 # Data-source attribution (AlphaMissense CC BY 4.0 + REVEL ODbL require it) — single
 # source of truth in render.py so HTML and the markdown twin can't drift.
-from sugivariant.render import DATA_SOURCES              # noqa: E402
-env.globals["data_sources"] = DATA_SOURCES
+from sugivariant.render import data_provenance           # noqa: E402
+env.globals["data_provenance"] = data_provenance
 env.globals["tier_label"] = tier_label
 
 app = FastAPI(title="Sugi Variant")
