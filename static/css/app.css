@@ -313,3 +313,15 @@
 /* classic view identity: grid item must be allowed to shrink (min-width:0) so a
    long HGVS wraps instead of forcing the grid wider than the page */
 .vv-ident dd{min-width:0;overflow-wrap:anywhere;word-break:break-word}
+
+/* ── Sources & versions: grid of small source boxes ── */
+.src-section{margin-top:2rem;border-top:1px solid var(--border,#e5e7eb);padding-top:1rem}
+.src-h{font-size:1rem;margin:0 0 .2rem;display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem}
+.src-note{font-size:.78rem;font-weight:400;color:var(--fg-soft,#6b7280);letter-spacing:0}
+.src-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(172px,1fr));gap:.55rem;margin-top:.8rem}
+.src-box{display:flex;flex-direction:column;gap:.12rem;border:1px solid var(--border,#e5e7eb);
+  border-left:3px solid color-mix(in srgb,var(--accent,#2563eb) 45%,transparent);
+  border-radius:9px;padding:.5rem .65rem;background:var(--bg,#fff)}
+.src-name{font-weight:700;font-size:.86rem;line-height:1.2}
+.src-date{font-size:.72rem;color:var(--accent,#2563eb);font-variant-numeric:tabular-nums}
+.src-lic{font-size:.7rem;color:var(--muted,#6b7280);line-height:1.3}

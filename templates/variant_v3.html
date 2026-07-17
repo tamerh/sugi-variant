@@ -66,8 +66,7 @@
         <a class="btn btn-ghost" href="https://findageneticcounselor.nsgc.org/">Find a genetic counselor</a></p>
     </section>
 
-    <p class="vv-src section-sub" id="sources"><b>Sources &amp; versions:</b>
-      {% for name, credit, built in data_provenance() %}{{ name }}{% if built %} ({{ built }}){% endif %}{% if not loop.last %} · {% endif %}{% endfor %}. Deterministic; not a clinical determination.</p>
+    {% include "_sources.html" %}
   </div>
 </article>
 {% endblock %}

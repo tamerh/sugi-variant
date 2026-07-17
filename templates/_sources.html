@@ -1,0 +1,15 @@
+{# Shared "Sources & versions" block — a grid of small source boxes (name +
+   dataset build date + licence/credit). Used by all three variant layouts. #}
+<section class="src-section" id="sources">
+  <h2 class="src-h">Sources &amp; versions
+    <span class="src-note">every fact traced to its source and dataset build date · deterministic · not a clinical determination</span></h2>
+  <div class="src-grid">
+    {% for name, credit, built in data_provenance() %}
+    <div class="src-box">
+      <span class="src-name">{{ name }}</span>
+      {% if built %}<span class="src-date">as of {{ built }}</span>{% endif %}
+      <span class="src-lic">{{ credit }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
