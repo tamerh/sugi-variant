@@ -450,14 +450,19 @@ async def gene_hub(gene: str):
                    flagged=flagged, cap=_HUB_CAP)
 
 
+_VIEW_TEMPLATES = {"2": "variant_v2.html", "3": "variant_v3.html"}
+
+
 @app.get("/{slug}", response_class=HTMLResponse)
-async def variant_page(slug: str):
+async def variant_page(slug: str, view: str = ""):
     slug = slug.lower().strip("/")
     if _RSID_RE.match(slug):                       # rsID URL → dbSNP reverse-map
         return _resolution_response("rsid", slug, resolve_rsid(slug))
     rec = _resolve(slug)
     if not rec:
         raise StarletteHTTPException(404, f"No variant page for “{slug}”.")
-    # canonical: if hit via an alias, the template sets rel=canonical to the p-slug
-    return _render("variant.html", v=rec, canonical=rec["canonical_slug"], nav="variant",
-                   disagreement=disagreement_flag(rec))
+    # ?view= selects a layout preview (Default / Dashboard / Datasheet); the switcher
+    # bar links between them. canonical stays the p-slug regardless.
+    tpl = _VIEW_TEMPLATES.get(view, "variant.html")
+    return _render(tpl, v=rec, canonical=rec["canonical_slug"], nav="variant",
+                   view=view, disagreement=disagreement_flag(rec))

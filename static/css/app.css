@@ -181,3 +181,56 @@
 .ac-kind.ac-variant{background:var(--conflict-soft,var(--vus-soft));color:var(--conflict,#8e44ad)}
 .ac-label{font-weight:600;font-family:ui-monospace,monospace}
 .ac-sub{margin-left:auto;color:var(--muted,#6b7280);font-size:.8rem;white-space:nowrap}
+
+/* ── view switcher (layout preview) ─────────────────────────────────────────── */
+.view-switch{display:flex;align-items:center;gap:.45rem;font-size:.78rem;color:var(--muted,#6b7280);
+  padding:.5rem 0;margin-top:.4rem;flex-wrap:wrap}
+.view-switch a{padding:.18rem .6rem;border:1px solid var(--border,#e5e7eb);border-radius:999px;
+  text-decoration:none;color:var(--muted,#6b7280)}
+.view-switch a.on{background:var(--accent,#2563eb);color:#fff;border-color:var(--accent,#2563eb)}
+
+/* ── VIEW 2 · dashboard ─────────────────────────────────────────────────────── */
+.vd-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:.6rem;
+  border-left:4px solid var(--cls,var(--vus));padding:.2rem 0 .2rem .9rem;margin:.4rem 0 0}
+.vd-title{font-size:1.7rem;font-weight:700;margin:0;letter-spacing:-.01em}
+.vd-hgvs{font-family:ui-monospace,monospace;color:var(--muted,#6b7280);font-weight:600}
+.vd-ids{margin:.2rem 0 0;font-size:.85rem;color:var(--muted,#6b7280);font-family:ui-monospace,monospace}
+.vd-head-verdict{display:flex;gap:.5rem;align-items:center}
+.vd-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;margin:1rem 0 1.1rem}
+.vd-tile{border:1px solid var(--border,#e5e7eb);border-radius:11px;padding:.6rem .8rem;background:var(--bg,#fff)}
+.vd-tile .lab{font-size:.62rem;text-transform:uppercase;letter-spacing:.07em;color:var(--faint,#8b93a1)}
+.vd-tile .val{font-size:1.02rem;font-weight:650;margin-top:.15rem;line-height:1.25}
+.vd-tile .sub{font-size:.76rem;color:var(--muted,#6b7280);margin-top:.1rem}
+.vd-grid{display:grid;grid-template-columns:1fr;gap:1.1rem;align-items:start}
+@media(min-width:920px){.vd-grid{grid-template-columns:minmax(0,1.95fr) minmax(0,1fr)}}
+.vd-card{border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:.9rem 1rem;margin-bottom:1rem;background:var(--bg,#fff)}
+.vd-card>h3{font-size:.73rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted,#6b7280);margin:0 0 .6rem}
+.vd-card p{margin:.4rem 0;line-height:1.5;font-size:.92rem}
+.vd-side .vd-card{font-size:.86rem}
+.vd-side .vd-card p{font-size:.85rem;margin:.3rem 0}
+.vd-verdict{font-weight:600;margin:.2rem 0 1rem;font-size:.98rem}
+.vd-verdict.is-flag{color:var(--flag)}.vd-verdict.is-ok{color:var(--ok)}
+.vd-preds{width:100%;border-collapse:collapse;font-size:.9rem}
+.vd-preds th{text-align:left;font-weight:600;white-space:nowrap;padding:.32rem .7rem .32rem 0;vertical-align:baseline;width:1%}
+.vd-preds td{padding:.32rem 0;vertical-align:baseline;border-top:1px solid var(--line2,#eef1f4)}
+.vd-preds tr:first-child td,.vd-preds tr:first-child th{border-top:0}
+.vd-num{font-family:ui-monospace,monospace;font-weight:600;white-space:nowrap;padding-right:.7rem !important}
+.vd-consensus{font-size:.9rem;margin-top:.6rem;padding-top:.5rem;border-top:1px dashed var(--border,#e5e7eb)}
+.vd-consensus.is-agree{color:var(--ok)}
+.vd-dl{display:grid;grid-template-columns:auto 1fr;gap:.25rem .8rem;margin:0;font-size:.86rem}
+.vd-dl dt{color:var(--muted,#6b7280);font-weight:600}.vd-dl dd{margin:0}
+.vd-chips{display:flex;flex-wrap:wrap;gap:.3rem}
+
+/* ── VIEW 3 · datasheet ─────────────────────────────────────────────────────── */
+.ds-head{border-left:4px solid var(--cls,var(--vus));padding:.2rem 0 .5rem .9rem;margin:.4rem 0 1rem}
+.ds-title{font-size:1.55rem;font-weight:700;margin:0 0 .4rem}
+.ds-verdict{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.ds-conc{margin:.5rem 0 0;font-weight:600;font-size:.92rem}
+.ds-conc.is-flag{color:var(--flag)}.ds-conc.is-ok{color:var(--ok)}
+.ds-table{width:100%;border-collapse:collapse;font-size:.9rem}
+.ds-table th{text-align:left;vertical-align:baseline;white-space:nowrap;width:1%;
+  padding:.42rem 1rem .42rem 0;color:var(--muted,#6b7280);font-weight:600;font-size:.82rem}
+.ds-table td{vertical-align:baseline;padding:.42rem 0;line-height:1.5;border-top:1px solid var(--line2,#eef1f4)}
+.ds-table tr:first-child>*{border-top:0}
+.ds-chips{display:flex;flex-wrap:wrap;gap:.3rem}
+.ds .vv-sum,.vd-card .vv-sum{font-size:.82rem;color:var(--accent,#2563eb);cursor:pointer}

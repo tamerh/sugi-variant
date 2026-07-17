@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% set p = v.alphamissense %}{% set g = v.gnomad %}{% set c = v.concordance %}
+{% set st = stars(v.review_status) %}
+{% block title %}{{ label(v) }}{% endblock %}
+{% block description %}{{ v.plain }}{% endblock %}
+{% block head %}<link rel="canonical" href="https://sugi.bio/variant/{{ v.canonical_slug }}">{% endblock %}
+{% block content %}
+{% include "_viewswitch.html" %}
+<article class="entity-page ds">
+  <div class="container container-narrow">
+    <p class="breadcrumb"><a href="{{ base }}/">Sugi Variant</a><span>/</span>
+      <a href="{{ base }}/gene/{{ v.gene_symbol }}">{{ v.gene_symbol }}</a><span>/</span>{{ v.hgvs_p or v.hgvs_c }}</p>
+
+    <header class="ds-head vv-cls-{{ cls_class(v.classification) }}">
+      <h1 class="ds-title">{{ v.gene_symbol }} <span class="vd-hgvs">{{ v.hgvs_p or v.hgvs_c }}</span></h1>
+      <div class="ds-verdict">
+        <span class="vv-pill vv-pill-cls">{{ v.classification }}</span>
+        <span class="rv-badge {{ st.cls }}" title="{{ v.review_status }}">{{ st.label }}</span>
+        {% if v.submitter_count %}<span class="vv-meta">{{ v.submitter_count }} submitter{{ 's' if v.submitter_count != 1 }}</span>{% endif %}
+        {% if v.last_evaluated %}<span class="vv-meta">last eval {{ v.last_evaluated }}</span>{% endif %}
+      </div>
+      {% if c and c.verdict %}<p class="ds-conc {{ 'is-flag' if c.flags else 'is-ok' }}">{{ '⚠' if c.flags else '✓' }} {{ c.verdict|striptags }}.</p>{% endif %}
+    </header>
+
+    {% if disagreement %}
+    <a class="dz-banner dz-tone-{{ 'flag' if disagreement.category == 'predictor_vs_clinvar' else 'info' if disagreement.category == 'resolves_conflicting' else 'warn' }}" href="{{ base }}/disagreements/{{ v.gene_symbol }}">
+      <b>{{ disagreement.label }}</b> — {{ disagreement.reason }} <span class="dz-banner-go">all {{ v.gene_symbol }} →</span></a>
+    {% endif %}
+
+    <table class="ds-table"><tbody>
+      <tr><th>Summary</th><td>{{ v.plain }}</td></tr>
+      <tr><th>ClinVar</th><td>{{ v.classification }} · {{ st.label }} <span class="section-sub">({{ v.review_status }})</span>{% if v.consensus %} · submitters {{ v.consensus.verdict }}{% endif %}{% if v.timeline and v.timeline.n > 1 %} · {{ v.timeline.n }} submissions {{ v.timeline.first }}–{{ v.timeline.last }}{% endif %}</td></tr>
+      {% if p and p.class %}<tr><th>AlphaMissense</th><td><b>{{ p.score }}</b> {{ p.class|replace('_',' ') }} <span class="section-sub">— the ACMG-weighted call{% if v.am_percentile and v.am_percentile.top_pct <= 10 %}, top {{ v.am_percentile.top_pct }}% in {{ v.gene_symbol }}{% endif %}</span>{% if v.am_isoform_mismatch %} <span style="color:var(--flag)">⚠ isoform: AM {{ v.am_isoform_mismatch.am }} vs ClinVar {{ v.am_isoform_mismatch.clinvar }}</span>{% endif %}</td></tr>
+      {% else %}<tr><th>Predictors</th><td class="section-sub">Missense predictors do not apply to this variant type; conservation{% if v.spliceai %}/SpliceAI{% endif %} carries the signal.</td></tr>{% endif %}
+      {% if v.lof_context %}<tr><th>Consequence</th><td>{{ v.lof_context.label }} — <span class="section-sub">predicted LoF{% if v.lof_context.haploinsufficient %} in a haploinsufficient gene (ClinGen){% elif v.lof_context.constrained %} in a LoF-intolerant gene{% endif %}{% if v.lof_context.nmd_caveat %}; NMD-escape possible for C-terminal truncations{% endif %}; descriptive, not PVS1</span></td></tr>{% endif %}
+      {% if v.revel %}<tr><th>REVEL</th><td><b>{{ v.revel.score }}</b> <span class="section-sub">{{ v.revel.band }} — agreement signal</span></td></tr>{% endif %}
+      {% if v.saprot %}<tr><th>SaProt</th><td><b>LLR {{ '%.2f'|format(v.saprot.llr) }}</b> <span class="section-sub">{{ 'damaging' if v.saprot.damaging else 'tolerated' }} — orthogonal agreement signal</span></td></tr>{% endif %}
+      {% if v.spliceai %}<tr><th>SpliceAI</th><td><b>Δ{{ v.spliceai.score }}</b> <span class="section-sub">{{ v.spliceai.effect|replace('_',' ') }}</span></td></tr>{% endif %}
+      {% if v.conservation and v.conservation.phylop is not none %}<tr><th>Conservation</th><td>phyloP {{ '%.2g'|format(v.conservation.phylop) }}{% if v.conservation.gerp is not none %}, GERP {{ '%.2g'|format(v.conservation.gerp) }}{% endif %}{% if v.conservation.phastcons is not none %}, phastCons {{ '%.2g'|format(v.conservation.phastcons) }}{% endif %}</td></tr>{% endif %}
+      {% if c and c.consensus %}<tr><th>In-silico consensus</th><td>{{ c.consensus.summary }} <span class="section-sub">— agreement signals, not additive (ClinGen SVI)</span></td></tr>{% endif %}
+      <tr><th>gnomAD v4.1</th><td>{% if g %}{{ g.band }}{% if g.faf %} · filtering AF {{ g.faf }}{% endif %}{% else %}no coordinate frequency{% endif %}</td></tr>
+      {% if v.vcep and v.vcep[0].criteria %}{% set cr = v.vcep[0].criteria %}
+      <tr><th>ClinGen VCEP</th><td><b>{{ v.vcep[0].assertion }}</b> — {{ v.vcep[0].panel }} ({{ v.vcep[0].disease }}). Applied: {% for x in cr.codes_met %}<code class="vv-acmg">{{ x }}</code> {% endfor %}
+        {% if cr.summary %}<details><summary class="vv-sum">rationale (verbatim)</summary><span class="section-sub">{{ cr.summary }}</span></details>{% endif %}
+        {% if cr.erepo %}<a href="{{ cr.erepo }}" target="_blank" rel="noopener">erepo →</a> · not re-tallied{% endif %}</td></tr>{% endif %}
+      {% if v.mavedb %}<tr><th>Functional (MaveDB)</th><td>{{ v.mavedb|length }} DMS assay{{ 's' if v.mavedb|length != 1 }}: {% for m in v.mavedb %}{{ '%.3f'|format(m.score|float) }}{{ ', ' if not loop.last }}{% endfor %}</td></tr>{% endif %}
+      {% if v.mechanism %}<tr><th>Mechanism</th><td>{{ v.mechanism|safe }}</td></tr>{% endif %}
+      {% if v.gene_context and v.gene_context.constraint and v.gene_context.constraint.loeuf %}<tr><th>Gene constraint</th><td>LOEUF {{ v.gene_context.constraint.loeuf }}, pLI {{ v.gene_context.constraint.pli }}{% if v.gene_context.dosage and v.gene_context.dosage.haplo %} · ClinGen HI {{ v.gene_context.dosage.haplo }}/3{% endif %}{% if v.structural and v.structural.features %} · residue {{ v.structural.position }}: {{ v.structural.features|join('; ') }}{% endif %}</td></tr>{% endif %}
+      {% if v.hotspot and v.hotspot.others %}<tr><th>Residue hotspot</th><td>{{ v.hotspot.others|length }} other pathogenic at {{ v.hotspot.position }}: {% for o in v.hotspot.others[:6] %}<a href="{{ base }}/{{ o.slug }}">{{ o.label.split(' ')[-1] }}</a>{{ ', ' if not loop.last }}{% endfor %}</td></tr>{% endif %}
+      {% if v.conditions %}<tr><th>Conditions</th><td class="ds-chips">{% for cd in v.conditions %}<span class="vv-chip">{{ cd.name }}</span>{% endfor %}</td></tr>{% endif %}
+      {% if v.similar %}<tr><th>Similar</th><td class="ds-chips">{% for s in v.similar %}<a class="vv-chip" href="{{ base }}/{{ s.slug }}">{{ s.label.split(' ')[-1] }}</a>{% endfor %}</td></tr>{% endif %}
+      <tr><th>Identity</th><td class="section-sub">{{ v.variant_type }}{% if v.chromosome %} · chr{{ v.chromosome }}:{{ v.start }} ({{ v.assembly }}){% endif %} · {% if v.rsid %}<a href="https://www.ncbi.nlm.nih.gov/snp/{{ v.rsid }}/">{{ v.rsid }}</a> · {% endif %}<a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/{{ v.variation_id }}/">VCV{{ v.variation_id }}</a></td></tr>
+    </tbody></table>
+
+    {% set d = v.digest %}
+    <section class="vv-patient" id="patients" style="margin-top:1.3rem">
+      <h2 class="vv-patient-h">🛈 For patients &amp; families <span class="vv-patient-badge">plain-language · not medical advice</span></h2>
+      <p class="vv-patient-lead">{{ v.plain }}</p>
+      {% if d or (v.condition_links and v.condition_links.trial_count) %}<table class="ds-table"><tbody>
+        {% if d and d.inheritance %}<tr><th>Typical inheritance</th><td>{{ d.inheritance[:3]|join(', ') }}</td></tr>{% endif %}
+        {% if d and d.onset %}<tr><th>Age of onset</th><td>{{ d.onset|join(', ') }}</td></tr>{% endif %}
+        {% if d and d.prevalence %}<tr><th>Prevalence</th><td>{{ d.prevalence }}</td></tr>{% endif %}
+        {% if v.condition_links and v.condition_links.trial_count %}<tr><th>Clinical trials</th><td>{{ v.condition_links.trial_count }} for this condition</td></tr>{% endif %}
+      </tbody></table>{% endif %}
+      <p class="vv-cta">{% if v.condition_links and v.condition_links.gard %}<a class="btn btn-ghost" href="https://rarediseases.info.nih.gov/diseases/{{ v.condition_links.gard }}/index">Condition support (GARD)</a>{% endif %}
+        <a class="btn btn-ghost" href="https://findageneticcounselor.nsgc.org/">Find a genetic counselor</a></p>
+    </section>
+
+    <p class="vv-src section-sub" id="sources"><b>Sources &amp; versions:</b>
+      {% for name, credit, built in data_provenance() %}{{ name }}{% if built %} ({{ built }}){% endif %}{% if not loop.last %} · {% endif %}{% endfor %}. Deterministic; not a clinical determination.</p>
+  </div>
+</article>
+{% endblock %}

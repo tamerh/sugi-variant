@@ -7,6 +7,7 @@
   <link rel="canonical" href="https://sugi.bio/variant/{{ v.canonical_slug }}">{# self-referential, no trailing slash (§10); alias pages canonicalize to the p-form #}
 {% endblock %}
 {% block content %}
+{% include "_viewswitch.html" %}
 <article class="entity-page vv" data-toc>
   <div class="container container-wide">
     <p class="breadcrumb">
