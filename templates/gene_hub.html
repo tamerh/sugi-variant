@@ -10,13 +10,38 @@
     <h1 class="hero-title">{{ gene }} — clinically significant variants</h1>
     <p class="hero-lead"><strong>{{ total }}</strong> pathogenic / likely-pathogenic / conflicting
     {{ gene }} variants, each assembled from ClinVar + gnomAD + AlphaMissense + conservation and more.
-    {% if flagged %}<a href="{{ base }}/disagreements/{{ gene }}">{{ flagged }} carry an evidence disagreement →</a>{% endif %}</p>
+    {% if flagged %}<a href="#disagreements">{{ flagged }} carry an evidence disagreement →</a>{% endif %}</p>
     <p class="dz-summary">
       {% for grp in groups %}<span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(grp.cls) }}">{{ grp.total }}</span> {{ grp.cls }}{% if not loop.last %} · {% endif %}{% endfor %}
     </p>
   </section>
 
-  <section class="entity-main">
+  {% if flagged %}
+  <section class="entity-main" id="disagreements">
+    <h2 class="section-title">⚑ Evidence disagreements <span class="dz-count">{{ flagged }}</span></h2>
+    <p class="section-sub" style="margin:-.4rem 0 1rem">Variants where the independent computational evidence doesn't line up with the clinical picture — a QC signal for a second look, not a reclassification.</p>
+    {% for cat in cats %}{% if dgroups[cat] %}
+    <div class="dz-group dz-tone-{{ meta[cat].tone }}">
+      <h3 class="section-title" style="font-size:1.05rem">{{ meta[cat].label }} <span class="dz-count">{{ dcounts[cat] }}</span></h3>
+      <p class="section-sub" style="margin:-.3rem 0 .6rem">{{ meta[cat].blurb }}{% if dcounts[cat] > dcap %} · showing the {{ dcap }} best-reviewed of {{ dcounts[cat] }}{% endif %}</p>
+      <ul class="dz-list">
+        {% for r in dgroups[cat] %}
+        <li class="dz-row">
+          <a class="dz-row-link" href="{{ base }}/{{ r.slug }}">
+            <span class="dz-row-name">{{ gene }} <b>{{ hgvs_disp(r.hgvs_p or r.hgvs_c) }}</b></span>
+            <span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(r.classification) }}">{{ r.classification|replace('Conflicting classifications of pathogenicity','Conflicting') }}</span>
+            <span class="rv-badge rv{{ r.stars }} rv-sm">{{ tier_label(r.stars) }}</span>
+          </a>
+          {% if r.primary_condition %}<p class="dz-reason">{{ r.primary_condition }}</p>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}{% endfor %}
+  </section>
+  {% endif %}
+
+  <section class="entity-main"><h2 class="section-title">All {{ gene }} variants</h2>
     {% for grp in groups %}
     <div class="dz-group">
       <h2 class="section-title">{{ grp.cls }} <span class="dz-count">{{ grp.total }}</span></h2>
@@ -27,7 +52,7 @@
           <a href="{{ base }}/{{ r.slug }}"><b>{{ r.hgvs_p or r.hgvs_c }}</b></a>
           <span class="rv-badge rv{{ r.stars }} rv-sm">{{ tier_label(r.stars) }}</span>
           {% if r.primary_condition %}<span class="gh-cond section-sub">{{ r.primary_condition }}</span>{% endif %}
-          {% if r.flag %}<a class="gh-flag" href="{{ base }}/disagreements/{{ gene }}" title="evidence disagreement">⚠</a>{% endif %}
+          {% if r.flag %}<a class="gh-flag" href="#disagreements" title="evidence disagreement">⚠</a>{% endif %}
         </li>
         {% endfor %}
       </ul>

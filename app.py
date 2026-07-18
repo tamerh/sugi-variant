@@ -546,43 +546,21 @@ def sitemap_gene(gene: str):
     return Response(content=xml, media_type="application/xml")
 
 
-@app.get("/disagreements", response_class=HTMLResponse)
+@app.get("/disagreements")
 def disagreements_hub():
-    # Counts only for genes already built (cold BRCA2 ≈ minutes) — link the rest.
-    featured = []
-    for g in FEATURED_GENES:
-        counts = None
-        if g in _GENE_CACHE:
-            counts = {k: len(v) for k, v in _grouped_flags(_GENE_CACHE[g]).items()}
-        featured.append({"gene": g, "counts": counts})
-    return _render("disagreements_hub.html", featured=featured,
-                   cats=DISAGREEMENT_CATEGORIES, meta=CAT_META)
+    # Folded into the per-gene hubs (each gene's QC section); browse via /genes.
+    return RedirectResponse(f"{BASE}/genes", status_code=308)
 
 
 _DZ_CAP = 150   # per-category display cap (best-reviewed first); avoids a 2000-row whale dump
 
 
-@app.get("/disagreements/{gene}", response_class=HTMLResponse)
+@app.get("/disagreements/{gene}")
 def disagreements_gene(gene: str):
-    g = gene.upper().strip("/")
-    ix = _index()
-    rows = IX.gene_rows(ix, g) if ix else None
-    if not rows:                                   # not indexed yet → live build fallback
-        recs = _records(g)
-        if not recs:
-            raise StarletteHTTPException(404, f"No variants built for “{g}”.")
-        rows = sorted(({"slug": x["canonical_slug"], "hgvs_p": x.get("hgvs_p"),
-                        "hgvs_c": x.get("hgvs_c"), "classification": x["classification"],
-                        "stars": review_stars(x.get("review_status")),
-                        "primary_condition": (x.get("conditions") or [{}])[0].get("name"),
-                        "flag": (disagreement_flag(x) or {}).get("category")} for x in recs),
-                      key=lambda r: (-r["stars"], r["slug"]))
-    full = {cat: [r for r in rows if r["flag"] == cat] for cat in DISAGREEMENT_CATEGORIES}
-    counts = {k: len(v) for k, v in full.items()}                 # full counts (badges)
-    groups = {cat: items[:_DZ_CAP] for cat, items in full.items()}  # capped display (best-reviewed first)
-    return _render("disagreements_gene.html", gene=g, groups=groups, counts=counts,
-                   flagged=sum(counts.values()), total=len(rows), cap=_DZ_CAP,
-                   cats=DISAGREEMENT_CATEGORIES, meta=CAT_META)
+    # The per-gene disagreements now live in a section on the gene hub; keep the old
+    # URL working by redirecting to that anchor.
+    return RedirectResponse(f"{BASE}/gene/{gene.upper().strip('/')}#disagreements",
+                            status_code=308)
 
 
 _CLS_ORDER = ["Pathogenic", "Pathogenic/Likely pathogenic", "Likely pathogenic",
@@ -613,8 +591,13 @@ def gene_hub(gene: str):
         if items:
             groups.append({"cls": cls, "total": len(items), "shown": items[:_HUB_CAP]})
     flagged = sum(1 for r in rows if r["flag"])
+    # evidence-disagreement (QC) subset, folded into the gene hub (its own section)
+    dfull = {cat: [r for r in rows if r["flag"] == cat] for cat in DISAGREEMENT_CATEGORIES}
+    dcounts = {k: len(v) for k, v in dfull.items()}
+    dgroups = {cat: items[:_DZ_CAP] for cat, items in dfull.items()}
     return _render("gene_hub.html", gene=g, groups=groups, total=len(rows),
-                   flagged=flagged, cap=_HUB_CAP)
+                   flagged=flagged, cap=_HUB_CAP, dgroups=dgroups, dcounts=dcounts,
+                   dcap=_DZ_CAP, cats=DISAGREEMENT_CATEGORIES, meta=CAT_META)
 
 
 _VIEW_TEMPLATES = {"datasheet": "variant_v3.html", "classic": "variant_classic.html"}
