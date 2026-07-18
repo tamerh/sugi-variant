@@ -342,3 +342,6 @@
 .vd-stars{font-size:.72em;letter-spacing:.03em;white-space:nowrap;vertical-align:.06em}
 .vd-stars .on{color:#e6a70b}
 .vd-stars .off{color:var(--border,#d1d5db)}
+
+/* neutral plain-language lead under the stat tiles (was the 'For patients' card) */
+.vd-lead{margin:1rem 0 1.2rem;font-size:1.05rem;line-height:1.5;color:var(--fg);max-width:70ch}

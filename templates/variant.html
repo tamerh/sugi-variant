@@ -2,6 +2,8 @@
 {% set p = v.alphamissense %}{% set g = v.gnomad %}{% set c = v.concordance %}
 {% set st = stars(v.review_status) %}
 {% set cv_path = v.classification and 'pathogenic' in v.classification|lower and 'conflict' not in v.classification|lower %}
+{% set d = v.digest %}
+{% set has_facts = (d and (d.inheritance or d.onset or d.prevalence)) or (v.condition_links and v.condition_links.trial_count) %}
 {% block title %}{{ label(v) }}{% endblock %}
 {% block description %}{{ v.plain }}{% endblock %}
 {% block head %}<link rel="canonical" href="https://sugi.bio/variant/{{ v.canonical_slug }}">{% endblock %}
@@ -38,6 +40,8 @@
       {% if c and c.consensus %}<div class="vd-tile"><div class="lab">In-silico consensus</div><div class="val">{{ c.consensus.n_damaging }}/{{ c.consensus.total }} damaging</div><div class="sub">{{ 'unanimous' if c.consensus.unanimous else 'mixed' }}</div></div>{% endif %}
       {% if v.conditions %}<div class="vd-tile"><div class="lab">Conditions</div><div class="val">{{ v.conditions|length }}</div><div class="sub">{{ v.conditions[0].name }}</div></div>{% endif %}
     </div>
+
+    {% if v.plain %}<p class="vd-lead">{{ v.plain }}</p>{% endif %}
 
     {% if disagreement %}
     <a class="dz-banner dz-tone-{{ 'flag' if disagreement.category == 'predictor_vs_clinvar' else 'info' if disagreement.category == 'resolves_conflicting' else 'warn' }}"
@@ -91,22 +95,16 @@
             {% for e in v.civic.evidence %}<tr><td>{{ e.disease }}</td><td>{{ e.therapies }}</td><td>{{ e.level }}</td><td>{{ e.significance }}</td></tr>{% endfor %}</tbody></table></div>
         </section>{% endif %}
 
-        {# ── Patient (in the main column so it fills the space, not a full-width band) ── #}
-        {% set d = v.digest %}
-        {% set has_facts = (d and (d.inheritance or d.onset or d.prevalence)) or (v.condition_links and v.condition_links.trial_count) %}
-        <section class="vv-patient" id="patients">
-          <h2 class="vv-patient-h">🛈 For patients &amp; families <span class="vv-patient-badge">plain-language · not medical advice</span></h2>
-          <p class="vv-patient-lead">{{ v.plain }}</p>
-          {% if has_facts %}
-          <dl class="vd-dl vv-patient-facts">
-            {% if d and d.inheritance %}<dt>Typical inheritance</dt><dd>{{ d.inheritance[:3]|join(', ') }}</dd>{% endif %}
-            {% if d and d.onset %}<dt>Age of onset</dt><dd>{{ d.onset|join(', ') }}</dd>{% endif %}
+        {% if v.conditions %}<section class="vd-card"><h3>Disease context</h3>
+          <div class="vd-chips">{% for cd in v.conditions %}<span class="vv-chip">{{ cd.name }}</span>{% endfor %}</div>
+          {% if has_facts %}<dl class="vd-dl" style="margin-top:.7rem">
+            {% if d and d.inheritance %}<dt>Inheritance</dt><dd>{{ d.inheritance[:3]|join(', ') }}</dd>{% endif %}
+            {% if d and d.onset %}<dt>Onset</dt><dd>{{ d.onset|join(', ') }}</dd>{% endif %}
             {% if d and d.prevalence %}<dt>Prevalence</dt><dd>{{ d.prevalence }}</dd>{% endif %}
-            {% if v.condition_links and v.condition_links.trial_count %}<dt>Clinical trials</dt><dd>{{ v.condition_links.trial_count }} for this condition</dd>{% endif %}
+            {% if v.condition_links and v.condition_links.trial_count %}<dt>Clinical trials</dt><dd>{{ v.condition_links.trial_count }} registered</dd>{% endif %}
           </dl>{% endif %}
-          <p class="vv-cta">{% if v.condition_links and v.condition_links.gard %}<a class="btn btn-ghost" href="https://rarediseases.info.nih.gov/diseases/{{ v.condition_links.gard }}/index">Condition support (GARD)</a>{% endif %}
-            <a class="btn btn-ghost" href="https://findageneticcounselor.nsgc.org/">Find a genetic counselor</a></p>
-        </section>
+          {% if v.condition_links and v.condition_links.gard %}<p class="section-sub" style="margin:.6rem 0 0"><a href="https://rarediseases.info.nih.gov/diseases/{{ v.condition_links.gard }}/index">Condition reference (GARD) →</a></p>{% endif %}
+        </section>{% endif %}
       </div>
 
       {# ── SIDE column ── #}
@@ -128,8 +126,6 @@
           {% if v.structure and v.structure.alphafold and v.structure.alphafold.plddt %}<p class="section-sub">AlphaFold pLDDT {{ v.structure.alphafold.plddt }}{% if v.structure.pdb %} · {{ v.structure.pdb|length }} PDB{% endif %}.</p>{% endif %}
           {% if v.hotspot and v.hotspot.others %}<p class="section-sub">Residue {{ v.hotspot.position }}: {{ v.hotspot.others|length }} other pathogenic variant{{ 's' if v.hotspot.others|length != 1 }} ({% for o in v.hotspot.others[:4] %}<a href="{{ base }}/{{ o.slug }}">{{ o.label.split(' ')[-1] }}</a>{{ ', ' if not loop.last }}{% endfor %}).</p>{% endif %}
         </section>{% endif %}
-        {% if v.conditions %}<section class="vd-card"><h3>Associated conditions</h3>
-          <div class="vd-chips">{% for cd in v.conditions %}<span class="vv-chip">{{ cd.name }}</span>{% endfor %}</div></section>{% endif %}
         {% if v.similar %}<section class="vd-card"><h3>Similar variants</h3>
           <div class="vd-chips">{% for s in v.similar %}<a class="vv-chip" href="{{ base }}/{{ s.slug }}">{{ s.label }}</a>{% endfor %}</div></section>{% endif %}
       </aside>
