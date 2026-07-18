@@ -144,7 +144,7 @@
 
     {# ── Disease context ──────────────────────────────────────────────── #}
     {% set d = v.digest %}
-    {% if (d and (d.inheritance or d.onset or d.prevalence or d.phenotypes)) or (v.condition_links and (v.condition_links.trial_count or v.condition_links.gard)) %}
+    {% if (d and (d.inheritance or d.onset or d.prevalence or d.phenotypes)) or (v.condition_links and v.condition_links.trial_count) %}
     <section class="entity-main" id="disease-context">
       <h2 class="section-title">Disease context</h2>
       {% if d or (v.condition_links and v.condition_links.trial_count) %}
@@ -159,7 +159,6 @@
       <p><b>Commonly reported features of {{ d.name }}</b> <span class="section-sub">(Orphanet; frequency varies between individuals)</span>:</p>
       <ul class="vv-mini">{% for ph in d.phenotypes[:6] %}<li>{{ ph.term }}{% if ph.freq %} <span class="section-sub">— {{ ph.freq }}</span>{% endif %}</li>{% endfor %}</ul>
       {% endif %}
-      {% if v.condition_links and v.condition_links.gard %}<p class="section-sub"><a href="https://rarediseases.info.nih.gov/diseases/{{ v.condition_links.gard }}/index">Condition reference (GARD) →</a></p>{% endif %}
     </section>
     {% endif %}
 

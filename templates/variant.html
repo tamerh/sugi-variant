@@ -98,7 +98,6 @@
             {% if d and d.prevalence %}<dt>Prevalence</dt><dd>{{ d.prevalence }}</dd>{% endif %}
             {% if v.condition_links and v.condition_links.trial_count %}<dt>Clinical trials</dt><dd>{{ v.condition_links.trial_count }} registered</dd>{% endif %}
           </dl>{% endif %}
-          {% if v.condition_links and v.condition_links.gard %}<p class="section-sub" style="margin:.6rem 0 0"><a href="https://rarediseases.info.nih.gov/diseases/{{ v.condition_links.gard }}/index">Condition reference (GARD) →</a></p>{% endif %}
         </section>{% endif %}
       </div>
 
