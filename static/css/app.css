@@ -337,3 +337,8 @@
 .vd-conc{font-size:.82rem;font-weight:600}
 .vd-conc.is-ok{color:var(--ok,#2e7d32)}
 .vd-conc.is-flag{color:var(--flag,#c77800)}
+
+/* ClinVar gold-star review rating in the Review stat tile */
+.vd-stars{letter-spacing:.06em;line-height:1.1}
+.vd-stars .on{color:#e6a70b}
+.vd-stars .off{color:var(--border,#d1d5db)}

@@ -31,7 +31,7 @@
     {# ── Stat tiles ── #}
     <div class="vd-tiles">
       <div class="vd-tile"><div class="lab">Classification</div><div class="val vv-cls-{{ cls_class(v.classification) }}" style="color:var(--cls)">{{ v.classification }}</div></div>
-      <div class="vd-tile"><div class="lab">Review</div><div class="val">{{ st.label }}</div><div class="sub">{{ v.submitter_count or 0 }} submitter{{ 's' if v.submitter_count != 1 }}</div></div>
+      <div class="vd-tile"><div class="lab">Review</div><div class="val vd-stars" title="ClinVar {{ st.n }} of 4 stars — {{ st.label }}"><span class="on">{{ '★' * st.n }}</span><span class="off">{{ '☆' * (4 - st.n) }}</span></div><div class="sub">{{ st.label }} · {{ v.submitter_count or 0 }} submitter{{ 's' if v.submitter_count != 1 }}</div></div>
       {% if p and p.class %}<div class="vd-tile"><div class="lab">AlphaMissense</div><div class="val">{{ p.class|replace('_',' ') }}</div><div class="sub">{{ p.score }} · ACMG-weighted</div></div>
       {% elif v.lof_context %}<div class="vd-tile"><div class="lab">Consequence</div><div class="val">{{ v.lof_context.label }}</div><div class="sub">predicted LoF</div></div>{% endif %}
       <div class="vd-tile"><div class="lab">gnomAD v4.1</div><div class="val">{% if g and g.is_common %}Common{% elif g %}Rare{% else %}—{% endif %}</div><div class="sub">{{ g.band if g else 'no coord. frequency' }}</div></div>
