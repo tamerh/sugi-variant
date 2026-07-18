@@ -31,13 +31,6 @@
       <a href="{{ base }}/" class="site-title">
         <span class="site-mark" aria-hidden="true">⌗</span> Sugi Variant
       </a>
-      {% if nav|default('') != 'home' %}
-      <form class="header-search" action="{{ base }}/" method="get" role="search">
-        <span class="header-search-icon" aria-hidden="true">⌕</span>
-        <input name="q" type="search" placeholder="gene + change, or rsID  (PTEN R130Q · rs121909229)…"
-               autocomplete="off" aria-label="Search Sugi Variant" enterkeyhint="search">
-      </form>
-      {% endif %}
       <div class="header-actions">
         <details class="nav-menu">
           <summary class="nav-toggle" aria-label="Open menu"><span class="nav-toggle-bars" aria-hidden="true"></span></summary>
