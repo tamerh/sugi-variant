@@ -36,8 +36,10 @@
     <p><strong>Resolution.</strong> Variants are addressable by gene + HGVS (protein or coding), by dbSNP
       rsID, and by GRCh38 coordinate, via a precomputed index over the corpus.</p>
 
-    <p>Identifiers are resolved through <a href="https://biobtree.org">BioBTree</a>. Data sources and their
-      licenses are listed at the foot of every variant page.</p>
+    <p>Identifiers are resolved through <a href="https://biobtree.org">BioBTree</a>. Every fact on a variant
+      page is traced to one of the sources below, with its dataset build date.</p>
+
+    {% include "_sources.html" %}
   </div>
 </div>
 {% endblock %}

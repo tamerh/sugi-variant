@@ -325,3 +325,7 @@
 .src-name{font-weight:700;font-size:.86rem;line-height:1.2}
 .src-date{font-size:.72rem;color:var(--accent,#2563eb);font-variant-numeric:tabular-nums}
 .src-lic{font-size:.7rem;color:var(--muted,#6b7280);line-height:1.3}
+
+/* compact per-variant sources footer (full grid lives on /about + /method) */
+.src-mini{margin-top:2rem;border-top:1px solid var(--border,#e5e7eb);padding-top:.8rem;font-size:.85rem}
+.src-mini a{white-space:nowrap}
