@@ -171,6 +171,11 @@ def attach_enrichment(rec, ctx=None):
     # per condition-MONDO; None for somatic/unannotated conditions (no germline
     # framing). plain_summary is confidence-calibrated (audit P2).
     rec["digest"] = EN.condition_digest(rec.get("conditions"), ctx.setdefault("digest_cache", {}))
+    # mtDNA genes are maternally/mitochondrially inherited — never autosomal. Orphanet's
+    # inheritance for the linked condition can be mis-anchored (benchmark 2026-07: MT-ATP6
+    # showed 'Autosomal recessive'); force the correct mode for MT- loci.
+    if rec["digest"] and (rec.get("gene_symbol") or "").upper().startswith("MT-"):
+        rec["digest"]["inheritance"] = ["Mitochondrial (maternal)"]
     rec["plain"] = EN.plain_summary(rec)
     rec["pathways"] = ctx.get("pathways")
     rec["mechanism"] = EN.mechanism_narrative(rec, ctx.get("pathways"))
