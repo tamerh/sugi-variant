@@ -352,3 +352,6 @@
 .set-title-n{color:var(--fg-soft,#6b7280);font-weight:400}
 .set-sub{font-size:1.02rem;color:var(--fg-muted,#4b5563);max-width:72ch;margin:0 0 .2rem;line-height:1.5}
 .set-strip{margin-top:.9rem}
+
+/* breathing room between the last content card and the footer */
+body > main { padding-bottom: 2.5rem; }
