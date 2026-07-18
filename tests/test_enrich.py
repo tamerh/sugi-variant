@@ -281,8 +281,13 @@ def test_mechanism_narrative_gates():
           "top_function": "protein tyrosine phosphatase activity"}
     s = mechanism_narrative(rec, pw)
     assert "alters PTEN at p.Arg173Cys" in s and "phosphatase domain" in s
-    assert "likely pathogenic" in s and "PTEN Loss of Function in Cancer" in s
-    assert "Cowden syndrome 1" in s and "thought to act" not in s   # (that label is in the render header)
+    # Reactome pathway is stated as a FACT (annotation), not fabricated as "the mechanism of"
+    # the condition (benchmark 2026-07). Per-variant AlphaMissense/SpliceAI live in the
+    # Computational card, not this gene-function narrative.
+    assert "PTEN Loss of Function in Cancer" in s and "In Reactome" in s
+    assert "likely pathogenic" not in s          # AM prediction is NOT re-stated here
+    assert "mechanism linked to" not in s        # no fabricated causal disease claim
+    assert "thought to act" not in s             # (that label is in the render header)
     # NO anchor (no disease pathway, no MF term) → no narrative (never hand-waves)
     assert mechanism_narrative(rec, {"disease_pathways": [], "top_function": None}) is None
 

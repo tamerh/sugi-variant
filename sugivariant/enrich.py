@@ -588,14 +588,19 @@ def disagreement_flag(rec):
 
 
 # ── Batch 3: per-gene context (fetched once per gene, cached in ctx) ─────────
-def gene_context(hgnc_id):
+def gene_context(hgnc_id, gene_symbol=None):
     """ACMG-adjacent gene block: gnomAD constraint + ClinGen dosage + gene-disease
     validity + inheritance (GenCC/validity). Fetched once per gene."""
     con = map_all(hgnc_id, ">>hgnc>>gnomad_constraint")
     constraint = None
     if con:
         c = con[0]
-        constraint = {"pli": c.get("pli"), "loeuf": c.get("loeuf"), "mis_z": c.get("mis_z")}
+        # Guard: the >>gnomad_constraint edge can return a DIFFERENT gene's row — e.g. RMRP
+        # (an ncRNA with no gnomAD constraint) yields NME1's LOEUF/pLI (benchmark 2026-07).
+        # gnomAD constraint is protein-coding only; only trust an exact gene-symbol match.
+        row_gene = (c.get("gene_symbol") or "").strip().upper()
+        if not gene_symbol or (row_gene and row_gene == gene_symbol.strip().upper()):
+            constraint = {"pli": c.get("pli"), "loeuf": c.get("loeuf"), "mis_z": c.get("mis_z")}
     dos = map_all(hgnc_id, ">>hgnc>>clingen_dosage")
     dosage = ({"haplo": dos[0].get("haplo_score"), "triplo": dos[0].get("triplo_score")}
               if dos else None)
@@ -779,16 +784,16 @@ def mechanism_narrative(rec, pathways):
     parts = [lead + "."]
     if top_fn:
         parts.append(f" {gene}'s established role includes {top_fn}.")
-    am = rec.get("alphamissense")
-    if am and am.get("class") == "likely_pathogenic":
-        parts.append(f" AlphaMissense predicts this substitution is likely pathogenic ({am['score']}).")
-    if rec.get("spliceai"):
-        parts.append(" SpliceAI predicts a splice-altering effect.")
+    # (per-variant AlphaMissense/SpliceAI predictions live in the Computational card — this
+    #  gene-function narrative stays gene-level; benchmark 2026-07 flagged a SpliceAI overclaim.)
     if disease_pw:
-        cond = (rec.get("conditions") or [{}])[0].get("name")
-        parts.append(f" Loss or alteration of {gene} function is curated by Reactome as acting "
-                     f"through **{disease_pw[0]['name']}**"
-                     + (f", the mechanism linked to {cond}" if cond else "") + ".")
+        # Report the Reactome annotation as a FACT — do NOT assert an arbitrary disease
+        # pathway is "the mechanism" of this variant's condition (benchmark 2026-07: that
+        # glued the first/alphabetical disease pathway to conditions[0], fabricating causal
+        # links — e.g. a somatic-cancer pathway as the mechanism of germline Loeys-Dietz).
+        names = ", ".join(f"**{p['name']}**" for p in disease_pw[:2] if p.get("name"))
+        if names:
+            parts.append(f" In Reactome, {gene} is annotated in disease pathway(s) including {names}.")
     return "".join(parts)
 
 

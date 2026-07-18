@@ -97,7 +97,7 @@ def enriched_records(symbol, hgnc=None):
         "am": EN.gene_alphamissense(hgnc), "spliceai": EN.gene_spliceai(hgnc),
         "pharmgkb": EN.gene_pharmgkb(hgnc), "has_civic": EN.gene_has_civic(hgnc),
         "mavedb": EN.gene_mavedb(hgnc), "positions": VC.build_position_index(recs),
-        "recs": recs, "gene_context": EN.gene_context(hgnc),
+        "recs": recs, "gene_context": EN.gene_context(hgnc, symbol),
         "structure": EN.gene_structure(hgnc), "pathways": EN.gene_pathways(hgnc),
         "panels": EN.gene_panelapp(hgnc),
     }
