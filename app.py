@@ -136,25 +136,40 @@ def _records(gene):
     return recs
 
 
+def _collect_one(vcv):
+    """Build a single variant record straight from its VCV (index hit) — no per-gene
+    build. Used as a resolution fallback and for the whale fast path."""
+    from sugivariant.collect import attach_enrichment
+    try:
+        rec = collect(str(vcv))
+        if rec:
+            attach_enrichment(rec, {})              # single-variant enrichment (no per-gene caches)
+            rec["_partial"] = True
+            return rec
+    except Exception:
+        pass
+    return None
+
+
 def _resolve(slug):
     gene = _gene_of(slug)
-    if not gene:
-        return None
-    recs = _records(gene)
+    recs = _records(gene) if gene else []
     for r in recs:
         if r["canonical_slug"] == slug or slug in (r.get("slugs") or []):
             return r
-    # Fallback: a legacy/alias-only slug (e.g. the pre-cap URL of an over-long
-    # delins) lives in the index alias table but not in the record's current slug
-    # list — resolve it to a VCV and match the record by id.
+    # Not in the gene's own records — resolve via the index alias table.
     ix = _index()
     if ix:
         hits = IX.lookup(ix, slug)
         if hits:
             vcv = str(hits[0]["vcv"])
-            for r in recs:
+            for r in recs:                          # legacy/alias-only slug (e.g. pre-cap delins URL)
                 if str(r.get("variation_id")) == vcv:
                     return r
+            # The VCV isn't under this gene at all — ClinVar's sort-gene differs from the
+            # HGVS-derived gene (overlapping loci, e.g. MT-ATP8 filed under MT-ATP6). The
+            # per-gene build will never contain it, so build the single variant directly.
+            return _collect_one(vcv)
     return None
 
 
@@ -178,14 +193,8 @@ def _resolve_page(slug):
     hits = IX.lookup(ix, slug)
     if not hits:
         return _resolve(slug)
-    from sugivariant.collect import attach_enrichment
-    try:
-        rec = collect(str(hits[0]["vcv"]))
-        if not rec:
-            return _resolve(slug)
-        attach_enrichment(rec, {})                  # single-variant enrichment (no per-gene caches)
-        rec["_partial"] = True
-    except Exception:
+    rec = _collect_one(hits[0]["vcv"])
+    if not rec:
         return _resolve(slug)
     threading.Thread(target=lambda: _records(g), daemon=True).start()   # warm the full gene
     return rec
