@@ -66,10 +66,12 @@
 
   {# all variants — sortable, filterable table #}
   <section class="entity-main">
-    <h2 class="section-title">All variants <span class="dz-count">{{ stats.n }}</span></h2>
-    <div class="set-toolbar">
-      <input type="search" class="set-filter" id="setFilter" placeholder="Filter by gene, variant, or condition…" aria-label="Filter variants" autocomplete="off">
-      {% if stats.flagged %}<label class="set-toggle"><input type="checkbox" id="setFlaggedOnly"> Flagged only <span class="set-toggle-n">{{ stats.flagged }}</span></label>{% endif %}
+    <div class="set-vars-head">
+      <h2 class="section-title" style="margin:0">All variants <span class="dz-count">{{ stats.n }}</span></h2>
+      <div class="set-toolbar">
+        <input type="search" class="set-filter" id="setFilter" placeholder="Filter by gene, variant, or condition…" aria-label="Filter variants" autocomplete="off">
+        {% if stats.flagged %}<label class="set-toggle"><input type="checkbox" id="setFlaggedOnly"> Flagged only <span class="set-toggle-n">{{ stats.flagged }}</span></label>{% endif %}
+      </div>
     </div>
 
     {% set clsrank = {'Pathogenic':0,'Pathogenic/Likely pathogenic':1,'Likely pathogenic':2,'Conflicting classifications of pathogenicity':3} %}
