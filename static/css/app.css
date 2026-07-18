@@ -329,3 +329,6 @@
 /* compact per-variant sources footer (full grid lives on /about + /method) */
 .src-mini{margin-top:2rem;border-top:1px solid var(--border,#e5e7eb);padding-top:.8rem;font-size:.85rem}
 .src-mini a{white-space:nowrap}
+
+/* computational-card footnote (§8 framing, moved out of the result rows) */
+.vd-preds-note{margin:.6rem 0 0;font-size:.8rem;line-height:1.45;color:var(--fg-soft,#6b7280)}
