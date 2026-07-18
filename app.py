@@ -65,6 +65,15 @@ from sugivariant.render import data_provenance           # noqa: E402
 env.globals["data_provenance"] = data_provenance
 env.globals["tier_label"] = tier_label
 
+# Inline markdown-bold in generated verdict text: **x** → <strong>x</strong>.
+# `mdbold` returns safe HTML (rest escaped); `mdstrip` yields plain text (for
+# headings / meta where we just want the words, no markers).
+import markupsafe as _ms                                  # noqa: E402
+_MD_BOLD = re.compile(r"\*\*(.+?)\*\*")
+env.filters["mdbold"] = lambda s: _ms.Markup(
+    _MD_BOLD.sub(r"<strong>\1</strong>", str(_ms.escape(s)))) if s else ""
+env.filters["mdstrip"] = lambda s: _MD_BOLD.sub(r"\1", s or "")
+
 app = FastAPI(title="Sugi Variant")
 # Serve at ROOT (like Sugi Predict): nginx `proxy_pass …:8013/;` strips the
 # /variant/ prefix, so routes + static are unprefixed. BASE_PATH is used ONLY

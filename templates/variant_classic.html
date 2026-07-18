@@ -34,7 +34,7 @@
       </div>
       {% if c and c.verdict %}
       <div class="vv-concordance {{ 'is-flag' if c.flags else 'is-ok' }}">
-        <span class="vv-conc-icon" aria-hidden="true">{{ '⚠' if c.flags else '✓' }}</span> {{ c.verdict|safe }}
+        <span class="vv-conc-icon" aria-hidden="true">{{ '⚠' if c.flags else '✓' }}</span> {{ c.verdict|mdbold }}
         {% if g %} · <span class="vv-rarity">{{ g.band }}</span>{% endif %}
       </div>
       {% endif %}
@@ -55,7 +55,7 @@
 
     {# ── ZONE B · EVIDENCE PANELS ──────────────────────────────────────── #}
     <h2 class="section-title" id="evidence">Evidence
-      {% if c and c.verdict %}<span class="section-sub">— {{ c.verdict|striptags }}</span>{% endif %}</h2>
+      {% if c and c.verdict %}<span class="section-sub">— {{ c.verdict|mdstrip }}</span>{% endif %}</h2>
     <div class="vv-panels">
       <section class="vv-panel">
         <h3 class="vv-panel-h">Clinical <span class="vv-panel-src">ClinVar</span></h3>
@@ -99,7 +99,7 @@
     {% if v.pathways and (v.pathways.pathways or v.mechanism) %}
     <section class="entity-main vv-mech" id="gene-function">
       <h2 class="section-title">What this gene does <span class="section-sub">— {{ v.gene_symbol }} roles, not per-variant effects</span></h2>
-      {% if v.mechanism %}<p class="vv-mech-lead"><b>How this variant is thought to act:</b> {{ v.mechanism|safe }}</p>{% endif %}
+      {% if v.mechanism %}<p class="vv-mech-lead"><b>How this variant is thought to act:</b> {{ v.mechanism|mdbold }}</p>{% endif %}
       {% if v.pathways.disease_pathways %}
       <p class="notice notice-info"><b>Disease mechanism (Reactome):</b> {{ v.gene_symbol }} loss/alteration is curated in
         {% for dp in v.pathways.disease_pathways[:3] %}<a href="https://reactome.org/content/detail/{{ dp.id }}">{{ dp.name }}</a>{{ ', ' if not loop.last }}{% endfor %}.</p>

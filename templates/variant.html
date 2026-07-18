@@ -47,7 +47,7 @@
     <div class="vd-grid">
       {# ── MAIN column ── #}
       <div class="vd-main">
-        {% if c and c.verdict %}<p class="vd-verdict {{ 'is-flag' if c.flags else 'is-ok' }}">{{ '⚠' if c.flags else '✓' }} {{ c.verdict|safe }}.</p>{% endif %}
+        {% if c and c.verdict %}<p class="vd-verdict {{ 'is-flag' if c.flags else 'is-ok' }}">{{ '⚠' if c.flags else '✓' }} {{ c.verdict|mdbold }}.</p>{% endif %}
 
         <section class="vd-card">
           <h3>Computational evidence</h3>
@@ -80,7 +80,7 @@
         {% if v.mechanism or (v.pathways and v.pathways.pathways) %}
         <section class="vd-card" id="gene-function">
           <h3>What this gene does <span class="section-sub" style="text-transform:none;letter-spacing:0">— {{ v.gene_symbol }} roles, not per-variant effects</span></h3>
-          {% if v.mechanism %}<p>{{ v.mechanism|safe }}</p>{% endif %}
+          {% if v.mechanism %}<p>{{ v.mechanism|mdbold }}</p>{% endif %}
           {% if v.pathways and v.pathways.pathways %}<details><summary class="vv-sum">Pathways affected ({{ v.pathways.pathways|length }})</summary>
             <ul class="vv-mini" style="margin-top:.5rem">{% for pw in v.pathways.pathways[:10] %}<li>{% if pw.is_disease %}⚕ {% endif %}<a href="https://reactome.org/content/detail/{{ pw.id }}">{{ pw.name }}</a></li>{% endfor %}</ul></details>{% endif %}
         </section>
