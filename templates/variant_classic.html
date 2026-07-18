@@ -69,17 +69,17 @@
       <section class="vv-panel">
         <h3 class="vv-panel-h">Computational</h3>
         {% if p and p.class %}<p><b>AlphaMissense</b> {{ p.class|replace('_',' ') }} <span class="vv-num">{{ p.score }}</span>
-          {% if v.am_percentile and v.am_percentile.top_pct <= 10 %}<span class="section-sub">(top {{ v.am_percentile.top_pct }}%)</span>{% endif %}
-          <span class="section-sub">— ACMG-weighted</span></p>
+          {% if v.am_percentile and v.am_percentile.top_pct <= 10 %}<span class="section-sub">(top {{ v.am_percentile.top_pct }}%)</span>{% endif %}</p>
           {% if v.am_isoform_mismatch %}<p class="section-sub" style="color:var(--flag)">⚠ Isoform check: AlphaMissense is numbered on a different transcript (AM {{ v.am_isoform_mismatch.am }} vs ClinVar {{ v.am_isoform_mismatch.clinvar }}) — verify the residue.</p>{% endif %}
         {% else %}<p class="section-sub"><b>Missense predictors do not apply</b> to this variant type (AlphaMissense/REVEL/SaProt score substitutions only); conservation{% if v.spliceai %}/SpliceAI{% endif %} carries the computational signal here.</p>{% endif %}
-        {% if v.lof_context %}{% set lc = v.lof_context %}<p><b>Consequence</b> {{ lc.label }} <span class="section-sub">— predicted loss-of-function{% if lc.lof_disease_gene %}{% if lc.haploinsufficient %} in a haploinsufficient gene (ClinGen){% if lc.constrained %} (LOEUF {{ lc.loeuf }}, pLI {{ lc.pli }}){% endif %}{% else %} in a LoF-intolerant gene (LOEUF {{ lc.loeuf }}, pLI {{ lc.pli }}){% endif %}{% elif lc.loeuf is not none %} (gene constraint LOEUF {{ lc.loeuf }}, pLI {{ lc.pli }}){% endif %}{% if lc.nmd_caveat %}; NMD-escape possible for C-terminal truncations{% endif %}; descriptive, not an applied PVS1 code</span></p>
+        {% if v.lof_context %}{% set lc = v.lof_context %}<p><b>Consequence</b> {{ lc.label }} <span class="section-sub">— predicted loss-of-function{% if lc.lof_disease_gene %}{% if lc.haploinsufficient %} in a haploinsufficient gene (ClinGen){% if lc.constrained %} (LOEUF {{ lc.loeuf }}, pLI {{ lc.pli }}){% endif %}{% else %} in a LoF-intolerant gene (LOEUF {{ lc.loeuf }}, pLI {{ lc.pli }}){% endif %}{% elif lc.loeuf is not none %} (gene constraint LOEUF {{ lc.loeuf }}, pLI {{ lc.pli }}){% endif %}{% if lc.nmd_caveat %}; NMD-escape possible for C-terminal truncations{% endif %}</span></p>
         {% elif v.consequence %}<p><b>Consequence</b> {{ v.consequence.label }}</p>{% endif %}
-        {% if v.revel %}<p><b>REVEL</b> <span class="vv-num">{{ v.revel.score }}</span> <span class="section-sub">({{ v.revel.band }} — agreement signal)</span></p>{% endif %}
-        {% if v.saprot %}<p><b>SaProt</b> <span class="vv-num">LLR {{ '%.2f'|format(v.saprot.llr) }}</span> <span class="section-sub">({{ 'damaging' if v.saprot.damaging else 'tolerated' }} — orthogonal, agreement signal)</span></p>{% endif %}
+        {% if v.revel %}<p><b>REVEL</b> <span class="vv-num">{{ v.revel.score }}</span> <span class="section-sub">({{ v.revel.band }})</span></p>{% endif %}
+        {% if v.saprot %}<p><b>SaProt</b> <span class="vv-num">LLR {{ '%.2f'|format(v.saprot.llr) }}</span> <span class="section-sub">({{ 'damaging' if v.saprot.damaging else 'tolerated' }})</span></p>{% endif %}
         {% if v.spliceai %}<p><b>SpliceAI</b> {{ v.spliceai.effect|replace('_',' ') }} <span class="vv-num">Δ{{ v.spliceai.score }}</span></p>{% endif %}
         {% if v.concordance and v.concordance.consensus %}<p class="vv-consensus {{ 'is-agree' if v.concordance.consensus.unanimous }}">⇒ <b>Consensus:</b> {{ v.concordance.consensus.summary }}</p>{% endif %}
         {% if v.conservation and v.conservation.phylop is not none %}<p><b>Conservation</b> phyloP {{ '%.2g'|format(v.conservation.phylop) }}{% if v.conservation.gerp is not none %}, GERP {{ '%.2g'|format(v.conservation.gerp) }}{% endif %}{% if v.conservation.phastcons is not none %}, phastCons {{ '%.2g'|format(v.conservation.phastcons) }}{% endif %}</p>{% endif %}
+        {% if (p and p.class) or v.lof_context %}<p class="section-sub" style="margin-top:.4rem">{% if p and p.class %}AlphaMissense carries the ACMG weight for missense; REVEL and SaProt are independent agreement signals.{% endif %}{% if v.lof_context %} Predicted loss-of-function is descriptive, not an applied PVS1 code.{% endif %}</p>{% endif %}
       </section>
       <section class="vv-panel">
         <h3 class="vv-panel-h">Population <span class="vv-panel-src">gnomAD v4.1</span></h3>
