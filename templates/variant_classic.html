@@ -33,13 +33,6 @@
         {% if v.submitter_count %}<span class="vv-meta">{{ v.submitter_count }} submitter{{ 's' if v.submitter_count != 1 }}</span>{% endif %}
         {% if v.last_evaluated %}<span class="vv-meta">last eval {{ v.last_evaluated }}</span>{% endif %}
       </div>
-      {% if disagreement %}
-      <a class="dz-banner dz-tone-{{ 'flag' if disagreement.category == 'predictor_vs_clinvar' else 'info' if disagreement.category == 'resolves_conflicting' else 'warn' }}"
-         href="{{ base }}/disagreements/{{ v.gene_symbol }}">
-        <b>⚑ {{ disagreement.label }}</b>
-        <span class="dz-banner-go">See all {{ v.gene_symbol }} disagreements →</span>
-      </a>
-      {% endif %}
       <p class="vv-lead">{{ v.plain }}</p>
       <div class="vv-jump">
         <a class="vv-jump-pill" href="#evidence">Evidence ↓</a>

@@ -32,8 +32,8 @@
 
     {# ── Stat tiles ── #}
     <div class="vd-tiles">
-      <div class="vd-tile"><div class="lab">Classification</div><div class="val vv-cls-{{ cls_class(v.classification) }}" style="color:var(--cls)">{{ v.classification }}</div></div>
-      <div class="vd-tile"><div class="lab">Review</div><div class="val">{{ st.label }} <span class="vd-stars" title="ClinVar {{ st.n }} of 4 stars"><span class="on">{{ '★' * st.n }}</span><span class="off">{{ '☆' * (4 - st.n) }}</span></span></div><div class="sub">{{ v.submitter_count or 0 }} submitter{{ 's' if v.submitter_count != 1 }}</div></div>
+      <div class="vd-tile"><div class="lab">Classification</div><div class="val vv-cls-{{ cls_class(v.classification) }}" style="color:var(--cls)">{{ v.classification }}</div><div class="sub">ClinVar</div></div>
+      <div class="vd-tile"><div class="lab">Review</div><div class="val">{{ st.label }} <span class="vd-stars" title="ClinVar {{ st.n }} of 4 stars"><span class="on">{{ '★' * st.n }}</span><span class="off">{{ '☆' * (4 - st.n) }}</span></span></div><div class="sub">ClinVar · {{ v.submitter_count or 0 }} submitter{{ 's' if v.submitter_count != 1 }}</div></div>
       {% if p and p.class %}<div class="vd-tile"><div class="lab">AlphaMissense</div><div class="val">{{ p.class|replace('_',' ') }}</div><div class="sub">{{ p.score }} · ACMG-weighted</div></div>
       {% elif v.lof_context %}<div class="vd-tile"><div class="lab">Consequence</div><div class="val">{{ v.lof_context.label }}</div><div class="sub">predicted LoF</div></div>{% endif %}
       <div class="vd-tile"><div class="lab">gnomAD v4.1</div><div class="val">{% if g and g.is_common %}Common{% elif g %}Rare{% else %}—{% endif %}</div><div class="sub">{{ g.band if g else 'no coord. frequency' }}</div></div>
@@ -43,11 +43,6 @@
 
     {% if v.plain %}<p class="vd-lead">{{ v.plain }}</p>{% endif %}
 
-    {% if disagreement %}
-    <a class="dz-banner dz-tone-{{ 'flag' if disagreement.category == 'predictor_vs_clinvar' else 'info' if disagreement.category == 'resolves_conflicting' else 'warn' }}"
-       href="{{ base }}/disagreements/{{ v.gene_symbol }}" style="margin-bottom:1rem">
-      <b>⚑ {{ disagreement.label }}</b> <span class="dz-banner-go">See all {{ v.gene_symbol }} disagreements →</span></a>
-    {% endif %}
 
     <div class="vd-grid">
       {# ── MAIN column ── #}

@@ -22,10 +22,6 @@
       {% if c and c.verdict %}<p class="ds-conc {{ 'is-flag' if c.flags else 'is-ok' }}">{{ '⚠' if c.flags else '✓' }} {{ c.verdict|mdstrip }}.</p>{% endif %}
     </header>
 
-    {% if disagreement %}
-    <a class="dz-banner dz-tone-{{ 'flag' if disagreement.category == 'predictor_vs_clinvar' else 'info' if disagreement.category == 'resolves_conflicting' else 'warn' }}" href="{{ base }}/disagreements/{{ v.gene_symbol }}">
-      <b>⚑ {{ disagreement.label }}</b> <span class="dz-banner-go">all {{ v.gene_symbol }} →</span></a>
-    {% endif %}
 
     <table class="ds-table"><tbody>
       <tr><th>Summary</th><td>{{ v.plain }}</td></tr>
