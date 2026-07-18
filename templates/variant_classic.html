@@ -49,7 +49,7 @@
       <div class="vv-jump">
         <a class="vv-jump-pill" href="#evidence">Evidence ↓</a>
         <a class="vv-jump-pill" href="#gene-function">Mechanism ↓</a>
-        <a class="vv-jump-pill vv-jump-patient" href="#patients">For patients ↓</a>
+        <a class="vv-jump-pill" href="#disease-context">Disease context ↓</a>
       </div>
     </section>
 
@@ -155,28 +155,26 @@
         {% for s in v.similar %}<a class="vv-chip" href="{{ base }}/{{ s.slug }}">{{ s.label }}</a>{% endfor %}</p>{% endif %}
     </section>
 
-    {# ── ZONE E · FOR PATIENTS & FAMILIES ──────────────────────────────── #}
-    <section class="vv-patient" id="patients">
-      <h2 class="vv-patient-h">🛈 For patients &amp; families <span class="vv-patient-badge">plain-language · not medical advice</span></h2>
-      <p class="vv-patient-lead">{{ v.plain }}</p>
-      {% set d = v.digest %}
+    {# ── Disease context ──────────────────────────────────────────────── #}
+    {% set d = v.digest %}
+    {% if (d and (d.inheritance or d.onset or d.prevalence or d.phenotypes)) or (v.condition_links and (v.condition_links.trial_count or v.condition_links.gard)) %}
+    <section class="entity-main" id="disease-context">
+      <h2 class="section-title">Disease context</h2>
       {% if d or (v.condition_links and v.condition_links.trial_count) %}
-      <dl class="vv-ident vv-patient-facts">
-        {% if d and d.inheritance %}<dt>Typical inheritance</dt><dd>{{ d.inheritance[:3]|join(', ') }}</dd>{% endif %}
-        {% if d and d.onset %}<dt>Age of onset</dt><dd>{{ d.onset|join(', ') }}</dd>{% endif %}
+      <dl class="vv-ident">
+        {% if d and d.inheritance %}<dt>Inheritance</dt><dd>{{ d.inheritance[:3]|join(', ') }}</dd>{% endif %}
+        {% if d and d.onset %}<dt>Onset</dt><dd>{{ d.onset|join(', ') }}</dd>{% endif %}
         {% if d and d.prevalence %}<dt>Prevalence</dt><dd>{{ d.prevalence }}</dd>{% endif %}
-        {% if v.condition_links and v.condition_links.trial_count %}<dt>Clinical trials</dt><dd>{{ v.condition_links.trial_count }} for this condition</dd>{% endif %}
+        {% if v.condition_links and v.condition_links.trial_count %}<dt>Clinical trials</dt><dd>{{ v.condition_links.trial_count }} registered</dd>{% endif %}
       </dl>
       {% endif %}
       {% if d and d.phenotypes %}
-      <p><b>Commonly reported features of {{ d.name }}</b> <span class="section-sub">(Orphanet; varies between people)</span>:</p>
+      <p><b>Commonly reported features of {{ d.name }}</b> <span class="section-sub">(Orphanet; frequency varies between individuals)</span>:</p>
       <ul class="vv-mini">{% for ph in d.phenotypes[:6] %}<li>{{ ph.term }}{% if ph.freq %} <span class="section-sub">— {{ ph.freq }}</span>{% endif %}</li>{% endfor %}</ul>
       {% endif %}
-      <p class="vv-cta">
-        {% if v.condition_links and v.condition_links.gard %}<a class="btn btn-ghost" href="https://rarediseases.info.nih.gov/diseases/{{ v.condition_links.gard }}/index">Condition support (GARD)</a>{% endif %}
-        <a class="btn btn-ghost" href="https://findageneticcounselor.nsgc.org/">Find a genetic counselor</a>
-      </p>
+      {% if v.condition_links and v.condition_links.gard %}<p class="section-sub"><a href="https://rarediseases.info.nih.gov/diseases/{{ v.condition_links.gard }}/index">Condition reference (GARD) →</a></p>{% endif %}
     </section>
+    {% endif %}
 
     {% include "_sources_line.html" %}
   </div>

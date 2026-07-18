@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% set p = v.alphamissense %}{% set g = v.gnomad %}{% set c = v.concordance %}
-{% set st = stars(v.review_status) %}
+{% set st = stars(v.review_status) %}{% set d = v.digest %}
 {% block title %}{{ label(v) }}{% endblock %}
 {% block description %}{{ v.plain }}{% endblock %}
 {% block head %}<link rel="canonical" href="https://sugi.bio/variant/{{ v.canonical_slug }}">{% endblock %}
@@ -48,23 +48,13 @@
       {% if v.gene_context and v.gene_context.constraint and v.gene_context.constraint.loeuf %}<tr><th>Gene constraint</th><td>LOEUF {{ v.gene_context.constraint.loeuf }}, pLI {{ v.gene_context.constraint.pli }}{% if v.gene_context.dosage and v.gene_context.dosage.haplo %} · ClinGen HI {{ v.gene_context.dosage.haplo }}/3{% endif %}{% if v.structural and v.structural.features %} · residue {{ v.structural.position }}: {{ v.structural.features|join('; ') }}{% endif %}</td></tr>{% endif %}
       {% if v.hotspot and v.hotspot.others %}<tr><th>Residue hotspot</th><td>{{ v.hotspot.others|length }} other pathogenic at {{ v.hotspot.position }}: {% for o in v.hotspot.others[:6] %}<a href="{{ base }}/{{ o.slug }}">{{ o.label.split(' ')[-1] }}</a>{{ ', ' if not loop.last }}{% endfor %}</td></tr>{% endif %}
       {% if v.conditions %}<tr><th>Conditions</th><td class="ds-chips">{% for cd in v.conditions %}<span class="vv-chip">{{ cd.name }}</span>{% endfor %}</td></tr>{% endif %}
+      {% if d and d.inheritance %}<tr><th>Inheritance</th><td>{{ d.inheritance[:3]|join(', ') }}</td></tr>{% endif %}
+      {% if d and d.onset %}<tr><th>Onset</th><td>{{ d.onset|join(', ') }}</td></tr>{% endif %}
+      {% if d and d.prevalence %}<tr><th>Prevalence</th><td>{{ d.prevalence }}</td></tr>{% endif %}
+      {% if v.condition_links and v.condition_links.trial_count %}<tr><th>Clinical trials</th><td>{{ v.condition_links.trial_count }} registered{% if v.condition_links.gard %} · <a href="https://rarediseases.info.nih.gov/diseases/{{ v.condition_links.gard }}/index">GARD reference →</a>{% endif %}</td></tr>{% elif v.condition_links and v.condition_links.gard %}<tr><th>Condition ref.</th><td><a href="https://rarediseases.info.nih.gov/diseases/{{ v.condition_links.gard }}/index">GARD reference →</a></td></tr>{% endif %}
       {% if v.similar %}<tr><th>Similar</th><td class="ds-chips">{% for s in v.similar %}<a class="vv-chip" href="{{ base }}/{{ s.slug }}">{{ s.label.split(' ')[-1] }}</a>{% endfor %}</td></tr>{% endif %}
       <tr><th>Identity</th><td class="section-sub">{{ v.variant_type }}{% if v.chromosome %} · chr{{ v.chromosome }}:{{ v.start }} ({{ v.assembly }}){% endif %} · {% if v.rsid %}<a href="https://www.ncbi.nlm.nih.gov/snp/{{ v.rsid }}/">{{ v.rsid }}</a> · {% endif %}<a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/{{ v.variation_id }}/">VCV{{ v.variation_id }}</a></td></tr>
     </tbody></table>
-
-    {% set d = v.digest %}
-    <section class="vv-patient" id="patients" style="margin-top:1.3rem">
-      <h2 class="vv-patient-h">🛈 For patients &amp; families <span class="vv-patient-badge">plain-language · not medical advice</span></h2>
-      <p class="vv-patient-lead">{{ v.plain }}</p>
-      {% if d or (v.condition_links and v.condition_links.trial_count) %}<table class="ds-table"><tbody>
-        {% if d and d.inheritance %}<tr><th>Typical inheritance</th><td>{{ d.inheritance[:3]|join(', ') }}</td></tr>{% endif %}
-        {% if d and d.onset %}<tr><th>Age of onset</th><td>{{ d.onset|join(', ') }}</td></tr>{% endif %}
-        {% if d and d.prevalence %}<tr><th>Prevalence</th><td>{{ d.prevalence }}</td></tr>{% endif %}
-        {% if v.condition_links and v.condition_links.trial_count %}<tr><th>Clinical trials</th><td>{{ v.condition_links.trial_count }} for this condition</td></tr>{% endif %}
-      </tbody></table>{% endif %}
-      <p class="vv-cta">{% if v.condition_links and v.condition_links.gard %}<a class="btn btn-ghost" href="https://rarediseases.info.nih.gov/diseases/{{ v.condition_links.gard }}/index">Condition support (GARD)</a>{% endif %}
-        <a class="btn btn-ghost" href="https://findageneticcounselor.nsgc.org/">Find a genetic counselor</a></p>
-    </section>
 
     {% include "_sources_line.html" %}
   </div>
