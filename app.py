@@ -559,6 +559,9 @@ def disagreements_hub():
                    cats=DISAGREEMENT_CATEGORIES, meta=CAT_META)
 
 
+_DZ_CAP = 150   # per-category display cap (best-reviewed first); avoids a 2000-row whale dump
+
+
 @app.get("/disagreements/{gene}", response_class=HTMLResponse)
 def disagreements_gene(gene: str):
     g = gene.upper().strip("/")
@@ -574,10 +577,11 @@ def disagreements_gene(gene: str):
                         "primary_condition": (x.get("conditions") or [{}])[0].get("name"),
                         "flag": (disagreement_flag(x) or {}).get("category")} for x in recs),
                       key=lambda r: (-r["stars"], r["slug"]))
-    groups = {cat: [r for r in rows if r["flag"] == cat] for cat in DISAGREEMENT_CATEGORIES}
-    counts = {k: len(v) for k, v in groups.items()}
+    full = {cat: [r for r in rows if r["flag"] == cat] for cat in DISAGREEMENT_CATEGORIES}
+    counts = {k: len(v) for k, v in full.items()}                 # full counts (badges)
+    groups = {cat: items[:_DZ_CAP] for cat, items in full.items()}  # capped display (best-reviewed first)
     return _render("disagreements_gene.html", gene=g, groups=groups, counts=counts,
-                   flagged=sum(counts.values()), total=len(rows),
+                   flagged=sum(counts.values()), total=len(rows), cap=_DZ_CAP,
                    cats=DISAGREEMENT_CATEGORIES, meta=CAT_META)
 
 

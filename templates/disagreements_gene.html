@@ -27,7 +27,7 @@
     {% for cat in cats %}{% if groups[cat] %}
     <div class="dz-group dz-tone-{{ meta[cat].tone }}">
       <h2 class="section-title">{{ meta[cat].label }} <span class="dz-count">{{ counts[cat] }}</span></h2>
-      <p class="section-sub" style="margin:-0.4rem 0 0.8rem">{{ meta[cat].blurb }}</p>
+      <p class="section-sub" style="margin:-0.4rem 0 0.8rem">{{ meta[cat].blurb }}{% if cap and counts[cat] > cap %} · showing the {{ cap }} best-reviewed of {{ counts[cat] }}{% endif %}</p>
       <ul class="dz-list">
         {% for r in groups[cat] %}
         <li class="dz-row">
