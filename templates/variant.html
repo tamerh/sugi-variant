@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% set p = v.alphamissense %}{% set g = v.gnomad %}{% set c = v.concordance %}
 {% set st = stars(v.review_status) %}
+{% set cv_path = v.classification and 'pathogenic' in v.classification|lower and 'conflict' not in v.classification|lower %}
 {% block title %}{{ label(v) }}{% endblock %}
 {% block description %}{{ v.plain }}{% endblock %}
 {% block head %}<link rel="canonical" href="https://sugi.bio/variant/{{ v.canonical_slug }}">{% endblock %}
@@ -47,12 +48,10 @@
     <div class="vd-grid">
       {# ── MAIN column ── #}
       <div class="vd-main">
-        {% if c and c.verdict %}<p class="vd-verdict {{ 'is-flag' if c.flags else 'is-ok' }}">{{ '⚠' if c.flags else '✓' }} {{ c.verdict|mdbold }}.</p>{% endif %}
-
         <section class="vd-card">
           <h3>Computational evidence</h3>
           <table class="vd-preds"><tbody>
-            {% if p and p.class %}<tr><th>AlphaMissense</th><td class="vd-num">{{ p.score }}</td><td>{{ p.class|replace('_',' ') }}{% if v.am_percentile and v.am_percentile.top_pct <= 10 %} <span class="section-sub">top {{ v.am_percentile.top_pct }}% in {{ v.gene_symbol }}</span>{% endif %}</td></tr>
+            {% if p and p.class %}<tr><th>AlphaMissense</th><td class="vd-num">{{ p.score }}</td><td>{{ p.class|replace('_',' ') }}{% if cv_path and p.class == 'likely_pathogenic' %} <span class="vd-conc is-ok">✓ concordant with ClinVar</span>{% elif cv_path and p.class == 'likely_benign' %} <span class="vd-conc is-flag">⚠ discordant with ClinVar</span>{% endif %}{% if v.am_percentile and v.am_percentile.top_pct <= 10 %} <span class="section-sub">· top {{ v.am_percentile.top_pct }}% in {{ v.gene_symbol }}</span>{% endif %}</td></tr>
             {% else %}<tr><td colspan="3" class="section-sub">Missense predictors do not apply to this variant type; conservation{% if v.spliceai %}/SpliceAI{% endif %} carries the signal.</td></tr>{% endif %}
             {% if v.lof_context %}<tr><th>Consequence</th><td>{{ v.lof_context.label }}</td><td class="section-sub">predicted loss-of-function{% if v.lof_context.haploinsufficient %} in a haploinsufficient gene (ClinGen){% elif v.lof_context.constrained %} in a LoF-intolerant gene{% endif %}{% if v.lof_context.nmd_caveat %}; NMD-escape possible for C-terminal truncations{% endif %}</td></tr>{% endif %}
             {% if v.revel %}<tr><th>REVEL</th><td class="vd-num">{{ v.revel.score }}</td><td class="section-sub">{{ v.revel.band }}</td></tr>{% endif %}
