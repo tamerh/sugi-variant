@@ -61,7 +61,7 @@
             {% if v.conservation and v.conservation.phylop is not none %}<tr><th>Conservation</th><td class="vd-num">phyloP {{ '%.2g'|format(v.conservation.phylop) }}</td><td class="section-sub">{% if v.conservation.gerp is not none %}GERP {{ '%.2g'|format(v.conservation.gerp) }}, {% endif %}{% if v.conservation.phastcons is not none %}phastCons {{ '%.2g'|format(v.conservation.phastcons) }}{% endif %}</td></tr>{% endif %}
           </tbody></table>
           {% if c and c.consensus %}<p class="vd-consensus {{ 'is-agree' if c.consensus.unanimous }}">⇒ In-silico consensus: {{ c.consensus.summary }}.</p>{% endif %}
-          {% if (p and p.class) or v.lof_context %}<p class="section-sub vd-preds-note">{% if p and p.class %}AlphaMissense carries the ACMG weight for missense; REVEL and SaProt are independent agreement signals — read together, not summed (ClinGen SVI).{% endif %}{% if v.lof_context %} Predicted loss-of-function is descriptive, not an applied PVS1 code.{% endif %}</p>{% endif %}
+          {% if (p and p.class) or v.lof_context %}<p class="section-sub vd-preds-note">{% if p and p.class %}AlphaMissense carries the ACMG weight for missense; REVEL and SaProt are independent agreement signals.{% endif %}{% if v.lof_context %} Predicted loss-of-function is descriptive, not an applied PVS1 code.{% endif %}</p>{% endif %}
           {% if v.am_isoform_mismatch %}<p class="section-sub" style="color:var(--flag)">⚠ Isoform check: AlphaMissense numbered on a different transcript (AM {{ v.am_isoform_mismatch.am }} vs ClinVar {{ v.am_isoform_mismatch.clinvar }}) — verify the residue.</p>{% endif %}
         </section>
 
