@@ -568,8 +568,9 @@ def disagreement_flag(rec):
         return {"category": "predictor_vs_clinvar", "label": "Predictors vs ClinVar",
                 "reason": f"ClinVar {rec.get('classification')}, but {detail}", "severity": 3}
     if is_conf and total >= 2 and cons.get("unanimous"):
-        return {"category": "resolves_conflicting", "label": "Resolves a conflicting call",
-                "reason": f"ClinVar conflicting; {cons.get('summary')}", "severity": 2}
+        return {"category": "resolves_conflicting", "label": "Predictors agree, ClinVar conflicts",
+                "reason": f"ClinVar conflicting; {cons.get('summary')} — a QC flag, not a reclassification",
+                "severity": 2}
     # non-missense: a predicted-LoF change in a LoF-intolerant gene is a mechanism-based
     # resolving signal on a conflicting call (brings the non-missense half into the QC view).
     lof = rec.get("lof_context")

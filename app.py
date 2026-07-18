@@ -330,9 +330,9 @@ CAT_META = {
         "blurb": "ClinVar calls these pathogenic, but the computational predictors "
                  "lean tolerated — the highest-value review flag."},
     "resolves_conflicting": {
-        "label": "Resolves a conflicting call", "tone": "info",
+        "label": "Predictors agree, ClinVar conflicts", "tone": "info",
         "blurb": "ClinVar submitters conflict, but the independent predictors "
-                 "unanimously agree — a resolving in-silico read."},
+                 "unanimously agree — a QC review flag, not a reclassification."},
     "lof_resolves_conflicting": {
         "label": "Predicted LoF vs a conflicting call", "tone": "info",
         "blurb": "ClinVar submitters conflict, and it's a predicted loss-of-function "
