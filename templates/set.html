@@ -23,20 +23,20 @@
   {% else %}
 
   {# ── populated set ── #}
-  <section class="hero hero-tight">
+  <header class="set-head">
     <p class="breadcrumb"><a href="{{ base }}/">Sugi Variant</a><span>/</span>set</p>
-    <h1 class="hero-title">Variant set{% if stats %} — {{ stats.n }} variant{{ 's' if stats.n != 1 }}{% endif %}</h1>
-    {% if stats %}<p class="hero-lead">
+    <h1 class="set-title">Variant set{% if stats %} <span class="set-title-n">— {{ stats.n }} variant{{ 's' if stats.n != 1 }}</span>{% endif %}</h1>
+    {% if stats %}<p class="set-sub">
       Across <b>{{ stats.genes }}</b> gene{{ 's' if stats.genes != 1 }} and <b>{{ stats.conditions }}</b> condition{{ 's' if stats.conditions != 1 }}.
       {% if stats.flagged %}<b class="set-flag-hl">{{ stats.flagged }} flagged for review</b>{% if stats.high_sev %} ({{ stats.high_sev }} high-severity){% endif %} — where the evidence disagrees.{% else %}No evidence disagreements in this set.{% endif %}
     </p>{% endif %}
     {% if missing %}<p class="section-sub">Unmatched ({{ missing|length }}): {{ missing|join(', ') }} — not in the pathogenic-gated corpus, or unparseable.</p>{% endif %}
     {% if capped %}<p class="section-sub">Showing the first {{ 60 }} variants (set cap).</p>{% endif %}
-  </section>
+  </header>
 
   {% if stats %}
   {# summary strip #}
-  <section class="entity-main">
+  <section class="entity-main set-strip">
     <div class="vd-tiles" style="margin-top:0">
       <div class="vd-tile"><div class="lab">Variants</div><div class="val">{{ stats.n }}</div><div class="sub">{{ stats.genes }} gene{{ 's' if stats.genes != 1 }}</div></div>
       <div class="vd-tile"><div class="lab">Flagged for review</div><div class="val" style="color:var(--flag)">{{ stats.flagged }}</div><div class="sub">{{ stats.high_sev }} high-severity</div></div>

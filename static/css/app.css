@@ -345,3 +345,10 @@
 
 /* neutral plain-language lead under the stat tiles (was the 'For patients' card) */
 .vd-lead{margin:1rem 0 1.2rem;font-size:1.05rem;line-height:1.5;color:var(--fg);max-width:70ch}
+
+/* ── set results: compact header (not the landing-page hero) ── */
+.set-head{padding:1.3rem 0 .3rem}
+.set-title{font-size:1.7rem;line-height:1.15;letter-spacing:-.02em;margin:.25rem 0 .5rem}
+.set-title-n{color:var(--fg-soft,#6b7280);font-weight:400}
+.set-sub{font-size:1.02rem;color:var(--fg-muted,#4b5563);max-width:72ch;margin:0 0 .2rem;line-height:1.5}
+.set-strip{margin-top:.9rem}
