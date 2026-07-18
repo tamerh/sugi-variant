@@ -289,7 +289,7 @@
 /* filter/toggle inline with the 'All variants' heading */
 .set-vars-head{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem 1.1rem;margin:0 0 .9rem}
 .set-vars-head .set-toolbar{margin:0;flex-wrap:nowrap;flex:0 1 auto}
-.set-vars-head .set-filter{flex:none;width:380px;max-width:52vw}
+.set-vars-head .set-filter{flex:none;width:340px;max-width:52vw}
 .set-filter{flex:1 1 240px;min-width:160px;max-width:380px;padding:.45rem .7rem;
   border:1px solid var(--border,#e5e7eb);border-radius:8px;background:var(--bg,#fff);color:var(--fg);
   font:inherit;font-size:.9rem}
