@@ -463,10 +463,11 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
         if len(preds) >= 2:
             n_dmg = sum(1 for _, d in preds if d)
             names = ", ".join(n for n, _ in preds)
+            alln = "both" if len(preds) == 2 else f"all {len(preds)}"
             if n_dmg == len(preds):
-                summary = f"all {len(preds)} predictors call this damaging"
+                summary = f"{alln} predictors call this damaging"
             elif n_dmg == 0:
-                summary = f"all {len(preds)} predictors call this tolerated"
+                summary = f"{alln} predictors call this tolerated"
             else:
                 summary = f"{n_dmg}/{len(preds)} damaging — mixed"
             consensus = {"n_damaging": n_dmg, "total": len(preds),
