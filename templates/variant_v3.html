@@ -24,7 +24,7 @@
 
     {% if disagreement %}
     <a class="dz-banner dz-tone-{{ 'flag' if disagreement.category == 'predictor_vs_clinvar' else 'info' if disagreement.category == 'resolves_conflicting' else 'warn' }}" href="{{ base }}/disagreements/{{ v.gene_symbol }}">
-      <b>{{ disagreement.label }}</b> — {{ disagreement.reason }} <span class="dz-banner-go">all {{ v.gene_symbol }} →</span></a>
+      <b>⚑ {{ disagreement.label }}</b> <span class="dz-banner-go">all {{ v.gene_symbol }} →</span></a>
     {% endif %}
 
     <table class="ds-table"><tbody>

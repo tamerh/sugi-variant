@@ -36,7 +36,7 @@
       {% if disagreement %}
       <a class="dz-banner dz-tone-{{ 'flag' if disagreement.category == 'predictor_vs_clinvar' else 'info' if disagreement.category == 'resolves_conflicting' else 'warn' }}"
          href="{{ base }}/disagreements/{{ v.gene_symbol }}">
-        <b>{{ disagreement.label }}</b> — {{ disagreement.reason }}
+        <b>⚑ {{ disagreement.label }}</b>
         <span class="dz-banner-go">See all {{ v.gene_symbol }} disagreements →</span>
       </a>
       {% endif %}
