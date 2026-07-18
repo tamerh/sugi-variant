@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% set p = v.alphamissense %}{% set g = v.gnomad %}{% set c = v.concordance %}
 {% set st = stars(v.review_status) %}
+{% set cv_path = v.classification and 'pathogenic' in v.classification|lower and 'conflict' not in v.classification|lower %}
 {% block title %}{{ label(v) }}{% endblock %}
 {% block description %}{{ v.plain }}{% endblock %}
 {% block head %}
@@ -32,12 +33,6 @@
         {% if v.submitter_count %}<span class="vv-meta">{{ v.submitter_count }} submitter{{ 's' if v.submitter_count != 1 }}</span>{% endif %}
         {% if v.last_evaluated %}<span class="vv-meta">last eval {{ v.last_evaluated }}</span>{% endif %}
       </div>
-      {% if c and c.verdict %}
-      <div class="vv-concordance {{ 'is-flag' if c.flags else 'is-ok' }}">
-        <span class="vv-conc-icon" aria-hidden="true">{{ '⚠' if c.flags else '✓' }}</span> {{ c.verdict|mdbold }}
-        {% if g %} · <span class="vv-rarity">{{ g.band }}</span>{% endif %}
-      </div>
-      {% endif %}
       {% if disagreement %}
       <a class="dz-banner dz-tone-{{ 'flag' if disagreement.category == 'predictor_vs_clinvar' else 'info' if disagreement.category == 'resolves_conflicting' else 'warn' }}"
          href="{{ base }}/disagreements/{{ v.gene_symbol }}">
@@ -54,8 +49,7 @@
     </section>
 
     {# ── ZONE B · EVIDENCE PANELS ──────────────────────────────────────── #}
-    <h2 class="section-title" id="evidence">Evidence
-      {% if c and c.verdict %}<span class="section-sub">— {{ c.verdict|mdstrip }}</span>{% endif %}</h2>
+    <h2 class="section-title" id="evidence">Evidence</h2>
     <div class="vv-panels">
       <section class="vv-panel">
         <h3 class="vv-panel-h">Clinical <span class="vv-panel-src">ClinVar</span></h3>
@@ -68,7 +62,7 @@
       </section>
       <section class="vv-panel">
         <h3 class="vv-panel-h">Computational</h3>
-        {% if p and p.class %}<p><b>AlphaMissense</b> {{ p.class|replace('_',' ') }} <span class="vv-num">{{ p.score }}</span>
+        {% if p and p.class %}<p><b>AlphaMissense</b> {{ p.class|replace('_',' ') }} <span class="vv-num">{{ p.score }}</span>{% if cv_path and p.class == 'likely_pathogenic' %} <span class="vd-conc is-ok">✓ concordant with ClinVar</span>{% elif cv_path and p.class == 'likely_benign' %} <span class="vd-conc is-flag">⚠ discordant with ClinVar</span>{% endif %}
           {% if v.am_percentile and v.am_percentile.top_pct <= 10 %}<span class="section-sub">(top {{ v.am_percentile.top_pct }}%)</span>{% endif %}</p>
           {% if v.am_isoform_mismatch %}<p class="section-sub" style="color:var(--flag)">⚠ Isoform check: AlphaMissense is numbered on a different transcript (AM {{ v.am_isoform_mismatch.am }} vs ClinVar {{ v.am_isoform_mismatch.clinvar }}) — verify the residue.</p>{% endif %}
         {% else %}<p class="section-sub"><b>Missense predictors do not apply</b> to this variant type (AlphaMissense/REVEL/SaProt score substitutions only); conservation{% if v.spliceai %}/SpliceAI{% endif %} carries the computational signal here.</p>{% endif %}
