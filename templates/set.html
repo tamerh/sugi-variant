@@ -32,10 +32,6 @@
     </p>{% endif %}
     {% if missing %}<p class="section-sub">Unmatched ({{ missing|length }}): {{ missing|join(', ') }} — not in the pathogenic-gated corpus, or unparseable.</p>{% endif %}
     {% if capped %}<p class="section-sub">Showing the first {{ 60 }} variants (set cap).</p>{% endif %}
-    <p class="dz-summary">
-      <a class="btn btn-ghost" href="{{ base }}/set">＋ New set</a>
-      <button type="button" class="btn btn-ghost set-copy" id="setCopy">🔗 Copy link</button>
-    </p>
   </section>
 
   {% if stats %}
