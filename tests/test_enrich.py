@@ -180,12 +180,12 @@ def test_plain_summary_calibrated():
                           "review_status": "criteria provided, single submitter",
                           "submitter_count": 1, "conditions": []})
     assert "limited review" in weak
-    # in-silico-discordant pathogenic → "predictors disagree"
+    # in-silico-discordant pathogenic → "not fully concordant" (not "predictors disagree", benchmark 2026-07)
     disc = plain_summary({"gene_symbol": "G", "classification": "Pathogenic",
                           "review_status": "criteria provided, multiple submitters, no conflicts",
                           "concordance": {"flags": ["AlphaMissense predicts likely-benign"]},
                           "submitter_count": 4, "conditions": []})
-    assert "predictors disagree" in disc
+    assert "not fully concordant" in disc and "predictors disagree" not in disc
     # likely-pathogenic keeps the hedge; conflicting reads as disagreement
     assert "likely disease-causing" in plain_summary(
         {"gene_symbol": "G", "classification": "Likely pathogenic", "conditions": []})

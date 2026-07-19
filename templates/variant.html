@@ -51,7 +51,7 @@
           <h3>Computational evidence</h3>
           <table class="vd-preds"><tbody>
             {% if p and p.class %}<tr><th>AlphaMissense</th><td class="vd-num">{{ p.score }}</td><td>{{ p.class|replace('_',' ') }}{% if cv_path and p.class == 'likely_pathogenic' %} <span class="vd-conc is-ok">✓ concordant with ClinVar</span>{% elif cv_path and p.class == 'likely_benign' %} <span class="vd-conc is-flag">⚠ discordant with ClinVar</span>{% endif %}{% if v.am_percentile and v.am_percentile.top_pct <= 10 %} <span class="section-sub">· top {{ v.am_percentile.top_pct }}% in {{ v.gene_symbol }}</span>{% endif %}</td></tr>
-            {% else %}<tr><td colspan="3" class="section-sub">{% if v.gene_symbol[:3] == 'MT-' and v.hgvs_p %}AlphaMissense does not cover mitochondrial-encoded proteins{% else %}Missense predictors do not apply to this variant type{% endif %}{% if v.conservation and v.conservation.phylop is not none %}; conservation{% if v.spliceai %}/SpliceAI{% endif %} carries the signal{% elif v.spliceai %}; SpliceAI carries the signal{% endif %}.</td></tr>{% endif %}
+            {% else %}<tr><td colspan="3" class="section-sub">{% if v.gene_symbol[:3] == 'MT-' %}AlphaMissense does not cover mitochondrial-encoded proteins{% else %}Missense predictors do not apply to this variant type{% endif %}{% if v.conservation and v.conservation.phylop is not none %}; conservation{% if v.spliceai %}/SpliceAI{% endif %} carries the signal{% elif v.spliceai %}; SpliceAI carries the signal{% endif %}.</td></tr>{% endif %}
             {% if v.lof_context %}<tr><th>Consequence</th><td>{{ v.lof_context.label }}</td><td class="section-sub">predicted loss-of-function{% if v.lof_context.haploinsufficient %} in a haploinsufficient gene (ClinGen){% elif v.lof_context.constrained %} in a LoF-intolerant gene{% endif %}{% if v.lof_context.nmd_caveat %}; NMD-escape possible for C-terminal truncations{% endif %}</td></tr>{% endif %}
             {% if v.revel %}<tr><th>REVEL</th><td class="vd-num">{{ v.revel.score }}</td><td class="section-sub">{{ v.revel.band }}</td></tr>{% endif %}
             {% if v.saprot %}<tr><th>SaProt</th><td class="vd-num">LLR {{ '%.2f'|format(v.saprot.llr) }}</td><td class="section-sub">{{ 'damaging' if v.saprot.damaging else 'tolerated' }}</td></tr>{% endif %}
@@ -92,7 +92,7 @@
 
         {% if v.conditions %}<section class="vd-card"><h3>Disease context</h3>
           <div class="vd-chips">{% for cd in v.conditions %}<span class="vv-chip">{{ cd.name }}</span>{% endfor %}</div>
-          {% if has_facts %}<dl class="vd-dl" style="margin-top:.7rem">
+          {% if has_facts %}{% if d and d.name %}<p class="section-sub" style="margin:.6rem 0 -.2rem">For <b>{{ d.name }}</b> (Orphanet):</p>{% endif %}<dl class="vd-dl" style="margin-top:.5rem">
             {% if d and d.inheritance %}<dt>Inheritance</dt><dd>{{ d.inheritance[:3]|join(', ') }}</dd>{% endif %}
             {% if d and d.onset %}<dt>Onset</dt><dd>{{ d.onset|join(', ') }}</dd>{% endif %}
             {% if d and d.prevalence %}<dt>Prevalence</dt><dd>{{ d.prevalence }}</dd>{% endif %}
@@ -107,7 +107,7 @@
           <dl class="vd-dl">
             <dt>Gene</dt><dd><a href="{{ base }}/gene/{{ v.gene_symbol }}">{{ v.gene_symbol }}</a></dd>
             {% if v.hgvs_p %}<dt>Protein</dt><dd>{{ v.hgvs_p }}</dd>{% endif %}
-            {% if v.hgvs_c %}<dt>Coding</dt><dd>{{ v.hgvs_c }}</dd>{% endif %}
+            {% if v.hgvs_c %}<dt>{{ 'Non-coding' if v.hgvs_c[:2] == 'n.' else 'Mitochondrial' if v.hgvs_c[:2] == 'm.' else 'Coding' }}</dt><dd>{{ v.hgvs_c }}</dd>{% endif %}
             {% if v.rsid %}<dt>dbSNP</dt><dd><a href="https://www.ncbi.nlm.nih.gov/snp/{{ v.rsid }}/">{{ v.rsid }}</a></dd>{% endif %}
             <dt>Type</dt><dd>{{ v.variant_type }}</dd>
             {% if v.chromosome %}<dt>Location</dt><dd>chr{{ v.chromosome }}:{{ v.start }} ({{ v.assembly }})</dd>{% endif %}
@@ -115,7 +115,7 @@
         </section>
         {% if v.gene_context and v.gene_context.constraint and v.gene_context.constraint.loeuf or (v.structure and v.structure.pdb) or v.hotspot %}
         <section class="vd-card"><h3>Gene &amp; protein context</h3>
-          {% if v.gene_context and v.gene_context.constraint and v.gene_context.constraint.loeuf %}<p class="section-sub">Constraint LOEUF {{ v.gene_context.constraint.loeuf }}, pLI {{ v.gene_context.constraint.pli }}{% if v.gene_context.dosage and v.gene_context.dosage.haplo %} · ClinGen HI {{ v.gene_context.dosage.haplo }}/3{% endif %}.</p>{% endif %}
+          {% if v.gene_context and v.gene_context.constraint and v.gene_context.constraint.loeuf %}<p class="section-sub">Constraint LOEUF {{ v.gene_context.constraint.loeuf }}, pLI {{ v.gene_context.constraint.pli }}{% if v.gene_context.dosage and v.gene_context.dosage.haplo %} · ClinGen HI {{ hi_display(v.gene_context.dosage.haplo) }}{% endif %}.</p>{% endif %}
           {% if v.structural and v.structural.features %}<p class="section-sub">Residue {{ v.structural.position }}: {{ v.structural.features|join('; ') }}.</p>{% endif %}
           {% if v.structure and v.structure.alphafold and v.structure.alphafold.plddt %}<p class="section-sub">AlphaFold pLDDT {{ v.structure.alphafold.plddt }}{% if v.structure.pdb %} · {{ v.structure.pdb|length }} PDB{% endif %}.</p>{% endif %}
           {% if v.hotspot and v.hotspot.others %}<p class="section-sub">Residue {{ v.hotspot.position }}: {{ v.hotspot.others|length }} other pathogenic variant{{ 's' if v.hotspot.others|length != 1 }} ({% for o in v.hotspot.others[:4] %}<a href="{{ base }}/{{ o.slug }}">{{ o.label.split(' ')[-1] }}</a>{{ ', ' if not loop.last }}{% endfor %}).</p>{% endif %}

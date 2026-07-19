@@ -65,6 +65,11 @@ from sugivariant.render import data_provenance           # noqa: E402
 env.globals["data_provenance"] = data_provenance
 env.globals["tier_label"] = tier_label
 
+# ClinGen dosage haploinsufficiency: 0–3 is the evidence scale; 30/40 are category codes
+# (not points on the scale), so don't render them as "30/3".
+_HI_CATEGORY = {"30": "gene assoc. with recessive phenotype", "40": "dosage-sensitivity unlikely"}
+env.globals["hi_display"] = lambda h: _HI_CATEGORY.get(str(h).strip(), f"{h}/3")
+
 # Inline markdown-bold in generated verdict text: **x** → <strong>x</strong>.
 # `mdbold` returns safe HTML (rest escaped); `mdstrip` yields plain text (for
 # headings / meta where we just want the words, no markers).

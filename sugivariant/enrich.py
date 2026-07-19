@@ -236,6 +236,23 @@ def _fix_acmg_modifier(code):
     return code[:-5] + "_VeryStrong" if isinstance(code, str) and code.endswith("_Very") else code
 
 
+_ACMG_FULL = re.compile(r"\b([PB][MVSP]\d)(_[A-Za-z]+)\b")
+
+
+def _reconcile_codes(codes, summary):
+    """Repair truncated/fully-stripped ACMG modifiers by reconciling each applied code against
+    the rationale summary, which carries the full form (benchmark 2026-07: chip 'PS4' shown
+    while the verbatim rationale says 'PS4_VeryStrong'). Fixes the '_Very' cut too."""
+    full = {b: b + m for b, m in _ACMG_FULL.findall(summary or "")}
+    out = []
+    for code in codes:
+        code = _fix_acmg_modifier(code)
+        if isinstance(code, str) and "_" not in code and code in full:
+            code = full[code]                        # bare code → full form from the rationale
+        out.append(code)
+    return out
+
+
 def clingen_criteria(ca_id):
     """Full ClinGen VCEP variant-pathogenicity record by allele-registry (CA) id:
     the applied ACMG codes, per-criterion rationale, and provenance — the authority
@@ -251,8 +268,8 @@ def clingen_criteria(ca_id):
     c = a.get("ClingenVariant") or {}
     if not c.get("evidence_codes_met"):
         return None
-    return {"codes_met": [_fix_acmg_modifier(x) for x in (c.get("evidence_codes_met") or [])],
-            "codes_not_met": [_fix_acmg_modifier(x) for x in (c.get("evidence_codes_not_met") or [])],
+    return {"codes_met": _reconcile_codes(c.get("evidence_codes_met") or [], c.get("summary")),
+            "codes_not_met": _reconcile_codes(c.get("evidence_codes_not_met") or [], c.get("summary")),
             "summary": c.get("summary"), "moi": c.get("moi"),
             "guideline": c.get("guideline"), "approval_date": c.get("approval_date"),
             "published_date": c.get("published_date"),
@@ -886,15 +903,17 @@ def condition_digest(conditions, cache):
     acquired conditions (leukemia, mastocytosis…) have no Orphanet germline Disease
     → they yield no digest → no germline inheritance/onset/HPO framing is projected
     onto them. Cached per MONDO id."""
-    for c in conditions or []:
-        mid = c.get("mondo_id")
-        if not mid:
-            continue
-        if mid not in cache:
-            cache[mid] = _digest_via_mondo(mid) or _digest_via_parent(mid)
-        if cache[mid]:
-            return cache[mid]
-    return None
+    # Route ONLY the PRIMARY condition (conditions[0], anchored to ClinVar's germline trait)
+    # — never a sibling. Falling through to the next condition projected a DIFFERENT disease's
+    # inheritance onto the headline (benchmark 2026-07: ACTA1 recessive alpha-actinopathy showed
+    # a sibling's 'Autosomal dominant'). Better to show nothing than the wrong mode.
+    c = (conditions or [None])[0]
+    mid = c.get("mondo_id") if c else None
+    if not mid:
+        return None
+    if mid not in cache:
+        cache[mid] = _digest_via_mondo(mid) or _digest_via_parent(mid)
+    return cache[mid]
 
 
 def _digest_via_mondo(mondo_id):
@@ -967,11 +986,17 @@ def structural_context(hgvs_p, intervals):
     pos = protein_position(hgvs_p)
     if pos is None or not intervals:
         return None
-    out = []
+    out, seen = [], set()
     for f in intervals:
         if f["begin"] <= pos <= f["end"]:
-            phrase = _UF_KEEP[f["type"]].replace("{d}", f["desc"] or f["type"])
-            out.append(phrase)
+            # Strip a foreign dbSNP id from the feature description — it's the rsID of the
+            # UniProt-catalogued variant at this residue, not OUR variant (benchmark 2026-07:
+            # ACADVL R459Q surfaced R459W's rs766742117).
+            desc = re.sub(r"[;,]?\s*dbsnp:rs\d+\.?", "", f["desc"] or "", flags=re.I).strip(" ;.")
+            phrase = _UF_KEEP[f["type"]].replace("{d}", desc or f["type"])
+            if phrase not in seen:                      # dedup UniProt's duplicate curations
+                seen.add(phrase)
+                out.append(phrase)
     return {"position": pos, "features": out} if out else None
 
 
@@ -1086,7 +1111,10 @@ def plain_summary(rec):
         meaning = "considered likely disease-causing"
     elif "pathogenic" in cls:
         if discordant:
-            meaning = "reported as disease-causing, though computational predictors disagree"
+            # 'flags' holds the single calibrated/weighted signal that dissents (e.g. AlphaMissense),
+            # not the whole predictor set — REVEL/SaProt may still agree. Don't overstate as
+            # 'predictors disagree' (benchmark 2026-07: CFTR R117H is 2/3 damaging).
+            meaning = "reported as disease-causing, though the computational evidence is not fully concordant"
         elif stars >= 2:
             meaning = "considered disease-causing"
         else:
