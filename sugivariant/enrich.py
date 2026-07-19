@@ -1142,6 +1142,8 @@ def plain_summary(rec):
         # in the concordance card, not here in the headline meaning.
         meaning = ("currently of uncertain significance — a definitive interpretation "
                    "has not yet been established")
+    elif "benign" in cls:
+        meaning = f"classified as {(rec.get('classification') or '').lower()} — not considered disease-causing"
     else:
         meaning = f"classified as {rec.get('classification')}"
     gene = rec.get("gene_symbol")

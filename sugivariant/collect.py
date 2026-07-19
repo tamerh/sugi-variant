@@ -20,6 +20,7 @@ BUILD_CLASSES = {
     "pathogenic", "likely pathogenic", "pathogenic/likely pathogenic",
     "conflicting classifications of pathogenicity",
     "uncertain significance",
+    "benign", "likely benign", "benign/likely benign",
 }
 
 
