@@ -228,6 +228,14 @@ def lof_context(rec):
             "lof_disease_gene": germline and (haploinsufficient or constrained)}
 
 
+def _fix_acmg_modifier(code):
+    """Repair an ACMG strength modifier truncated in the biobtree staging data: 'PM3_Very'
+    is not a valid code (the SVI closed set is _Supporting/_Moderate/_Strong/_VeryStrong), so
+    it's a cut of 'PM3_VeryStrong'. Only the clearly-invalid trailing '_Very' is repaired;
+    valid codes pass through unchanged. (Temporary guard pending an upstream fix.)"""
+    return code[:-5] + "_VeryStrong" if isinstance(code, str) and code.endswith("_Very") else code
+
+
 def clingen_criteria(ca_id):
     """Full ClinGen VCEP variant-pathogenicity record by allele-registry (CA) id:
     the applied ACMG codes, per-criterion rationale, and provenance — the authority
@@ -243,8 +251,8 @@ def clingen_criteria(ca_id):
     c = a.get("ClingenVariant") or {}
     if not c.get("evidence_codes_met"):
         return None
-    return {"codes_met": c.get("evidence_codes_met") or [],
-            "codes_not_met": c.get("evidence_codes_not_met") or [],
+    return {"codes_met": [_fix_acmg_modifier(x) for x in (c.get("evidence_codes_met") or [])],
+            "codes_not_met": [_fix_acmg_modifier(x) for x in (c.get("evidence_codes_not_met") or [])],
             "summary": c.get("summary"), "moi": c.get("moi"),
             "guideline": c.get("guideline"), "approval_date": c.get("approval_date"),
             "published_date": c.get("published_date"),

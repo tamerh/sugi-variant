@@ -28,18 +28,30 @@ def should_build(classification):
     return (classification or "").strip().lower() in BUILD_CLASSES
 
 
-def _order_conditions(conditions, vcep):
-    """Lead with the ClinGen VCEP / expert-panel disease so the primary condition
-    is the DEFINING one, not an arbitrary first >>clinvar>>mondo edge. conditions[0]
-    drives the Summary headline, the mechanism narrative, the patient digest routing
-    and the condition links, so the order here propagates everywhere (benchmark
-    2026-07: TP53 Li-Fraumeni hotspots headlined 'gastric cancer' with Li-Fraumeni
-    buried at 24/28). Stable otherwise; a no-op when there is no VCEP (most genes)."""
+def _order_conditions(conditions, vcep, primary_id=None, primary_name=None):
+    """Lead with the DEFINING condition — conditions[0] drives the Summary headline, the
+    mechanism narrative, the patient digest routing and the condition links, so the order
+    here propagates everywhere (benchmark 2026-07: CFTR alleles headlined 'hereditary chronic
+    pancreatitis' over cystic fibrosis; TP53 Li-Fraumeni hotspots headlined 'gastric cancer').
+
+    Priority: (1) ClinVar's AGGREGATE germline condition (biobtree `germline_condition` — the
+    trait the classification is asserted for, e.g. CFTR→'Cystic fibrosis', DMD→'Duchenne');
+    (2) the ClinGen VCEP disease; (3) stable order otherwise."""
+    # (1) ClinVar's own aggregate germline trait — the authoritative primary.
+    pid, pname = (primary_id or "").strip(), (primary_name or "").strip().lower()
+    if pid or pname:
+        idx = next((i for i, c in enumerate(conditions)
+                    if (pid and (c.get("mondo_id") or "") == pid)
+                    or (pname and (c.get("name") or "").strip().lower() == pname)), None)
+        if idx is not None:
+            return [conditions[idx]] + conditions[:idx] + conditions[idx + 1:]
+        if pname:                       # trait not in the mondo edge → prepend it (still primary)
+            return [{"mondo_id": primary_id, "name": primary_name}] + conditions
+    # (2) ClinGen VCEP disease.
     vcep_diseases = {(c.get("disease") or "").strip().lower()
                      for c in (vcep or []) if c.get("disease")}
     if not vcep_diseases or len(conditions) < 2:
         return conditions
-    # False (0) sorts before True (1); sort is stable → VCEP disease(s) first, rest as-is
     return sorted(conditions,
                   key=lambda c: (c.get("name") or "").strip().lower() not in vcep_diseases)
 
@@ -78,7 +90,9 @@ def collect(variation_id):
     for c in vcep:
         c["criteria"] = EN.clingen_criteria(c["id"])
 
-    conditions = _order_conditions(conditions, vcep)
+    conditions = _order_conditions(conditions, vcep,
+                                    primary_id=v.get("germline_condition_id"),
+                                    primary_name=v.get("germline_condition"))
 
     subs = v.get("submissions") or []
     # Distinct submitters, not raw submission rows — a lab with multiple SCVs counts
