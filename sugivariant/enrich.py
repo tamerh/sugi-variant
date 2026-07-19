@@ -449,6 +449,7 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
     clinical determination."""
     cls = (classification or "").lower()
     clinvar_path = "pathogenic" in cls and "conflict" not in cls
+    clinvar_vus = "uncertain" in cls
     lines, flags, agree, total, consensus = [], [], 0, 0, None
 
     if am:
@@ -554,6 +555,13 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
     elif agree == total and clinvar_path:
         verdict = (f"{agree} independent predictor{'s' if agree != 1 else ''} "
                    "**concordant** with the ClinVar classification")
+    elif clinvar_vus and consensus and consensus.get("unanimous"):
+        # VUS triage (§8): ClinVar has no definitive call, so there is nothing to be
+        # concordant WITH — instead surface where the independent predictors unanimously
+        # lean. Explicitly NOT a reclassification; a signal for prioritising review.
+        lean = "damaging" if consensus["n_damaging"] else "tolerated"
+        verdict = (f"ClinVar classifies this **uncertain**; the computational predictors "
+                   f"unanimously lean **{lean}** — a triage signal, not a reclassification")
     else:
         verdict = "Mixed / partial computational evidence (see below)"
     return {"lines": lines, "verdict": verdict, "flags": flags, "consensus": consensus}
@@ -561,7 +569,8 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
 
 # Category order for the /disagreements browse view (higher = surfaced first).
 DISAGREEMENT_CATEGORIES = ("predictor_vs_clinvar", "resolves_conflicting",
-                           "lof_resolves_conflicting", "predictors_split")
+                           "lof_resolves_conflicting", "vus_predictors_lean",
+                           "predictors_split")
 
 
 def disagreement_flag(rec):
@@ -586,6 +595,7 @@ def disagreement_flag(rec):
     cls = (rec.get("classification") or "").lower()
     is_path = "pathogenic" in cls and "conflict" not in cls
     is_conf = "conflict" in cls
+    is_vus = "uncertain" in cls
     am_benign = any("likely-benign" in f for f in (c.get("flags") or []))
 
     if is_path and (am_benign or (total and n_dmg * 2 < total)):
@@ -606,6 +616,14 @@ def disagreement_flag(rec):
         return {"category": "lof_resolves_conflicting", "label": "Predicted LoF vs a conflicting call",
                 "reason": f"ClinVar conflicting; predicted {lof['label']} in {why}{nmd} — flagged for review",
                 "severity": 2}
+    # VUS with a unanimous predictor lean — the highest-value new triage class (Phase 2).
+    # ClinVar has no definitive call; the independent predictors all point one way. A
+    # prioritisation signal for review, explicitly NOT a reclassification (ClinGen SVI, §8).
+    if is_vus and total >= 2 and cons.get("unanimous"):
+        lean = "damaging" if n_dmg else "tolerated"
+        return {"category": "vus_predictors_lean", "label": "Predictors lean, ClinVar uncertain",
+                "reason": f"ClinVar uncertain significance; {cons.get('summary')} ({lean}) "
+                          "— a triage signal, not a reclassification", "severity": 2}
     if total >= 2 and not cons.get("unanimous"):
         return {"category": "predictors_split", "label": "Predictors split",
                 "reason": cons.get("summary"), "severity": 1}
@@ -1119,6 +1137,11 @@ def plain_summary(rec):
             meaning = "considered disease-causing"
         else:
             meaning = "reported as disease-causing, but on limited review"
+    elif "uncertain" in cls:
+        # §8: never reclassify a VUS. State the uncertainty; the computational lean lives
+        # in the concordance card, not here in the headline meaning.
+        meaning = ("currently of uncertain significance — a definitive interpretation "
+                   "has not yet been established")
     else:
         meaning = f"classified as {rec.get('classification')}"
     gene = rec.get("gene_symbol")

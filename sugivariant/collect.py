@@ -11,11 +11,15 @@ from sugibiobtree import entry, map_all
 from sugivariant.slug import parse_hgvs, variant_slugs, name_gene
 from sugivariant import enrich as EN
 
-# Classifications we build pages for (Phase 1 gate: the high-value + most-searched
-# slice; the benign long tail is excluded — see VARIANT_PAGES_SPEC.md §3).
+# Classifications we build pages for. Phase 2 (2026-07) widens the gate toward the
+# HARD interpretation cases where an integrated substrate is differentiated: VUS is
+# added here (the clinical bottleneck); benign follows for full completeness. §8 holds —
+# we describe the evidence, we never reclassify a VUS. See VARIANT_PAGES_SPEC.md §3 and
+# docs/internal/coverage-expansion-roadmap.md.
 BUILD_CLASSES = {
     "pathogenic", "likely pathogenic", "pathogenic/likely pathogenic",
     "conflicting classifications of pathogenicity",
+    "uncertain significance",
 }
 
 

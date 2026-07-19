@@ -117,6 +117,49 @@ def test_disagreement_flag_non_missense_lof():
     assert disagreement_flag(r2) is None
 
 
+def test_vus_concordance_triage():
+    # VUS + unanimous damaging predictors → a TRIAGE verdict, explicitly not a reclassification
+    c = concordance("Uncertain significance",
+                    {"class": "likely_pathogenic", "score": "0.98"},
+                    {"absent": True, "is_common": False, "band": "absent from gnomAD v4.1"},
+                    revel={"score": 0.9, "band": "supporting pathogenic", "direction": "pathogenic"},
+                    saprot={"llr": -9.0, "damaging": True})
+    assert c["consensus"]["unanimous"] and c["consensus"]["n_damaging"] == 3
+    assert "triage" in c["verdict"] and "not a reclassification" in c["verdict"]
+    assert "uncertain" in c["verdict"].lower()
+    # VUS must never be called "concordant" — there is no definitive call to concur with
+    assert "concordant" not in c["verdict"].lower()
+
+
+def test_vus_plain_summary_no_reclassification():
+    from sugivariant.enrich import plain_summary
+    rec = {"gene_symbol": "PTEN", "classification": "Uncertain significance",
+           "review_status": "criteria provided, single submitter", "submitter_count": 2,
+           "conditions": [{"name": "PTEN hamartoma tumor syndrome"}],
+           "concordance": {"flags": [], "consensus": {"n_damaging": 3, "total": 3, "unanimous": True}}}
+    s = plain_summary(rec)
+    assert "uncertain significance" in s.lower()
+    assert "disease-causing" not in s            # §8: never reclassify a VUS in the headline
+    assert "PTEN hamartoma tumor syndrome" in s
+
+
+def test_vus_disagreement_flag():
+    from sugivariant.enrich import disagreement_flag
+    def rec(cls, consensus=None):
+        return {"classification": cls, "concordance": {"consensus": consensus, "flags": []}}
+    # VUS + unanimous lean → the new triage category (not a reclassification)
+    d = disagreement_flag(rec("Uncertain significance",
+        {"n_damaging": 3, "total": 3, "unanimous": True, "summary": "all 3 predictors call this damaging"}))
+    assert d["category"] == "vus_predictors_lean" and d["severity"] == 2
+    assert "not a reclassification" in d["reason"]
+    # VUS but predictors split → predictors_split, NOT the triage flag
+    d2 = disagreement_flag(rec("Uncertain significance",
+        {"n_damaging": 2, "total": 3, "unanimous": False, "summary": "2/3 damaging — mixed"}))
+    assert d2["category"] == "predictors_split"
+    # sparse VUS (no consensus) → no flag
+    assert disagreement_flag(rec("Uncertain significance", None)) is None
+
+
 def test_residue_hotspot():
     idx = {309: [{"hgvs_p": "p.Pro309Ala", "label": "ACTA1 p.Pro309Ala", "slug": "a", "classification": "Pathogenic"},
                  {"hgvs_p": "p.Pro309Leu", "label": "ACTA1 p.Pro309Leu", "slug": "b", "classification": "Pathogenic"}]}

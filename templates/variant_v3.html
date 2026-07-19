@@ -34,6 +34,7 @@
       {% if v.spliceai %}<tr><th>SpliceAI</th><td><b>Δ{{ v.spliceai.score }}</b> <span class="section-sub">{{ v.spliceai.effect|replace('_',' ') }}</span></td></tr>{% endif %}
       {% if v.conservation and v.conservation.phylop is not none %}<tr><th>Conservation</th><td>phyloP {{ '%.2g'|format(v.conservation.phylop) }}{% if v.conservation.gerp is not none %}, GERP {{ '%.2g'|format(v.conservation.gerp) }}{% endif %}{% if v.conservation.phastcons is not none %}, phastCons {{ '%.2g'|format(v.conservation.phastcons) }}{% endif %}</td></tr>{% endif %}
       {% if c and c.consensus %}<tr><th>In-silico consensus</th><td>{{ c.consensus.summary }}</td></tr>{% endif %}
+      {% if c and c.verdict and 'triage' in c.verdict %}<tr><th>VUS triage</th><td>{{ c.verdict|mdbold }}</td></tr>{% endif %}
       <tr><th>gnomAD v4.1</th><td>{% if g %}{{ g.band }}{% if g.faf %} · filtering AF {{ g.faf }}{% endif %}{% else %}no coordinate frequency{% endif %}</td></tr>
       {% if v.vcep and v.vcep[0].criteria %}{% set cr = v.vcep[0].criteria %}
       <tr><th>ClinGen VCEP</th><td><b>{{ v.vcep[0].assertion }}</b> — {{ v.vcep[0].panel }} ({{ v.vcep[0].disease }}). Applied: {% for x in cr.codes_met %}<code class="vv-acmg">{{ x }}</code> {% endfor %}

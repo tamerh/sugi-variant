@@ -65,6 +65,7 @@
         {% if v.saprot %}<p><b>SaProt</b> <span class="vv-num">LLR {{ '%.2f'|format(v.saprot.llr) }}</span> <span class="section-sub">({{ 'damaging' if v.saprot.damaging else 'tolerated' }})</span></p>{% endif %}
         {% if v.spliceai %}<p><b>SpliceAI</b> {{ v.spliceai.effect|replace('_',' ') }} <span class="vv-num">Δ{{ v.spliceai.score }}</span></p>{% endif %}
         {% if v.concordance and v.concordance.consensus %}<p class="vv-consensus {{ 'is-agree' if v.concordance.consensus.unanimous }}">⇒ <b>Consensus:</b> {{ v.concordance.consensus.summary }}</p>{% endif %}
+        {% if v.concordance and v.concordance.verdict and 'triage' in v.concordance.verdict %}<p class="vv-consensus is-flag">{{ v.concordance.verdict|mdbold }}</p>{% endif %}
         {% if v.conservation and v.conservation.phylop is not none %}<p><b>Conservation</b> phyloP {{ '%.2g'|format(v.conservation.phylop) }}{% if v.conservation.gerp is not none %}, GERP {{ '%.2g'|format(v.conservation.gerp) }}{% endif %}{% if v.conservation.phastcons is not none %}, phastCons {{ '%.2g'|format(v.conservation.phastcons) }}{% endif %}</p>{% endif %}
         {% if (p and p.class) or v.lof_context %}<p class="section-sub" style="margin-top:.4rem">{% if p and p.class %}AlphaMissense carries the ACMG weight for missense; REVEL and SaProt are independent agreement signals.{% endif %}{% if v.lof_context %} Predicted loss-of-function is descriptive, not an applied PVS1 code.{% endif %}</p>{% endif %}
       </section>

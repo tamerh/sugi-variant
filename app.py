@@ -352,6 +352,10 @@ CAT_META = {
         "blurb": "ClinVar submitters conflict, and it's a predicted loss-of-function "
                  "change in a gene where LoF causes disease — flagged for review, not "
                  "resolved (verify NMD-escape for C-terminal truncations). Non-missense."},
+    "vus_predictors_lean": {
+        "label": "Predictors lean, ClinVar uncertain", "tone": "info",
+        "blurb": "ClinVar classifies these uncertain (VUS), but the independent predictors "
+                 "unanimously lean one way — a triage signal for review, not a reclassification."},
     "predictors_split": {
         "label": "Predictors split", "tone": "warn",
         "blurb": "The independent predictors disagree with each other — read with care."},
@@ -433,7 +437,8 @@ def home(q: str = ""):
 
 _SET_MAX = 60
 _FLAG_SEVERITY = {"predictor_vs_clinvar": 3, "resolves_conflicting": 2,
-                  "lof_resolves_conflicting": 2, "predictors_split": 1}
+                  "lof_resolves_conflicting": 2, "vus_predictors_lean": 2,
+                  "predictors_split": 1}
 
 
 @app.get("/set", response_class=HTMLResponse)
