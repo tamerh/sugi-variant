@@ -516,11 +516,20 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
                      + " (below), not from a missing predictor score.")
 
     if spliceai:
-        total += 1
+        # SpliceAI is a descriptive AGREEMENT signal for splice-region variants, NOT an additive
+        # vote. For a non-missense variant the single calibrated tool is conservation (below), so
+        # SpliceAI does not increment the concordance counter. (It is only surfaced at delta >= 0.2,
+        # i.e. it always predicts a splice-altering effect; counting it both double-counted with
+        # conservation on splice variants and let it only ever confirm — never dissent from — a
+        # pathogenic call. It is now described and its agreement noted, without being counted.)
+        effect = (spliceai.get('effect') or '').replace('_', ' ')
         if clinvar_path:
-            agree += 1
-        lines.append(f"SpliceAI predicts **{(spliceai.get('effect') or '').replace('_', ' ')}** "
-                     f"(Δ {spliceai.get('score')}) — a splice-altering effect consistent with pathogenicity")
+            note = "consistent with the pathogenic call"
+        elif clinvar_vus:
+            note = "a splice-altering prediction on an uncertain variant — a signal for review"
+        else:
+            note = "a splice-altering prediction the current classification does not reflect"
+        lines.append(f"SpliceAI predicts **{effect}** (Δ {spliceai.get('score')}) — {note}")
 
     if conservation and conservation.get("phylop") is not None:
         p, gerp, pc = conservation["phylop"], conservation.get("gerp"), conservation.get("phastcons")

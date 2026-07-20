@@ -56,6 +56,21 @@ def test_concordance_conservation_line():
     assert "concordant" in (c["verdict"] or "").lower()     # conservation is the concordant predictor
 
 
+def test_concordance_spliceai_is_agreement_not_a_vote():
+    # SpliceAI on a splice variant is a DESCRIPTIVE agreement signal, not an additive vote:
+    # for a non-missense variant conservation is the single calibrated tool, so SpliceAI must NOT
+    # increment the concordance counter (else it double-counts with conservation) and must be able
+    # to dissent (previously it could only ever confirm a pathogenic call).
+    spl = {"effect": "donor_loss", "score": "0.92"}
+    # pathogenic splice variant with conservation → exactly ONE counted predictor, not two
+    c = concordance("Pathogenic", None, None, spl, {"phylop": 7.4})
+    assert c["verdict"].startswith("1 independent predictor")
+    assert any("SpliceAI" in ln for ln in c["lines"])
+    # a strong SpliceAI effect on a benign variant now dissents rather than confirming pathogenicity
+    b = concordance("Benign", None, None, spl, {"phylop": -1})
+    assert any("SpliceAI" in ln and "does not reflect" in ln for ln in b["lines"])
+
+
 def test_plain_summary_wording_and_condition():
     from sugivariant.enrich import plain_summary
     rec = {"gene_symbol": "TP53", "classification": "Pathogenic",
