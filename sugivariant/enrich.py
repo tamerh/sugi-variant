@@ -291,23 +291,31 @@ def am_isoform_mismatch(am, hgvs_p):
     return None
 
 
+# ClinVar-calibrated SaProt damaging divider (Youden-optimal; tools/eval/saprot_calibration.py,
+# 2026-07-20). Was a -7.5 heuristic; -10.0 lifts specificity 0.69 -> 0.94.
+_SAPROT_DAMAGING = -10.0
+
+
 def saprot_for(uniprot, protein_variant):
     """SaProt-650M structure-aware protein-language-model variant effect (Su et
     al. 2023; computed in-house from MIT weights → redistributable), keyed by
     uniprot:protein_variant (both from AlphaMissense). LLR ≤ 0, more negative =
     more damaging; NO calibrated ACMG threshold — surface the raw LLR and let the
-    concordance panel do the work (~-7.5 is a heuristic divider on the same LLR
-    scale, used only for the 'damaging vs tolerated' agreement read). Unsupervised
-    → a genuinely orthogonal predictor next to the supervised AlphaMissense/REVEL.
-    Covers ~98.6% of the proteome; the ~1.4% without an AlphaFold structure fall
-    back to AlphaMissense (SaProt simply returns None here)."""
+    concordance panel do the work. The 'damaging vs tolerated' divider is used ONLY
+    for the agreement read, and is now DATA-CALIBRATED against ClinVar (not a guess):
+    on 476 ClinVar P/LP-vs-B/LB missense variants SaProt LLR has AUC 0.917; the
+    Youden-optimal cut is -10.0 (sens 0.80, spec 0.94) vs the old heuristic -7.5
+    (sens 0.91, spec 0.69 — over-called benign). See tools/eval/saprot_calibration.py.
+    Unsupervised → a genuinely orthogonal predictor next to supervised AlphaMissense/
+    REVEL. Covers ~98.6% of the proteome; the ~1.4% without an AlphaFold structure
+    fall back to AlphaMissense (SaProt simply returns None here)."""
     if not (uniprot and protein_variant):
         return None
     a = _coord_entry(f"{uniprot}:{protein_variant}", "saprot")
     llr = _f((a or {}).get("saprot_llr"))
     if llr is None:
         return None
-    return {"llr": llr, "damaging": llr <= -7.5}
+    return {"llr": llr, "damaging": llr <= _SAPROT_DAMAGING}
 
 
 def conservation_for(coord):
@@ -473,8 +481,8 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
                 rel = "agrees with" if (revel["direction"] == "pathogenic") == am_path else "differs from"
             lines.append(f"REVEL {revel['score']} ({revel['band']}) — {rel} AlphaMissense")
         # SaProt — orthogonal (ClinVar-independent) protein-language-model opinion,
-        # also an agreement signal (not additive). Raw LLR surfaced; ~-7.5 divides
-        # the damaging/tolerated *read* only.
+        # also an agreement signal (not additive). Raw LLR surfaced; the ClinVar-
+        # calibrated -10.0 cut divides the damaging/tolerated *read* only.
         if saprot:
             rel = "agrees with" if saprot["damaging"] == am_path else "differs from"
             lines.append(f"SaProt LLR {saprot['llr']:g} "
