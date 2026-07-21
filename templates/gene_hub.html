@@ -4,17 +4,14 @@
 {% block head %}<link rel="canonical" href="https://sugi.bio/variant/gene/{{ gene }}">{% endblock %}
 {% block content %}
 <div class="container">
-  <p class="breadcrumb"><a href="{{ base }}/">Sugi Variant</a><span>/</span>{{ gene }}</p>
-
-  <section class="hero hero-tight">
-    <h1 class="hero-title">{{ gene }} — clinically significant variants</h1>
-    <p class="hero-lead"><strong>{{ total }}</strong> pathogenic / likely-pathogenic / conflicting
-    {{ gene }} variants, each assembled from ClinVar + gnomAD + AlphaMissense + conservation and more.
-    {% if flagged %}<a href="#disagreements">{{ flagged }} carry an evidence disagreement →</a>{% endif %}</p>
-    <p class="dz-summary">
-      {% for grp in groups %}<span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(grp.cls) }}">{{ grp.total }}</span> {{ grp.cls }}{% if not loop.last %} · {% endif %}{% endfor %}
+  <header class="set-head">
+    <p class="breadcrumb"><a href="{{ base }}/">Sugi Variant</a><span>/</span>{{ gene }}</p>
+    <h1 class="set-title">{{ gene }} <span class="set-title-n">— {{ total }} clinically significant variant{{ 's' if total != 1 }}</span></h1>
+    <p class="set-sub">Pathogenic / likely-pathogenic / conflicting {{ gene }} variants, each assembled from ClinVar, gnomAD, AlphaMissense, conservation and more.{% if flagged %} <a href="#disagreements" class="set-flag-hl">{{ flagged }} flagged for review →</a>{% endif %}</p>
+    <p class="dz-summary" style="margin:.5rem 0 0">
+      {% for grp in groups %}<span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(grp.cls) }}">{{ grp.total }}</span> {{ grp.cls|replace('Conflicting classifications of pathogenicity','Conflicting') }}{% if not loop.last %} · {% endif %}{% endfor %}
     </p>
-  </section>
+  </header>
 
   {% if flagged %}
   <section class="entity-main" id="disagreements">
