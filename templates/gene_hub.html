@@ -3,7 +3,7 @@
 {% block description %}{{ total }} clinically significant (pathogenic / likely-pathogenic / conflicting) {{ gene }} variants, each with cross-sourced evidence — ClinVar, gnomAD, AlphaMissense, conservation and more.{% endblock %}
 {% block head %}<link rel="canonical" href="https://sugi.bio/variant/gene/{{ gene }}">{% endblock %}
 {% block content %}
-<div class="container">
+<div class="container container-wide">
   <header class="set-head">
     <p class="breadcrumb"><a href="{{ base }}/">Sugi Variant</a><span>/</span>{{ gene }}</p>
     <h1 class="set-title">{{ gene }} <span class="set-title-n">— {{ total }} clinically significant variant{{ 's' if total != 1 }}</span></h1>
