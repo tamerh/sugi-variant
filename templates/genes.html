@@ -3,15 +3,14 @@
 {% block description %}Browse all {{ "{:,}".format(total) }} genes with clinically significant variants in Sugi Variant.{% endblock %}
 {% block content %}
 <div class="container container-wide">
-  <section class="hero hero-tight">
-    <p class="hero-eyebrow">Sugi Variant · browse</p>
-    <h1 class="hero-title">Genes</h1>
-    <p class="hero-lead"><strong>{{ "{:,}".format(total) }}</strong> genes carry at least one pathogenic,
-      likely-pathogenic or conflicting variant. Pick a gene for its variants and evidence.</p>
-    <p class="dz-summary">
+  <header class="set-head">
+    <p class="breadcrumb"><a href="{{ base }}/">Sugi Variant</a><span>/</span>Genes</p>
+    <h1 class="set-title">Genes <span class="set-title-n">— {{ "{:,}".format(total) }} genes</span></h1>
+    <p class="set-sub">Genes carrying at least one pathogenic, likely-pathogenic or conflicting variant. Pick a gene for its variants and evidence.</p>
+    <p class="dz-summary" style="margin:.5rem 0 0">
       {% for letter in groups %}<a class="gh-flag" style="text-decoration:none" href="#L{{ letter }}">{{ letter }}</a>{% if not loop.last %} · {% endif %}{% endfor %}
     </p>
-  </section>
+  </header>
 
   <section class="entity-main">
     {% for letter, items in groups.items() %}

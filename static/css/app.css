@@ -113,7 +113,7 @@
 
 /* gene grid on the hub */
 .dz-genes{list-style:none;padding:0;margin:0;display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.6rem}
+  grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.45rem}
 .dz-gene{display:flex;align-items:center;justify-content:space-between;gap:.5rem;
   border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:.7rem .9rem;background:var(--bg,#fff);
   text-decoration:none;color:inherit;transition:border-color .12s,transform .12s}
