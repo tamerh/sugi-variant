@@ -39,6 +39,15 @@ def open_db(path, check_same_thread=True):
     return conn
 
 
+def open_ro(path):
+    """Read-only connection for serving: mode=ro (never writes, no schema DDL). Open one per
+    request thread so concurrent reads run in parallel rather than serialising on a shared
+    connection — SQLite allows unlimited concurrent readers across separate connections."""
+    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
 def norm_coordinate(s):
     """Normalize a user coordinate to the stored 'chr:pos:ref:alt' key (drop a
     'chr' prefix, uppercase alleles, accept ':' or '-' separators)."""

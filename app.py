@@ -211,16 +211,21 @@ def _render(tpl, **ctx):
 
 # ── persistent resolution index (optional; falls back to the live path if absent) ─
 INDEX_DB = pathlib.Path(os.environ.get("INDEX_DB") or (CACHE_DIR / "index.db"))
-_INDEX = None
+_tls = threading.local()
 
 
 def _index():
-    """The SQLite resolution index, or None if it hasn't been built. Opened once,
-    read-only across request threads."""
-    global _INDEX
-    if _INDEX is None and INDEX_DB.exists():
-        _INDEX = IX.open_db(str(INDEX_DB), check_same_thread=False)
-    return _INDEX
+    """A thread-local, read-only connection to the SQLite resolution index, or None if it
+    hasn't been built. Per-thread connections let the request threads read the index in true
+    parallel — SQLite allows unlimited concurrent readers across separate connections — instead
+    of serialising on one shared connection. Read-only (mode=ro); serving never writes."""
+    if not INDEX_DB.exists():
+        return None
+    conn = getattr(_tls, "index", None)
+    if conn is None:
+        conn = IX.open_ro(str(INDEX_DB))
+        _tls.index = conn
+    return conn
 
 
 def _ix_rec(row):
