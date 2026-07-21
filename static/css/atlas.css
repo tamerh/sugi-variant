@@ -138,6 +138,8 @@ code {
 }
 
 .container {
+  width: 100%;               /* body>main is a flex column; without this, margin:auto makes the
+                                container shrink-wrap to its content instead of filling the width */
   max-width: 1080px;
   margin: 0 auto;
   padding: 0 1.5rem;
