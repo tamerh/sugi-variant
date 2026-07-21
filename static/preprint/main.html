@@ -197,7 +197,7 @@ and do not sum to 100%.</span></figcaption><!-- tex4ht:label?: x1-3001r1  -->
    <h4 class='subsectionHead' id='collect-content'><span class='titlemark'>2.2   </span>   <a id='x1-40002.2'></a>Collect content</h4>
 <!-- l. 64 --><p class='noindent'>Each admitted variant is first resolved to a single canonical ClinVar record, the anchor, which every
 section of its page then shares. From this anchor, a fixed plan of chain queries assembles the
-variant’s evidence (Figure <a href='#mining-one-variant-page-each-leaf-node-is-a-biobtree-dataset-the-page-queries-fanned-from-the-resolved-clinvar-anchor-here-the-tp53-variant-parg175his-through-the-intermediate-keys-the-variant-resolves-to-from-the-clinvar-record-the-pipeline-reaches-the-clingen-expertpanel-curation-and-the-dbsnp-crossreference-directly-and-resolves-four-keys-the-condition-to-mondo-and-thence-orphanet-and-hpo-for-inheritance-and-phenotype-and-to-patient-resources-and-trials-the-genomic-coordinate-to-the-gnomad-population-frequency-sequence-conservation-and-spliceai-the-gene-to-the-gnomad-constraint-clingen-dosage-gencc-genedisease-validity-and-reactome-mechanism-pathways-and-the-protein-change-to-alphamissense-revel-saprot-and-the-reviewed-structure-the-computational-predictors-alphamissense-as-the-calibrated-acmgweighted-tool-with-revel-saprot-and-conservation-as-agreement-signals-feed-the-concordance-readout-of-sectionref-secmethodsconcordance-colours-group-the-datasets-by-evidence-type-as-in-figureref-figarchitecture'>2<!-- tex4ht:ref: fig:mining  --></a>), each value read directly from its source dataset rather than
+variant’s evidence (Figure <a href='#mining-one-variant-page-each-leaf-is-a-biobtree-dataset-the-page-queries-fanned-from-the-resolved-clinvar-anchor-here-the-tp53-variant-parg175his-through-the-intermediate-keys-the-variant-resolves-to-the-condition-mondo-and-thence-orphanet-and-hpo-for-inheritance-and-phenotype-and-patient-resources-and-trials-the-genomic-coordinate-gnomad-population-frequency-sequence-conservation-and-spliceai-the-gene-gnomad-constraint-clingen-dosage-gencc-genedisease-validity-and-reactome-mechanism-pathways-and-the-protein-change-alphamissense-revel-saprot-and-the-reviewed-structure-the-clingen-expertpanel-curation-and-the-dbsnp-crossreference-are-reached-directly-from-the-clinvar-record-the-righthand-column-shows-how-those-data-assemble-into-the-sections-of-the-page-alphamissense-carries-the-calibrated-acmg-weight-with-revel-saprot-and-conservation-shown-as-agreement-signals-rather-than-additive-votes-and-spliceai-as-a-splice-read-so-the-insilico-concordance-of-sectionref-secmethodsconcordance-is-a-descriptive-qualitycontrol-read-and-the-variant-is-flagged-for-review-when-the-evidence-disagrees-colours-group-the-datasets-by-evidence-type-as-in-figureref-figarchitecture'>2<!-- tex4ht:ref: fig:mining  --></a>), each value read directly from its source dataset rather than
 reconstructed: from ClinVar, the germline classification, the review status and submitter count,
 and the asserted condition, carried through to its Mondo [<a id='x1-4001'></a><a id='page.11'></a><a href='main.html#X0-vasilevsky_mondo_2022'>9</a>] and Orphanet [<a id='x1-4002'></a><a href='main.html#X0-maiella_orphanet_2013'>10</a>] terms;
 from gnomAD, the population allele frequency, the grouped-population maximum, and
@@ -315,28 +315,25 @@ force rather than that nothing was tested. Because the corpus is a deterministic
 BioBTree’s contents, the validated reference is regenerated in full as BioBTree re-ingests
 its sources, so its currency tracks the underlying databases rather than a manual release
 cycle.
-</p>
-   <figure class='figure' id='x1-7002r2'><span id='mining-one-variant-page-each-leaf-node-is-a-biobtree-dataset-the-page-queries-fanned-from-the-resolved-clinvar-anchor-here-the-tp53-variant-parg175his-through-the-intermediate-keys-the-variant-resolves-to-from-the-clinvar-record-the-pipeline-reaches-the-clingen-expertpanel-curation-and-the-dbsnp-crossreference-directly-and-resolves-four-keys-the-condition-to-mondo-and-thence-orphanet-and-hpo-for-inheritance-and-phenotype-and-to-patient-resources-and-trials-the-genomic-coordinate-to-the-gnomad-population-frequency-sequence-conservation-and-spliceai-the-gene-to-the-gnomad-constraint-clingen-dosage-gencc-genedisease-validity-and-reactome-mechanism-pathways-and-the-protein-change-to-alphamissense-revel-saprot-and-the-reviewed-structure-the-computational-predictors-alphamissense-as-the-calibrated-acmgweighted-tool-with-revel-saprot-and-conservation-as-agreement-signals-feed-the-concordance-readout-of-sectionref-secmethodsconcordance-colours-group-the-datasets-by-evidence-type-as-in-figureref-figarchitecture'></span> 
-
                                                                                       
                                                                                       
-
+</p><!-- l. 193 --><p class='indent' id='mining-one-variant-page-each-leaf-is-a-biobtree-dataset-the-page-queries-fanned-from-the-resolved-clinvar-anchor-here-the-tp53-variant-parg175his-through-the-intermediate-keys-the-variant-resolves-to-the-condition-mondo-and-thence-orphanet-and-hpo-for-inheritance-and-phenotype-and-patient-resources-and-trials-the-genomic-coordinate-gnomad-population-frequency-sequence-conservation-and-spliceai-the-gene-gnomad-constraint-clingen-dosage-gencc-genedisease-validity-and-reactome-mechanism-pathways-and-the-protein-change-alphamissense-revel-saprot-and-the-reviewed-structure-the-clingen-expertpanel-curation-and-the-dbsnp-crossreference-are-reached-directly-from-the-clinvar-record-the-righthand-column-shows-how-those-data-assemble-into-the-sections-of-the-page-alphamissense-carries-the-calibrated-acmg-weight-with-revel-saprot-and-conservation-shown-as-agreement-signals-rather-than-additive-votes-and-spliceai-as-a-splice-read-so-the-insilico-concordance-of-sectionref-secmethodsconcordance-is-a-descriptive-qualitycontrol-read-and-the-variant-is-flagged-for-review-when-the-evidence-disagrees-colours-group-the-datasets-by-evidence-type-as-in-figureref-figarchitecture'>   <a id='x1-7002r2'></a></p><figure class='float'>
                                                                                       
                                                                                       
-<!-- l. 194 --><p class='noindent'> <img alt='[Picture]' src='main1x.svg' />
-</p>
-<figcaption class='caption'><span class='id'>Figure 2: </span><span class='content'><span class='ecbx-1095'>Mining one variant page. </span>Each leaf node is a BioBTree dataset the page queries,
-fanned from the resolved ClinVar anchor (here the TP53 variant p.Arg175His) through the
-intermediate keys the variant resolves to. From the ClinVar record the pipeline reaches the
-ClinGen expert-panel curation and the dbSNP cross-reference directly, and resolves four keys:
-the <span class='ecti-1095'>condition </span>(to Mondo and thence Orphanet and HPO for inheritance and phenotype, and
-to patient resources and trials); the <span class='ecti-1095'>genomic coordinate </span>(to the gnomAD population frequency,
-sequence conservation, and SpliceAI); the <span class='ecti-1095'>gene </span>(to the gnomAD constraint, ClinGen dosage,
-GenCC gene–disease validity, and Reactome mechanism pathways); and the <span class='ecti-1095'>protein </span>change (to
-AlphaMissense, REVEL, SaProt, and the reviewed structure). The computational predictors,
-AlphaMissense as the calibrated ACMG-weighted tool with REVEL, SaProt, and conservation
-as agreement signals, feed the concordance readout of Section <a href='#integrate-evidence-and-assess-concordance'>2.3<!-- tex4ht:ref: sec:methods-concordance  --></a>. Colours group the datasets
-by evidence type, as in Figure <a href='#overview-of-sugi-variant-top-the-biobtree-biomedical-graph-integrating-more-than-eighty-primary-sources-grouped-here-into-the-domains-a-variant-page-draws-on-into-a-densely-crossreferenced-network-middle-the-deterministic-pipeline-which-identifies-the-germlinevariant-corpus-collects-each-variants-evidence-integrates-it-and-assesses-crosssource-concordance-renders-one-page-per-variant-validates-the-built-corpus-and-publishes-it-bottom-the-published-pervariant-reference-and-its-machinereadable-records'>1<!-- tex4ht:ref: fig:architecture  --></a>.</span></figcaption><!-- tex4ht:label?: x1-7002r2  -->
+ <img alt='[Picture]' src='main1x.svg' />
+<figcaption class='caption'><span class='id'>Figure 2: </span><span class='content'><span class='ecbx-1095'>Mining one variant page. </span>Each leaf is a BioBTree dataset the page queries, fanned
+from the resolved ClinVar anchor (here the TP53 variant p.Arg175His) through the intermediate
+keys the variant resolves to: the <span class='ecti-1095'>condition </span>(Mondo, and thence Orphanet and HPO for inheritance
+and phenotype, and patient resources and trials); the <span class='ecti-1095'>genomic coordinate </span>(gnomAD population
+frequency, sequence conservation, and SpliceAI); the <span class='ecti-1095'>gene </span>(gnomAD constraint, ClinGen dosage,
+GenCC gene–disease validity, and Reactome mechanism pathways); and the <span class='ecti-1095'>protein  </span>change
+(AlphaMissense,  REVEL,  SaProt,  and  the  reviewed  structure).  The  ClinGen  expert-panel
+curation  and  the  dbSNP  cross-reference  are  reached  directly  from  the  ClinVar  record.  The
+right-hand column shows how those data assemble into the sections of the page. AlphaMissense
+carries the calibrated ACMG weight, with REVEL, SaProt, and conservation shown as agreement
+signals rather than additive votes and SpliceAI as a splice read, so the in-silico concordance of
+Section <a href='#integrate-evidence-and-assess-concordance'>2.3<!-- tex4ht:ref: sec:methods-concordance  --></a> is a descriptive quality-control read, and the variant is flagged for review when the
+evidence disagrees. Colours group the datasets by evidence type, as in Figure <a href='#overview-of-sugi-variant-top-the-biobtree-biomedical-graph-integrating-more-than-eighty-primary-sources-grouped-here-into-the-domains-a-variant-page-draws-on-into-a-densely-crossreferenced-network-middle-the-deterministic-pipeline-which-identifies-the-germlinevariant-corpus-collects-each-variants-evidence-integrates-it-and-assesses-crosssource-concordance-renders-one-page-per-variant-validates-the-built-corpus-and-publishes-it-bottom-the-published-pervariant-reference-and-its-machinereadable-records'>1<!-- tex4ht:ref: fig:architecture  --></a>.</span></figcaption><!-- tex4ht:label?: x1-7002r2  -->
                                                                                       
                                                                                       
    </figure>
@@ -514,106 +511,106 @@ from that source under its own license.
 <a class='url' href='https://sugi.bio'><span class='ectt-1095'>https://sugi.bio</span></a></li></ul>
    
    <h3 class='sectionHead' id='references'> <a id='x1-17000'></a>References</h3>
-<!-- l. 107 --><p class='noindent'>
+<!-- l. 108 --><p class='noindent'>
      </p><dl class='thebibliography'><dt class='thebibliography' id='X0-singhal_large_2023'>
  [1]  </dt><dd class='thebibliography' id='bib-1'>
                                                                                       
                                                                                       
-     <!-- l. 107 --><p class='noindent'><a href='main.html' id='X0-'></a>K. Singhal, S. Azizi, T. Tu, S. S. Mahdavi, J. Wei, H. W. Chung, N. Scales, A. Tanwani,
+     <!-- l. 108 --><p class='noindent'><a href='main.html' id='X0-'></a>K. Singhal, S. Azizi, T. Tu, S. S. Mahdavi, J. Wei, H. W. Chung, N. Scales, A. Tanwani,
      H. Cole-Lewis, S. Pfohl, et al. “Large language models encode clinical knowledge”. In:
      <span class='ecti-1095'>Nature </span>620.7972 (2023), pp. 172–180. <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.1038/s41586-023-06291-2'>10.1038/s41586-023-06291-2</a>.
      </p></dd><dt class='thebibliography' id='X0-bhattacharyya_high_2023'>
  [2]  </dt><dd class='thebibliography' id='bib-2'>
-     <!-- l. 107 --><p class='noindent'>M.  Bhattacharyya,  V. M.  Miller,  D.  Bhattacharyya,  and  L. E.  Miller.  “High  Rates
+     <!-- l. 108 --><p class='noindent'>M.  Bhattacharyya,  V. M.  Miller,  D.  Bhattacharyya,  and  L. E.  Miller.  “High  Rates
      of Fabricated and Inaccurate References in ChatGPT-Generated Medical Content”. In:
      <span class='ecti-1095'>Cureus </span>15.5 (2023), e39238. <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.7759/cureus.39238'>10.7759/cureus.39238</a>.
      </p></dd><dt class='thebibliography' id='X0-walters_fabrication_2023'>
  [3]  </dt><dd class='thebibliography' id='bib-3'>
-     <!-- l. 107 --><p class='noindent'>W. H.   Walters   and   E. I.   Wilder.   “Fabrication   and   errors   in   the   bibliographic
+     <!-- l. 108 --><p class='noindent'>W. H.   Walters   and   E. I.   Wilder.   “Fabrication   and   errors   in   the   bibliographic
      citations  generated  by  ChatGPT”.  In:  <span class='ecti-1095'>Scientific  Reports  </span>13  (2023),  p. 14045.  <span class='eccc1095-'><span class='small-caps'>doi</span></span>:
      <a href='https://doi.org/10.1038/s41598-023-41032-5'>10.1038/s41598-023-41032-5</a>.
      </p></dd><dt class='thebibliography' id='X0-hou_model_2025'>
  [4]  </dt><dd class='thebibliography' id='bib-4'>
-     <!-- l. 107 --><p class='noindent'>X.   Hou,   Y.   Zhao,   S.   Wang,   and   H.   Wang.   <span class='ecti-1095'>Model  Context  Protocol  (MCP):
+     <!-- l. 108 --><p class='noindent'>X.   Hou,   Y.   Zhao,   S.   Wang,   and   H.   Wang.   <span class='ecti-1095'>Model  Context  Protocol  (MCP):
      Landscape,   Security   Threats,   and   Future   Research   Directions</span>.   Mar.   2025.   <span class='eccc1095-'><span class='small-caps'>doi</span></span>:
      <a href='https://doi.org/10.48550/arXiv.2503.23278'>10.48550/arXiv.2503.23278</a>.
      </p></dd><dt class='thebibliography' id='X0-landrum_clinvar_2018'>
  [5]  </dt><dd class='thebibliography' id='bib-5'>
-     <!-- l. 107 --><p class='noindent'>M. J.  Landrum  et  al.  “ClinVar:  improving  access  to  variant  interpretations  and
+     <!-- l. 108 --><p class='noindent'>M. J.  Landrum  et  al.  “ClinVar:  improving  access  to  variant  interpretations  and
      supporting evidence”. In: <span class='ecti-1095'>Nucleic Acids Research </span>46.D1 (2018), pp. D1062–D1067. <span class='eccc1095-'><span class='small-caps'>doi</span></span>:
      <a href='https://doi.org/10.1093/nar/gkx1153'>10.1093/nar/gkx1153</a>.
      </p></dd><dt class='thebibliography' id='X0-chen_gnomad_2024'>
  [6]  </dt><dd class='thebibliography' id='bib-6'>
-     <!-- l. 107 --><p class='noindent'>S. Chen et al. “A genomic mutational constraint map using variation in 76,156 human
+     <!-- l. 108 --><p class='noindent'>S. Chen et al. “A genomic mutational constraint map using variation in 76,156 human
      genomes”. In: <span class='ecti-1095'>Nature </span>625 (2024), pp. 92–100. <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.1038/s41586-023-06045-0'>10.1038/s41586-023-06045-0</a>.
      </p></dd><dt class='thebibliography' id='X0-liu_dbnsfp_2020'>
  [7]  </dt><dd class='thebibliography' id='bib-7'>
-     <!-- l. 107 --><p class='noindent'>X.  Liu  et  al.  “dbNSFP  v4:  a  comprehensive  database  of  transcript-specific  functional
+     <!-- l. 108 --><p class='noindent'>X.  Liu  et  al.  “dbNSFP  v4:  a  comprehensive  database  of  transcript-specific  functional
      predictions and annotations for human nonsynonymous and splice-site SNVs”. In: <span class='ecti-1095'>Genome
      Medicine </span>12 (2020), p. 103. <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.1186/s13073-020-00803-9'>10.1186/s13073-020-00803-9</a>.
      </p></dd><dt class='thebibliography' id='X0-biobtree'>
  [8]  </dt><dd class='thebibliography' id='bib-8'>
-     <!-- l. 107 --><p class='noindent'>T. Gür. <span class='ecti-1095'>BioBTree v2: Grounding LLM Responses with Large-Scale Structured Biomedical
+     <!-- l. 108 --><p class='noindent'>T. Gür. <span class='ecti-1095'>BioBTree v2: Grounding LLM Responses with Large-Scale Structured Biomedical
      Data</span>. 2026. <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.5281/zenodo.18962899'>10.5281/zenodo.18962899</a>.
      </p></dd><dt class='thebibliography' id='X0-vasilevsky_mondo_2022'>
  [9]  </dt><dd class='thebibliography' id='bib-9'>
-     <!-- l. 107 --><p class='noindent'>N. A. Vasilevsky, N. A. Matentzoglu, S. Toro, J. E. Flack, H. Hegde, D. R. Unni, G. F.
+     <!-- l. 108 --><p class='noindent'>N. A. Vasilevsky, N. A. Matentzoglu, S. Toro, J. E. Flack, H. Hegde, D. R. Unni, G. F.
      Alyea, J. S. Amberger, L. Babb, J. P. Balhoff, et al. “Mondo: Unifying diseases for the
      world, by the world”. In: <span class='ecti-1095'>medRxiv </span>(2022). <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.1101/2022.04.13.22273750'>10.1101/2022.04.13.22273750</a>.
      </p></dd><dt class='thebibliography' id='X0-maiella_orphanet_2013'>
 [10]  </dt><dd class='thebibliography' id='bib-10'>
-     <!-- l. 107 --><p class='noindent'>S. Maiella, A. Rath, C. Angin, F. Mousson, and O. Kremp. “Orphanet and its consortium:
+     <!-- l. 108 --><p class='noindent'>S. Maiella, A. Rath, C. Angin, F. Mousson, and O. Kremp. “Orphanet and its consortium:
      where to find expert-validated information on rare diseases”. In: <span class='ecti-1095'>Revue Neurologique </span>169
      (2013), S3–S8. <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.1016/S0035-3787(13)70060-3'>10.1016/S0035-3787(13)70060-3</a>.
      </p></dd><dt class='thebibliography' id='X0-cheng_alphamissense_2023'>
 [11]  </dt><dd class='thebibliography' id='bib-11'>
                                                                                       
                                                                                       
-     <!-- l. 107 --><p class='noindent'>J.  Cheng  et  al.  “Accurate  proteome-wide  missense  variant  effect  prediction  with
+     <!-- l. 108 --><p class='noindent'>J.  Cheng  et  al.  “Accurate  proteome-wide  missense  variant  effect  prediction  with
      AlphaMissense”. In: <span class='ecti-1095'>Science </span>381.6664 (2023), eadg7492. <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.1126/science.adg7492'>10.1126/science.adg7492</a>.
      </p></dd><dt class='thebibliography' id='X0-ioannidis_revel_2016'>
 [12]  </dt><dd class='thebibliography' id='bib-12'>
-     <!-- l. 107 --><p class='noindent'>N. M. Ioannidis et al. “REVEL: An Ensemble Method for Predicting the Pathogenicity
+     <!-- l. 108 --><p class='noindent'>N. M. Ioannidis et al. “REVEL: An Ensemble Method for Predicting the Pathogenicity
      of Rare Missense Variants”. In: <span class='ecti-1095'>The American Journal of Human Genetics </span>99.4 (2016),
      pp. 877–885. <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.1016/j.ajhg.2016.08.016'>10.1016/j.ajhg.2016.08.016</a>.
      </p></dd><dt class='thebibliography' id='X0-su_saprot_2024'>
 [13]  </dt><dd class='thebibliography' id='bib-13'>
-     <!-- l. 107 --><p class='noindent'>J. Su, C. Han, Y. Zhou, J. Shan, X. Zhou, and F. Yuan. “SaProt: Protein Language
+     <!-- l. 108 --><p class='noindent'>J. Su, C. Han, Y. Zhou, J. Shan, X. Zhou, and F. Yuan. “SaProt: Protein Language
      Modeling with Structure-aware Vocabulary”. In: <span class='ecti-1095'>The Twelfth International Conference on
      Learning Representations (ICLR)</span>. 2024.
      </p></dd><dt class='thebibliography' id='X0-pollard_phylop_2010'>
 [14]  </dt><dd class='thebibliography' id='bib-14'>
-     <!-- l. 107 --><p class='noindent'>K. S. Pollard, M. J. Hubisz, K. R. Rosenbloom, and A. Siepel. “Detection of nonneutral
+     <!-- l. 108 --><p class='noindent'>K. S. Pollard, M. J. Hubisz, K. R. Rosenbloom, and A. Siepel. “Detection of nonneutral
      substitution  rates  on  mammalian  phylogenies”.  In:  <span class='ecti-1095'>Genome  Research  </span>20.1  (2010),
      pp. 110–121. <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.1101/gr.097857.109'>10.1101/gr.097857.109</a>.
      </p></dd><dt class='thebibliography' id='X0-davydov_gerp_2010'>
 [15]  </dt><dd class='thebibliography' id='bib-15'>
-     <!-- l. 107 --><p class='noindent'>E. V. Davydov, D. L. Goode, M. Sirota, G. M. Cooper, A. Sidow, and S. Batzoglou.
+     <!-- l. 108 --><p class='noindent'>E. V. Davydov, D. L. Goode, M. Sirota, G. M. Cooper, A. Sidow, and S. Batzoglou.
      “Identifying a High Fraction of the Human Genome to be under Selective Constraint
      Using  GERP++”.  In:  <span class='ecti-1095'>PLoS  Computational  Biology   </span>6.12  (2010),  e1001025.  <span class='eccc1095-'><span class='small-caps'>doi</span></span>:
      <a href='https://doi.org/10.1371/journal.pcbi.1001025'>10.1371/journal.pcbi.1001025</a>.
      </p></dd><dt class='thebibliography' id='X0-jaganathan_spliceai_2019'>
 [16]  </dt><dd class='thebibliography' id='bib-16'>
-     <!-- l. 107 --><p class='noindent'>K. Jaganathan et al. “Predicting Splicing from Primary Sequence with Deep Learning”.
+     <!-- l. 108 --><p class='noindent'>K. Jaganathan et al. “Predicting Splicing from Primary Sequence with Deep Learning”.
      In: <span class='ecti-1095'>Cell </span>176.3 (2019), pp. 535–548. <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.1016/j.cell.2018.12.015'>10.1016/j.cell.2018.12.015</a>.
      </p></dd><dt class='thebibliography' id='X0-rehm_clingen_2015'>
 [17]  </dt><dd class='thebibliography' id='bib-17'>
-     <!-- l. 107 --><p class='noindent'>H. L. Rehm et al. “ClinGen — The Clinical Genome Resource”. In: <span class='ecti-1095'>New England Journal
+     <!-- l. 108 --><p class='noindent'>H. L. Rehm et al. “ClinGen — The Clinical Genome Resource”. In: <span class='ecti-1095'>New England Journal
      of Medicine </span>372.23 (2015), pp. 2235–2242. <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.1056/NEJMsr1406261'>10.1056/NEJMsr1406261</a>.
      </p></dd><dt class='thebibliography' id='X0-pejaver_calibration_2022'>
 [18]  </dt><dd class='thebibliography' id='bib-18'>
-     <!-- l. 107 --><p class='noindent'>V.   Pejaver   et   al.   “Calibration   of   computational   tools   for   missense   variant
+     <!-- l. 108 --><p class='noindent'>V.   Pejaver   et   al.   “Calibration   of   computational   tools   for   missense   variant
      pathogenicity  classification  and  ClinGen  recommendations  for  PP3/BP4  criteria”.
      In:  <span class='ecti-1095'>The  American  Journal  of  Human  Genetics  </span>109.12  (2022),  pp. 2163–2177.  <span class='eccc1095-'><span class='small-caps'>doi</span></span>:
      <a href='https://doi.org/10.1016/j.ajhg.2022.10.013'>10.1016/j.ajhg.2022.10.013</a>.
      </p></dd><dt class='thebibliography' id='X0-jin_genegpt_2024'>
 [19]  </dt><dd class='thebibliography' id='bib-19'>
-     <!-- l. 107 --><p class='noindent'>Q.  Jin  et  al.  “GeneGPT:  augmenting  large  language  models  with  domain  tools  for
+     <!-- l. 108 --><p class='noindent'>Q.  Jin  et  al.  “GeneGPT:  augmenting  large  language  models  with  domain  tools  for
      improved access to biomedical information”. In: <span class='ecti-1095'>Bioinformatics </span>40.2 (2024), btae075. <span class='eccc1095-'><span class='small-caps'>doi</span></span>:
      <a href='https://doi.org/10.1093/bioinformatics/btae075'>10.1093/bioinformatics/btae075</a>.
      </p></dd><dt class='thebibliography' id='X0-gur_revus_2026'>
 [20]  </dt><dd class='thebibliography' id='bib-20'>
-     <!-- l. 107 --><p class='noindent'>T. Gür. <span class='ecti-1095'>ReVUS: A Temporal-Holdout Benchmark for the Reclassification of Variants of
+     <!-- l. 108 --><p class='noindent'>T. Gür. <span class='ecti-1095'>ReVUS: A Temporal-Holdout Benchmark for the Reclassification of Variants of
      Uncertain Significance</span>. Preprint, <a class='url' href='https://github.com/tamerh/ReVUS'><span class='ectt-1095'>https://github.com/tamerh/ReVUS</span></a>. 2026.</p></dd></dl>
     
 </body> 
