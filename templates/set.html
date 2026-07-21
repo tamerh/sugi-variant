@@ -6,13 +6,13 @@
 
   {% if not rows and not missing %}
   {# ── empty state: paste box ── #}
-  <section class="hero hero-tight">
-    <p class="hero-eyebrow">Sugi Variant · set</p>
-    <h1 class="hero-title">Review a set of variants</h1>
-    <p class="hero-lead">Paste variants — one per line — as <b>GENE change</b>, <b>rsID</b>, or <b>GRCh38 coordinate</b>.
+  <header class="set-head">
+    <p class="breadcrumb"><a href="{{ base }}/">Sugi Variant</a><span>/</span>set</p>
+    <h1 class="set-title">Review a set of variants</h1>
+    <p class="set-sub">Paste variants — one per line — as <b>GENE change</b>, <b>rsID</b>, or <b>GRCh38 coordinate</b>.
       You'll get a shareable page comparing them, and a <b>review worklist</b> of the ones whose evidence disagrees.
       Nothing is uploaded or stored; the link <em>is</em> your set.</p>
-  </section>
+  </header>
   <section class="entity-main">
     <form action="{{ base }}/set" method="get">
       <textarea name="q" class="set-paste" rows="8" placeholder="PTEN R130Q&#10;BRCA2 c.1000C>T&#10;rs121909229&#10;17:7673803:C:T"></textarea>
