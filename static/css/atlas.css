@@ -338,10 +338,11 @@ code {
 }
 .site-title:hover { text-decoration: none; }
 .site-mark {
-  color: var(--accent);
-  font-size: 1.25rem;
+  display: inline-flex;
+  align-items: center;
   line-height: 1;
 }
+.site-mark svg { display: block; }
 .site-nav {
   display: flex;
   gap: 0.25rem;
