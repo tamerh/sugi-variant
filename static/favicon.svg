@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="8" fill="#1f6f5c"/>
-  <g fill="#ffffff">
-    <rect x="6.5" y="6.5" width="8" height="8" rx="2"/>
-    <rect x="17.5" y="6.5" width="8" height="8" rx="2"/>
-    <rect x="6.5" y="17.5" width="8" height="8" rx="2"/>
-    <rect x="17.5" y="17.5" width="8" height="8" rx="2"/>
-  </g>
+  <!-- sugi.bio brand mark: the kanji 杉 (sugi / Japanese cedar) in the sage brand
+       colour. Matches the main sugi.bio favicon. Text-element favicon relying on a
+       system CJK font; browsers without it fall back to a family that still renders. -->
+  <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central"
+        font-size="28" font-weight="500"
+        font-family="'Hiragino Sans','Noto Sans CJK JP','Yu Gothic',sans-serif"
+        fill="#97a777">杉</text>
 </svg>
