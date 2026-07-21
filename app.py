@@ -98,7 +98,9 @@ _GENE_CACHE = collections.OrderedDict()                # gene -> records, LRU or
 _GENE_CACHE_BYTES = 0
 _GENE_CACHE_BUDGET = int(os.environ.get("GENE_CACHE_MB", "1500")) * 1024 * 1024
 _GENE_CACHE_LOCK = threading.Lock()
-_BYTES_PER_VARIANT = 8000                              # rough deserialized-RAM estimate per record
+# Measured deserialized-RAM cost per enriched record (~15 KB by RSS delta); rounded up so the
+# byte budget is a safe upper bound on real memory (GENE_CACHE_MB ~= actual MB the cache uses).
+_BYTES_PER_VARIANT = 16000
 _RECORDS_DIR = CACHE_DIR / "records"
 _SLUG_SEP = re.compile(r"-[pcnm]-")   # p./c./n.(ncRNA)/m.(mito)
 
