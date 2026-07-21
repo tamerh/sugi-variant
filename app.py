@@ -89,9 +89,43 @@ app.mount("/static", StaticFiles(directory=str(ROOT / "static")), name="static")
 # A gene's enriched records are expensive to build (a whale like BRCA2 ≈ minutes),
 # so once built they're persisted to disk (gzip pickle) and loaded on later hits —
 # this survives restarts and stops the cold-build Cloudflare timeout.
-_GENE_CACHE = {}
+#
+# The in-memory cache is a byte-budgeted LRU so a crawler walking all ~18.8k genes cannot grow
+# it without bound (the full corpus would be ~13 GB in RAM). Evicted genes stay on disk and
+# reload in ms; the disk cache is the durable, unbounded backing store. Tune with GENE_CACHE_MB.
+import collections, threading                          # noqa: E402
+_GENE_CACHE = collections.OrderedDict()                # gene -> records, LRU order (newest last)
+_GENE_CACHE_BYTES = 0
+_GENE_CACHE_BUDGET = int(os.environ.get("GENE_CACHE_MB", "1500")) * 1024 * 1024
+_GENE_CACHE_LOCK = threading.Lock()
+_BYTES_PER_VARIANT = 8000                              # rough deserialized-RAM estimate per record
 _RECORDS_DIR = CACHE_DIR / "records"
 _SLUG_SEP = re.compile(r"-[pcnm]-")   # p./c./n.(ncRNA)/m.(mito)
+
+
+def _cache_get(g):
+    """Return cached records for gene g (marking it most-recently-used), or None."""
+    with _GENE_CACHE_LOCK:
+        recs = _GENE_CACHE.get(g)
+        if recs is not None:
+            _GENE_CACHE.move_to_end(g)
+        return recs
+
+
+def _cache_put(g, recs):
+    """Insert gene g's records and evict least-recently-used genes until under the byte budget.
+    Evicted genes remain on disk (records/*.pkl.gz) and reload from there on a later hit."""
+    global _GENE_CACHE_BYTES
+    sz = len(recs) * _BYTES_PER_VARIANT
+    with _GENE_CACHE_LOCK:
+        if g in _GENE_CACHE:
+            _GENE_CACHE_BYTES -= len(_GENE_CACHE[g]) * _BYTES_PER_VARIANT
+        _GENE_CACHE[g] = recs
+        _GENE_CACHE.move_to_end(g)
+        _GENE_CACHE_BYTES += sz
+        while _GENE_CACHE_BYTES > _GENE_CACHE_BUDGET and len(_GENE_CACHE) > 1:
+            _, ev = _GENE_CACHE.popitem(last=False)    # drop the least-recently-used gene
+            _GENE_CACHE_BYTES -= len(ev) * _BYTES_PER_VARIANT
 
 
 def _gene_of(slug):
@@ -110,25 +144,28 @@ def _gene_lock(g):
 
 def _records(gene):
     g = gene.upper()
-    if g in _GENE_CACHE:
-        return _GENE_CACHE[g]
+    recs = _cache_get(g)
+    if recs is not None:
+        return recs
     import gzip
     import pickle
     path = _RECORDS_DIR / f"{g}.pkl.gz"
     # per-gene lock: only ONE thread builds a given gene; concurrent hits wait and
     # then get the cached result (no duplicate multi-minute whale builds).
     with _gene_lock(g):
-        if g in _GENE_CACHE:
-            return _GENE_CACHE[g]
+        recs = _cache_get(g)
+        if recs is not None:
+            return recs
         if path.exists():
             try:
                 with gzip.open(path, "rb") as f:
-                    _GENE_CACHE[g] = pickle.load(f)
-                return _GENE_CACHE[g]
+                    recs = pickle.load(f)
+                _cache_put(g, recs)          # LRU insert (may evict cold genes; they stay on disk)
+                return recs
             except Exception:
                 pass
         recs = enriched_records(g) or []
-        _GENE_CACHE[g] = recs
+        _cache_put(g, recs)
         if recs:                     # don't persist empty/invalid-gene results
             try:
                 _RECORDS_DIR.mkdir(parents=True, exist_ok=True)
