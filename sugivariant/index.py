@@ -164,18 +164,25 @@ def suggest(conn, q, limit=8):
     out = []
     # gene + partial change → variant suggestions (match the normalized alias keys)
     if gene_tok and rest:
-        key = f"{_norm(gene_tok)}-%{_norm_hgvs(rest)}%"
+        norm_gene = _norm(gene_tok)
+        key = f"{norm_gene}-%{_norm_hgvs(rest)}%"
+        # Bound the LIKE to this gene's key range so SQLite uses the alias(key) index instead
+        # of scanning all ~23M keys: a case-insensitive LIKE alone cannot use a BINARY index,
+        # but the fixed "<gene>-" prefix is an indexable range. The LIKE stays as the residual
+        # filter, so results are identical — just ~two orders of magnitude faster.
+        lo, hi = f"{norm_gene}-", f"{norm_gene}-￿"
         seen = set()
         # best-first: higher review tier, then stronger classification, then slug
         for r in conn.execute(
                 "SELECT v.slug, v.gene, v.hgvs_p, v.hgvs_c, v.classification "
-                "FROM alias a JOIN variant v ON v.vcv=a.vcv WHERE a.key LIKE ? "
+                "FROM alias a JOIN variant v ON v.vcv=a.vcv "
+                "WHERE a.key >= ? AND a.key < ? AND a.key LIKE ? "
                 "ORDER BY v.stars DESC, "
                 "  CASE WHEN v.classification='Pathogenic' THEN 0 "
                 "       WHEN v.classification LIKE 'Pathogenic/%' THEN 1 "
                 "       WHEN v.classification LIKE 'Likely%' THEN 2 ELSE 3 END, v.slug "
                 "LIMIT ?",
-                (key, limit * 3)):
+                (lo, hi, key, limit * 3)):
             if r["slug"] in seen:
                 continue
             seen.add(r["slug"])
