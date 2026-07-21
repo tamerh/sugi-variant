@@ -1,45 +1,40 @@
 {% extends "base.html" %}
 {% block title %}Method{% endblock %}
+{% block head %}
+{# Scoped preprint typography — main.css is prefixed under .preprint-doc (by
+   scripts/build_preprint_css.py) so it can't touch the site header/nav/footer.
+   Loaded ONLY on this page. #}
+<link rel="stylesheet" href="{{ base }}/static/preprint/main.css?v={{ css_v() }}">
+{# override the preprint's upstream 52em paper width — loaded after main.css so this wins the cascade #}
+<style>
+  .preprint-doc { max-width: 68em; }
+  /* upstream make4ht lays the bibliography out with grid-auto-flow:column, which misaligns the
+     [N] numbers. Use a plain float hanging-indent: the number floats left and the text hangs at a
+     fixed indent, on the same row, in every browser (3.6em clears the two-digit [10]-[19]). */
+  .preprint-doc .thebibliography dl { display: block; }
+  .preprint-doc .thebibliography dt { float: left; clear: left; margin: 0; }
+  .preprint-doc .thebibliography dd { margin: 0 0 0.55em 3.6em; }
+  .preprint-doc .thebibliography dd p { margin: 0; }
+</style>
+{% endblock %}
 {% block content %}
-<div class="prose-page container container-narrow">
-  <header class="prose-header">
+<article class="prose-page">
+  <div class="container container-wide">
     <nav class="breadcrumb"><a href="{{ base }}/">Sugi Variant</a> <span>›</span> method</nav>
-    <h1 class="prose-title">Method</h1>
-    <p class="prose-tagline">How each variant page is assembled — deterministically, from primary data.</p>
-  </header>
-  <div class="prose-body">
-    <p class="prose-note"><strong>A full method and validation preprint is in preparation.</strong> This page
-      is a short summary; it will be replaced by the complete manuscript when it is posted.</p>
-
-    <p><strong>Scope.</strong> Sugi Variant builds a page for every ClinVar variant classified
-      <em>Pathogenic</em>, <em>Likely&nbsp;pathogenic</em>, <em>Pathogenic/Likely&nbsp;pathogenic</em>, or
-      <em>Conflicting classifications of pathogenicity</em>. The benign and uncertain long tail is excluded by
-      design. Coverage spans protein-coding, non-coding RNA (n.) and mitochondrial (m.) genes.</p>
-
-    <p><strong>Assembly.</strong> Pages are enumerated gene-first: for each gene, its qualifying ClinVar
-      variations are collected, and each is annotated by joining primary datasets on genomic coordinate
-      (gnomAD, AlphaMissense, REVEL, conservation, SpliceAI), on the UniProt protein change (SaProt), or by
-      identifier (ClinGen VCEP curation, MaveDB, pathways). Every datum is retained with its source and the
-      dataset's build date. The pipeline is fixed and deterministic — no model-generated text.</p>
-
-    <p><strong>Evidence framing.</strong> Following ClinGen Sequence&nbsp;Variant&nbsp;Interpretation
-      guidance, computational predictors are not treated as independent additive evidence: a single calibrated
-      predictor carries the ACMG weight (AlphaMissense for missense; conservation for non-missense), and the
-      others are shown as agreement signals. The "in-silico consensus" is a descriptive quality-control read,
-      not a confidence score, and its main value is flagging discordant cases.</p>
-
-    <p><strong>Authoritative assessments, verbatim.</strong> Where a ClinGen Variant Curation Expert Panel has
-      classified a variant, its applied and not-met ACMG criteria, curation rationale, specification version
-      and Evidence Repository link are reproduced exactly as published. Sugi Variant reports these; it does
-      not recompute or combine them.</p>
-
-    <p><strong>Resolution.</strong> Variants are addressable by gene + HGVS (protein or coding), by dbSNP
-      rsID, and by GRCh38 coordinate, via a precomputed index over the corpus.</p>
-
-    <p>Identifiers are resolved through <a href="https://biobtree.org">BioBTree</a>. Every fact on a variant
-      page is traced to one of the sources below, with its dataset build date.</p>
-
-    {% include "_sources.html" %}
+    <header class="prose-header">
+      <h1 class="prose-title">Method</h1>
+      <p class="prose-tagline">The preprint behind the system.&nbsp;·&nbsp;<a href="{{ base }}/static/preprint/main.pdf" target="_blank" rel="noopener">Download PDF</a></p>
+    </header>
+    {% if preprint_body %}
+    <div class="preprint-doc">
+      {{ preprint_body | safe }}
+    </div>
+    {% else %}
+    <div class="prose-body">
+      <p class="prose-note"><strong>The method preprint export is not built yet.</strong> Run
+        <code>make html</code> in the preprint repo and refresh.</p>
+    </div>
+    {% endif %}
   </div>
-</div>
+</article>
 {% endblock %}

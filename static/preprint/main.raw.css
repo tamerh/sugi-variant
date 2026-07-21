@@ -1,0 +1,531 @@
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap');
+
+ 
+/* start css.sty */
+.cmsy-10{font-size:90%;}
+.cmr-10x-x-109{}
+.ecrm-1728{font-size:154%;}
+.ecrm-1200{font-size:109%;}
+.ecti-1200{font-size:109%; font-style: italic;}
+.ecti-1200{ font-style: italic;}
+.ecti-1200{ font-style: italic;}
+.ecti-1200{ font-style: italic;}
+.ecti-1200{ font-style: italic;}
+.ecti-1200{ font-style: italic;}
+.ecti-1200{ font-style: italic;}
+.ecti-1200{ font-style: italic;}
+.ecti-1200{ font-style: italic;}
+.ecti-1200{ font-style: italic;}
+.ecti-1200{ font-style: italic;}
+.ecti-1200{ font-style: italic;}
+.ecti-1200{ font-style: italic;}
+.ecti-1200{ font-style: italic;}
+.ecti-1200{ font-style: italic;}
+.ecrm-1000{font-size:90%;}
+.ecbx-1000{font-size:90%; font-weight: bold;}
+.ecbx-1000{ font-weight: bold;}
+.ecbx-1000{ font-weight: bold;}
+.ecbx-1000{ font-weight: bold;}
+.ecbx-1000{ font-weight: bold;}
+.ecbx-1000{ font-weight: bold;}
+.ecbx-1000{ font-weight: bold;}
+.ecbx-1000{ font-weight: bold;}
+.ecbx-1000{ font-weight: bold;}
+.ecbx-1000{ font-weight: bold;}
+.ecbx-1000{ font-weight: bold;}
+.ecbx-1000{ font-weight: bold;}
+.ecbx-1000{ font-weight: bold;}
+.ecbx-1000{ font-weight: bold;}
+.ecbx-1000{ font-weight: bold;}
+.ectt-1000{font-size:90%; font-family: monospace,monospace;}
+.ectt-1000{ font-family: monospace,monospace;}
+.ectt-1000{ font-family: monospace,monospace;}
+.ectt-1000{ font-family: monospace,monospace;}
+.ectt-1000{ font-family: monospace,monospace;}
+.ectt-1000{ font-family: monospace,monospace;}
+.ectt-1000{ font-family: monospace,monospace;}
+.ectt-1000{ font-family: monospace,monospace;}
+.ectt-1000{ font-family: monospace,monospace;}
+.ectt-1000{ font-family: monospace,monospace;}
+.ectt-1000{ font-family: monospace,monospace;}
+.ectt-1000{ font-family: monospace,monospace;}
+.ectt-1000{ font-family: monospace,monospace;}
+.ectt-1000{ font-family: monospace,monospace;}
+.ectt-1000{ font-family: monospace,monospace;}
+.ectt-1095{ font-family: monospace,monospace;}
+.ectt-1095{ font-family: monospace,monospace;}
+.ectt-1095{ font-family: monospace,monospace;}
+.ectt-1095{ font-family: monospace,monospace;}
+.ectt-1095{ font-family: monospace,monospace;}
+.ectt-1095{ font-family: monospace,monospace;}
+.ectt-1095{ font-family: monospace,monospace;}
+.ectt-1095{ font-family: monospace,monospace;}
+.ectt-1095{ font-family: monospace,monospace;}
+.ectt-1095{ font-family: monospace,monospace;}
+.ectt-1095{ font-family: monospace,monospace;}
+.ectt-1095{ font-family: monospace,monospace;}
+.ectt-1095{ font-family: monospace,monospace;}
+.ectt-1095{ font-family: monospace,monospace;}
+.ectt-1095{ font-family: monospace,monospace;}
+.ecti-1095{ font-style: italic;}
+.ecti-1095{ font-style: italic;}
+.ecti-1095{ font-style: italic;}
+.ecti-1095{ font-style: italic;}
+.ecti-1095{ font-style: italic;}
+.ecti-1095{ font-style: italic;}
+.ecti-1095{ font-style: italic;}
+.ecti-1095{ font-style: italic;}
+.ecti-1095{ font-style: italic;}
+.ecti-1095{ font-style: italic;}
+.ecti-1095{ font-style: italic;}
+.ecti-1095{ font-style: italic;}
+.ecti-1095{ font-style: italic;}
+.ecti-1095{ font-style: italic;}
+.ecti-1095{ font-style: italic;}
+.ecbx-1095{ font-weight: bold;}
+.ecbx-1095{ font-weight: bold;}
+.ecbx-1095{ font-weight: bold;}
+.ecbx-1095{ font-weight: bold;}
+.ecbx-1095{ font-weight: bold;}
+.ecbx-1095{ font-weight: bold;}
+.ecbx-1095{ font-weight: bold;}
+.ecbx-1095{ font-weight: bold;}
+.ecbx-1095{ font-weight: bold;}
+.ecbx-1095{ font-weight: bold;}
+.ecbx-1095{ font-weight: bold;}
+.ecbx-1095{ font-weight: bold;}
+.ecbx-1095{ font-weight: bold;}
+.ecbx-1095{ font-weight: bold;}
+.ecbx-1095{ font-weight: bold;}
+.ecrm-0800{font-size:72%;}
+.ecti-0800{font-size:72%; font-style: italic;}
+.ecti-0800{ font-style: italic;}
+.ecti-0800{ font-style: italic;}
+.ecti-0800{ font-style: italic;}
+.ecti-0800{ font-style: italic;}
+.ecti-0800{ font-style: italic;}
+.ecti-0800{ font-style: italic;}
+.ecti-0800{ font-style: italic;}
+.ecti-0800{ font-style: italic;}
+.ecti-0800{ font-style: italic;}
+.ecti-0800{ font-style: italic;}
+.ecti-0800{ font-style: italic;}
+.ecti-0800{ font-style: italic;}
+.ecti-0800{ font-style: italic;}
+.ecti-0800{ font-style: italic;}
+.cmr-8{font-size:72%;}
+.cmmi-8{font-size:72%;font-style: italic;}
+.cmsy-8{font-size:72%;}
+.ecbx-0800{font-size:72%; font-weight: bold;}
+.ecbx-0800{ font-weight: bold;}
+.ecbx-0800{ font-weight: bold;}
+.ecbx-0800{ font-weight: bold;}
+.ecbx-0800{ font-weight: bold;}
+.ecbx-0800{ font-weight: bold;}
+.ecbx-0800{ font-weight: bold;}
+.ecbx-0800{ font-weight: bold;}
+.ecbx-0800{ font-weight: bold;}
+.ecbx-0800{ font-weight: bold;}
+.ecbx-0800{ font-weight: bold;}
+.ecbx-0800{ font-weight: bold;}
+.ecbx-0800{ font-weight: bold;}
+.ecbx-0800{ font-weight: bold;}
+.ecbx-0800{ font-weight: bold;}
+.ecrm-0600{font-size:54%;}
+.ecti-1000{font-size:90%; font-style: italic;}
+.ecti-1000{ font-style: italic;}
+.ecti-1000{ font-style: italic;}
+.ecti-1000{ font-style: italic;}
+.ecti-1000{ font-style: italic;}
+.ecti-1000{ font-style: italic;}
+.ecti-1000{ font-style: italic;}
+.ecti-1000{ font-style: italic;}
+.ecti-1000{ font-style: italic;}
+.ecti-1000{ font-style: italic;}
+.ecti-1000{ font-style: italic;}
+.ecti-1000{ font-style: italic;}
+.ecti-1000{ font-style: italic;}
+.ecti-1000{ font-style: italic;}
+.ecti-1000{ font-style: italic;}
+.cmmi-10x-x-109{font-style: italic;}
+.cmsy-10x-x-109{}
+.eccc1095-{font-size:90%;}
+.small-caps{font-variant: small-caps; }
+p{margin-top:0;margin-bottom:0}
+p.indent{text-indent:0;}
+p + p{margin-top:1em;}
+p + div, p + pre {margin-top:1em;}
+div + p, pre + p {margin-top:1em;}
+a { overflow-wrap: break-word; word-wrap: break-word; word-break: break-word; hyphens: auto; }
+@media print {div.crosslinks {visibility:hidden;}}
+table.tabular{border-collapse: collapse; border-spacing: 0;}
+a img { border-top: 0; border-left: 0; border-right: 0; }
+center { margin-top:1em; margin-bottom:1em; }
+td center { margin-top:0em; margin-bottom:0em; }
+.Canvas { position:relative; }
+img.math{vertical-align:middle;}
+div.par-math-display, div.math-display{text-align:center;}
+body{ margin:1em auto; max-width:80ch; padding:0 .62em; }
+h1,h2,h3,h4,h5 { line-height:1.2; }
+@media print{ body{ max-width:none } }
+.partHead, .likepartHead { font-size: 2em; }
+.chapterHead, .likechapterHead { font-size: 1.7411em; }
+.sectionHead, .likesectionHead { font-size: 1.5157em; }
+.subsectionHead, .likesubsectionHead { font-size: 1.3195em; }
+.subsubsectionHead, .likesubsubsectionHead { font-size: 1.1487em; }
+ @media (prefers-color-scheme: dark) { img[src^="main"]{filter: invert(1); } } 
+ body { background-color: Canvas; color: CanvasText; color-scheme: light dark; } 
+li p.indent { text-indent: 0em }
+li p:first-child{ margin-top:0em; }
+li p:last-child, li div:last-child { margin-bottom:0.5em; }
+li p:first-child{ margin-bottom:0; }
+li p~ul:last-child, li p~ol:last-child{ margin-bottom:0.5em; }
+ul.itemize1,ol.enumerate1{padding-left: 0;}
+ul li.itemize,ol li.enumerate{margin-left: 1rem;}
+.enumerate1 {list-style-type:decimal;}
+.enumerate2 {list-style-type:lower-alpha;}
+.enumerate3 {list-style-type:lower-roman;}
+.enumerate4 {list-style-type:upper-alpha;}
+div.newtheorem { margin-bottom: 2em; margin-top: 2em;}
+div.newtheorem .head{font-weight: bold;}
+.obeylines-h,.obeylines-v {white-space: nowrap; }
+div.obeylines-v p { margin-top:0; margin-bottom:0; }
+.overline{ text-decoration:overline; }
+.overline img{ border-top: 1px solid black; }
+td.displaylines {text-align:center; white-space:nowrap;}
+.centerline {text-align:center;}
+.rightline {text-align:right;}
+pre.verbatim {font-family: monospace,monospace; text-align:left; clear:both; }
+.fbox {padding-left:3.0pt; padding-right:3.0pt; text-indent:0pt; border:solid black 0.4pt; }
+div.fbox {display:table}
+div.center div.fbox {text-align:center; clear:both; padding-left:3.0pt; padding-right:3.0pt; text-indent:0pt; border:solid black 0.4pt; }
+div.minipage{width:100%;}
+div.center, div.center div.center {text-align: center; margin-left:1em; margin-right:1em;}
+div.center div {text-align: left;}
+div.flushright, div.flushright div.flushright {text-align: right;}
+div.flushright div {text-align: left;}
+div.flushleft {text-align: left;}
+.underline{ text-decoration:underline; }
+.underline img{ border-bottom: 1px solid black; margin-bottom:1pt; }
+.framebox-c, .framebox-l, .framebox-r { padding-left:3.0pt; padding-right:3.0pt; text-indent:0pt; border:solid black 0.4pt; }
+.framebox-c {text-align:center;}
+.framebox-l {text-align:left;}
+.framebox-r {text-align:right;}
+span.thank-mark{ vertical-align: super }
+span.footnote-mark sup.textsuperscript, span.footnote-mark a sup.textsuperscript{ font-size:80%; }
+aside.footnote-text p{margin-top:0; margin-bottom:0;text-indent: 0;}
+code.verb{font-family:monospace,monospace;}
+div.tabular, div.center div.tabular {text-align: center; margin-top:0.5em; margin-bottom:0.5em; }
+table.tabular td p{margin-top:0em;}
+table.tabular {margin-left: auto; margin-right: auto;}
+td p:first-child{ margin-top:0em; }
+td p:last-child{ margin-bottom:0em; }
+div.td00{ margin-left:0pt; margin-right:0pt; }
+div.td01{ margin-left:0pt; margin-right:5pt; }
+div.td10{ margin-left:5pt; margin-right:0pt; }
+div.td11{ margin-left:5pt; margin-right:5pt; }
+table[rules] {border-left:solid black 0.4pt; border-right:solid black 0.4pt; }
+td.td00{ padding-left:0pt; padding-right:0pt; }
+td.td01{ padding-left:0pt; padding-right:5pt; }
+td.td10{ padding-left:5pt; padding-right:0pt; }
+td.td11{ padding-left:5pt; padding-right:5pt; }
+table[rules] {border-left:solid black 0.4pt; border-right:solid black 0.4pt; }
+.hline hr, .cline hr{ height : 0px; margin:0px; }
+.hline td, .cline td{ padding: 0; }
+.hline hr, .cline hr{border:none;border-top:1px solid black;}
+.hline {border-top: 1px solid black;}
+.hline + .vspace:last-child{display:none;}
+.tabbing-right {text-align:right;}
+div.float, div.figure {margin-left: auto; margin-right: auto;}
+div.float img {text-align:center;}
+div.figure img {text-align:center;}
+.marginpar,.reversemarginpar {width:20%; float:right; text-align:left; margin-left:auto; margin-top:0.5em; font-size:85%; text-decoration:underline;}
+.marginpar p,.reversemarginpar p{margin-top:0.4em; margin-bottom:0.4em;}
+.reversemarginpar{float:left;}
+table.equation {width:100%;}
+.equation td{text-align:center; }
+td.equation { margin-top:1em; margin-bottom:1em; } 
+td.equation-label { width:5%; text-align:center; }
+td.eqnarray4 { width:5%; white-space: normal; }
+td.eqnarray2 { width:5%; }
+table.eqnarray-star, table.eqnarray {width:100%;}
+div.eqnarray{text-align:center;}
+div.array {text-align:center;}
+div.pmatrix {text-align:center;}
+table.pmatrix {width:100%;}
+span.pmatrix img{vertical-align:middle;}
+div.pmatrix {text-align:center;}
+table.pmatrix {width:100%;}
+span.bar-css {text-decoration:overline;}
+img.cdots{vertical-align:middle;}
+.partToc a, .partToc, .likepartToc a, .likepartToc {line-height: 200%; font-weight:bold; font-size:110%;}
+.theindex-letter{ margin-top: 1em;}
+.index-subitem{ margin-left: 2ch;}
+.index-subsubitem{ margin-left: 4ch;}
+div.caption {text-indent:-2em; margin-left:3em; margin-right:1em; text-align:center; margin-top: 0.5rem;}
+div.caption span.id{font-weight: bold; white-space: nowrap; }
+h1.partHead{text-align: center}
+p.bibitem { text-indent: -2em; margin-left: 2em; margin-top:0.6em; margin-bottom:0.6em; }
+p.bibitem-p { text-indent: 0em; margin-left: 2em; margin-top:0.6em; margin-bottom:0.6em; }
+.subsubsectionHead, .likesubsubsectionHead { font-size: 1em; }
+.paragraphHead, .likeparagraphHead { margin-top:2em; font-weight: bold;}
+.subparagraphHead, .likesubparagraphHead { font-weight: bold;}
+.verse{white-space:nowrap; margin-left:2em}
+div.maketitle {text-align:center;}
+h1.titleHead{text-align:center;}
+div.maketitle{ margin-bottom: 2em; }
+div.author, div.date {text-align:center;}
+div.thanks{text-align:left; margin-left:10%; font-size:85%; font-style:italic; }
+div.author{white-space: nowrap;}
+div.abstract p {margin-left:5%; margin-right:5%;}
+div.abstract {width:100%;}
+.abstracttitle{text-align:center;margin-bottom:1em;}
+.subsectionToc, .likesubsectionToc {margin-left:1em;}
+.subsubsectionToc, .likesubsubsectionToc {margin-left:2em;}
+.paragraphToc, .likeparagraphToc {margin-left:3em;}
+.subparagraphToc, .likesubparagraphToc {margin-left:4em;}
+figure.float, div.figure {margin-left: auto; margin-right: auto;}
+figure.figure {text-align:center;}
+figcaption.caption {text-indent:-2em; margin-left:3em; margin-right:1em; text-align:center;}
+figcaption.caption span.id{font-weight: bold; white-space: nowrap; }
+p + figcaption, img + figcaption{margin-top: 1em;}
+.thebibliography dl { display: grid; grid-auto-columns: min-content 1fr; grid-auto-flow: column; }
+.thebibliography dt { grid-column: 1; margin-bottom: 0.5em; }
+.abstract{margin:1em;}
+.textls{letter-spacing:0.05rem;}
+.rotatebox{display: inline-block;}
+.equation td{text-align:center; }
+.equation-star td{text-align:center; }
+table.equation-star { width:100%; }
+table.equation { width:100%; }
+table.align, table.alignat, table.xalignat, table.xxalignat, table.flalign {width:95%; margin-left:5%; white-space: nowrap;}
+table.align-star, table.alignat-star, table.xalignat-star, table.flalign-star {margin-left:auto; margin-right:auto; white-space: nowrap;}
+td.align-label { width:5%; text-align:center; }
+td.align-odd { text-align:right; padding-right:0.3em;}
+td.align-even { text-align:left; padding-right:0.6em;}
+table.multline, table.multline-star {width:100%;}
+td.gather {text-align:center; }
+table.gather {width:100%;}
+div.gather-star {text-align:center;}
+code.lstinline{font-family:monospace,monospace;}
+pre.listings{font-family: monospace,monospace; white-space: pre-wrap; margin-top:0.5em; margin-bottom:0.5em; }
+.lstlisting .label{margin-right:0.5em; }
+pre.lstlisting{font-family: monospace,monospace; white-space: pre-wrap; margin-top:0.5em; margin-bottom:0.5em; text-align: left; }
+pre.lstinputlisting{ font-family: monospace,monospace; white-space: pre-wrap; text-align: left; }
+.lstinputlisting .label{margin-right:0.5em;}
+dt.printshorthands{float:left; clear:left; margin-right:1em;}
+dd.thebibliography {margin-left: 2.5em;}
+dt.thebibliography {float:left; clear:left; margin-right:1em;}
+tr#TBL-1-1- {border-top:0.12193em solid #000;} 
+tr#TBL-1-1- {border-bottom:0.07622em solid #000}
+tr#TBL-1-5- {border-bottom:0.07622em solid #000}
+tr#TBL-1-6- {border-bottom:0.12193em solid #000}
+tr#TBL-2-1- {border-top:0.12193em solid #000;} 
+tr#TBL-2-1- {border-bottom:0.07622em solid #000}
+tr#TBL-2-10- {border-bottom:0.12193em solid #000}
+/* end css.sty */
+
+/* ── Enju preprint — web theme (shared with sugi.bio papers) ── */
+/* Font @import is prepended to main.css by the `html` make target so it */
+/* sits at the top of the stylesheet (where CSS @import must appear).    */
+
+:root {
+    --text-color: #2c2c2c;
+    --text-muted: #555;
+    --text-light: #666;
+    --bg-color: #e8e5de;
+    --bg-paper: #f5f4ef;
+    --accent-color: #1a6b7c;
+    --accent-light: #e8f4f6;
+    --accent-dark: #145566;
+    --border-color: #d0cbc2;
+    --border-dark: #b8b3aa;
+}
+
+html {
+    background: var(--bg-color);
+}
+
+body {
+    font-family: 'Source Serif 4', 'Georgia', 'Times New Roman', serif;
+    font-size: 1.05rem;
+    line-height: 1.75;
+    color: var(--text-color);
+    max-width: 52em;
+    margin: 0 auto;
+    padding: 2rem 2.5rem 4rem;
+    background: var(--bg-paper);
+}
+
+@media (max-width: 768px) {
+    body { font-size: 0.95rem; padding: 1rem; }
+}
+
+/* Title block */
+div.maketitle {
+    padding: 2rem 0 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 2rem;
+}
+
+h2.titleHead {
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 1.7rem;
+    font-weight: 600;
+    color: var(--text-color);
+    letter-spacing: -0.01em;
+    line-height: 1.35;
+}
+
+div.author { color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; }
+.author-affiliation { color: var(--text-light); font-style: italic; }
+a.author-email { color: var(--accent-color); font-style: normal; }
+a.author-email:hover { color: var(--accent-dark); }
+div.date { color: var(--text-light); font-size: 0.85rem; margin-top: 0.3rem; }
+.preprint-link { margin-top: 0.5rem; font-size: 0.85rem; }
+.preprint-link a { color: var(--accent-color); border-bottom: 1px solid var(--border-color); padding-bottom: 1px; }
+.preprint-link a:hover { color: var(--accent-dark); border-bottom-color: var(--accent-dark); text-decoration: none; }
+
+/* Abstract */
+.abstract {
+    background: var(--accent-light);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 1.2rem 1.5rem;
+    margin: 1.5rem 0;
+}
+.abstracttitle {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.85rem;
+    color: var(--text-color);
+}
+
+/* Section headings */
+h3.sectionHead, h3.likesectionHead {
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: var(--text-color);
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0.35rem;
+    margin-top: 2.5rem;
+}
+
+h4.subsectionHead, h4.likesubsectionHead {
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-top: 1.8rem;
+}
+
+/* Links */
+a { color: var(--accent-color); text-decoration: none; }
+a:hover { color: var(--accent-dark); text-decoration: underline; }
+
+/* Code listings */
+pre.lstlisting, pre.listings, pre.verbatim {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.88rem;
+    background: #eae8e1;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 0.8rem 1rem;
+    overflow-x: auto;
+}
+
+code.lstinline, code.verb {
+    font-family: 'JetBrains Mono', monospace;
+    background: #eae8e1;
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    font-size: 0.88em;
+}
+
+/* Monospace spans from tex4ht */
+.ectt-1000, .ectt-1095, .ectt-0900 {
+    font-family: 'JetBrains Mono', monospace !important;
+}
+
+/* Blockquotes (use case questions) */
+blockquote, .quote {
+    border-left: 3px solid var(--accent-color);
+    background: var(--accent-light);
+    padding: 0.8rem 1.2rem;
+    border-radius: 0 4px 4px 0;
+    margin: 1em 0;
+}
+
+/* Tables */
+table.tabular {
+    font-size: 0.88rem;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+table.tabular td, table.tabular th {
+    padding: 0.45rem 0.6rem;
+}
+
+table.tabular tr:hover {
+    background: #eae8e1;
+}
+
+div.caption, figcaption.caption {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* Figure */
+figure.figure { margin: 2rem 0; }
+figure.figure img, figure.figure svg { max-width: 100%; height: auto; }
+
+/* References */
+dd.thebibliography {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+}
+dt.thebibliography {
+    font-weight: 600;
+    color: var(--text-color);
+    font-size: 0.85rem;
+}
+
+/* Navigation bar */
+.paper-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.8rem 0;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+.paper-nav a { color: var(--accent-color); font-weight: 500; }
+.paper-nav a:hover { color: var(--accent-dark); }
+
+/* Override tex4ht font-size classes to not shrink text */
+.ecrm-1000, .ecbx-1000, .ectt-1000, .ecti-1000,
+.ecrm-0900, .ectt-0900, .tcrm-0900 { font-size: inherit; }
+
+/* Figures are colour diagrams with transparent backgrounds. make4ht emits a
+   default rule that inverts every figure in dark mode (good for black-on-white
+   line art, but it corrupts our colours and turns the light fills near-black).
+   Override it: never invert, and sit the figures on white so they read the same
+   in light and dark colour schemes. This block is appended after make4ht's CSS,
+   so it wins the cascade. */
+figure.figure img, figure.figure svg, img[src^="main"] { background: #fff; }
+@media (prefers-color-scheme: dark) {
+    img[src^="main"] { filter: none; }
+}
+
+/* Print */
+@media print {
+    body { max-width: none; padding: 0; background: #fff; }
+    a { color: inherit; }
+}

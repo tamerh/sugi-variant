@@ -85,6 +85,28 @@ app = FastAPI(title="Sugi Variant")
 # in templates ({{ base }}) to generate the public /variant/… links.
 app.mount("/static", StaticFiles(directory=str(ROOT / "static")), name="static")
 
+
+# ── preprint (Method page) ─────────────────────────────────────────────────────
+# The /method page inlines the make4ht HTML export of the preprint. Build flow
+# (mirrors Sugi Predict): in the preprint repo run `make html`, then
+# copy main.html / main.pdf / main*.svg into static/preprint/ and main.css into
+# static/preprint/main.raw.css, and run scripts/build_preprint_css.py to scope the
+# CSS under .preprint-doc. Here we lift the <body> inner HTML once at import and
+# rewrite the relative SVG figure refs to the served static path. The make4ht global
+# CSS is NOT loaded site-wide — the scoped copy is linked only on the method page.
+def _preprint_body():
+    html = (ROOT / "static" / "preprint" / "main.html").read_text(encoding="utf-8")
+    body = html.split("<body>", 1)[1].split("</body>", 1)[0]
+    # main0x/1x/….svg -> {base}/static/preprint/…  (keeps make4ht's single-quote form)
+    body = re.sub(r"src='(main[0-9]+x\.svg)'", rf"src='{BASE}/static/preprint/\1'", body)
+    return body
+
+
+try:
+    PREPRINT_BODY = _preprint_body()
+except FileNotFoundError:
+    PREPRINT_BODY = ""   # export not built yet; the template shows a short fallback
+
 # ── record resolution (in-memory + persistent per-gene record cache) ───────────
 # A gene's enriched records are expensive to build (a whale like BRCA2 ≈ minutes),
 # so once built they're persisted to disk (gzip pickle) and loaded on later hits —
@@ -543,7 +565,7 @@ def about():
 
 @app.get("/method", response_class=HTMLResponse)
 def method():
-    return _render("method.html", nav="method")
+    return _render("method.html", nav="method", preprint_body=PREPRINT_BODY)
 
 
 @app.get("/genes", response_class=HTMLResponse)
