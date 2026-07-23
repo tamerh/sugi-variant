@@ -368,3 +368,16 @@ body > main { padding-bottom: 2.5rem; }
 }
 .site-nav-group a.nav-targets::before { background: var(--accent, #2563eb); }
 .site-nav-group a.nav-compounds::before { background: #16a34a; }
+
+/* sources table (About #sources) — Source + dataset build date; licence dropped */
+.sources-table-wrap { border:1px solid var(--border,#e5e7eb); border-radius:8px; overflow:hidden; margin-top:.9rem; }
+.sources-table { border-collapse:collapse; width:100%; font-size:.9rem; }
+.sources-table thead th { text-align:left; font-size:.7rem; text-transform:uppercase; letter-spacing:.06em;
+  font-weight:600; color:var(--muted,#6b7280); padding:.6rem .85rem;
+  background:var(--bg-soft,#f9fafb); border-bottom:1px solid var(--border,#e5e7eb); }
+.sources-table tbody tr { border-bottom:1px solid var(--border,#e5e7eb); }
+.sources-table tbody tr:last-child { border-bottom:none; }
+.sources-table tbody tr:hover { background:var(--bg-soft,#f9fafb); }
+.sources-table td { padding:.5rem .85rem; vertical-align:middle; }
+.sources-table .src-name-cell { font-weight:600; white-space:nowrap; }
+.sources-table .src-date-cell { color:var(--accent,#2563eb); font-variant-numeric:tabular-nums; white-space:nowrap; }

@@ -1,15 +1,22 @@
-{# Shared "Sources & versions" block — a grid of small source boxes (name +
-   dataset build date + licence/credit). Used by all three variant layouts. #}
+{# "Sources & versions" — a simple table (source · dataset build date). Datasets are
+   accessed through BioBTree; per-source licence detail lives with each upstream source.
+   Included only by the About page. #}
 <section class="src-section" id="sources">
-  <h2 class="src-h">Sources &amp; versions
-    <span class="src-note">every fact traced to its source and dataset build date · deterministic · not a clinical determination</span></h2>
-  <div class="src-grid">
-    {% for name, credit, built in data_provenance() %}
-    <div class="src-box">
-      <span class="src-name">{{ name }}</span>
-      {% if built %}<span class="src-date">as of {{ built }}</span>{% endif %}
-      <span class="src-lic">{{ credit }}</span>
-    </div>
-    {% endfor %}
+  <h2 class="src-h">Sources &amp; versions</h2>
+  <p class="src-note">Sugi Variant draws these datasets through
+    <a href="https://biobtree.org">BioBTree</a>, which integrates them. Each fact is traced
+    to its source and the dataset build date it was read from.</p>
+  <div class="sources-table-wrap">
+    <table class="sources-table">
+      <thead><tr><th>Source</th><th>As of</th></tr></thead>
+      <tbody>
+        {% for name, credit, built in data_provenance() %}
+        <tr>
+          <td class="src-name-cell">{{ name }}</td>
+          <td class="src-date-cell">{% if built %}{{ built }}{% else %}&mdash;{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </section>
