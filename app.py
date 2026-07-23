@@ -80,17 +80,16 @@ env.filters["mdbold"] = lambda s: _ms.Markup(
 env.filters["mdstrip"] = lambda s: _MD_BOLD.sub(r"\1", s or "")
 
 app = FastAPI(title="Sugi Variant")
-# Serve at ROOT (like Sugi Predict): nginx `proxy_pass …:8013/;` strips the
-# /variant/ prefix, so routes + static are unprefixed. BASE_PATH is used ONLY
-# in templates ({{ base }}) to generate the public /variant/… links.
+# Serve at ROOT: when deployed behind a reverse proxy under a subpath, the proxy
+# strips the prefix, so routes + static are unprefixed. BASE_PATH is used ONLY in
+# templates ({{ base }}) to generate the public prefixed links.
 app.mount("/static", StaticFiles(directory=str(ROOT / "static")), name="static")
 
 
 # ── preprint (Method page) ─────────────────────────────────────────────────────
-# The /method page inlines the make4ht HTML export of the preprint. Build flow
-# (mirrors Sugi Predict): in the preprint repo run `make html`, then
-# copy main.html / main.pdf / main*.svg into static/preprint/ and main.css into
-# static/preprint/main.raw.css, and run scripts/build_preprint_css.py to scope the
+# The /method page inlines the make4ht HTML export of the preprint. Build flow:
+# in the preprint repo run `make html`, then copy main.html / main.pdf / main*.svg
+# into static/preprint/ and main.css into static/preprint/main.raw.css, and scope the
 # CSS under .preprint-doc. Here we lift the <body> inner HTML once at import and
 # rewrite the relative SVG figure refs to the served static path. The make4ht global
 # CSS is NOT loaded site-wide — the scoped copy is linked only on the method page.

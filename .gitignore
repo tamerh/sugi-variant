@@ -1,3 +1,11 @@
 cache/
 __pycache__/
 docs/internal/
+
+# dev + deployment/build tooling — kept local, out of the public repo
+run.sh
+HANDOVER.md
+scripts/
+tools/
+deploy/
+*.log

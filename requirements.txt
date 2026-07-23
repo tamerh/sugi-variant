@@ -3,4 +3,4 @@ uvicorn[standard]
 httpx
 jinja2
 pytest
--e the sugi-biobtree repo   # shared biobtree client (pip install -e)
+# sugibiobtree — shared BioBTree client; install from the sugi-biobtree repository.

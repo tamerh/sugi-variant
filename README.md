@@ -1,38 +1,40 @@
-# Sugi Variant — per-variant genetic reference (prototype)
+# Sugi Variant — a per-variant genetic reference
 
-Separate product spun out of Sugi Atlas. Dynamic FastAPI + Jinja2 + ISR renderer over
-the self-contained `sugivariant` science package (`sugivariant.build.enriched_records`).
-Server-rendered HTML (crawlable/AI-citable — the differentiator), disk/ETag-cached.
-Sibling of Sugi Predict; reuses `atlas.css`.
+Sugi Variant assembles one reference view per germline human variant by deterministically
+mining the BioBTree knowledge graph. Anchored on ClinVar, each view brings together the
+clinical classification and condition, gnomAD population frequency and gene constraint,
+calibrated in-silico predictors (AlphaMissense, REVEL, SaProt, conservation, and SpliceAI for
+splice regions), and — where a ClinGen expert panel has curated the variant — its applied ACMG
+criteria, verbatim. Every fact is shown with its source and dataset build date, across all
+variant classes (including non-coding and mitochondrial), and it surfaces the variants where the
+independent signals disagree, as a quality-control signal for review.
 
-## 👉 New here? Read `HANDOVER.md` first.
-It has the full context: why the product exists, the domain rules you must not break
-(ClinGen SVI predictor framing, patient-safety), biobtree quirks, corpus scale, and the
-TODO roadmap. Design spec: `docs/VARIANT_PAGES_SPEC.md`. Audit history:
-`docs/variant-audit-2026-07.md`.
+It is a server-rendered FastAPI + Jinja app over the self-contained `sugivariant` package, with a
+disk/ETag page cache. Nothing on a view is written by a language model: each is composed
+deterministically from primary databases, so it is reproducible and every number traces to its
+source and version. The method and evaluation are described in the preprint, served at `/method`.
 
-## Run (dev)
-    ./run.sh                      # uvicorn :8013, BASE_PATH=/variant
-Then, behind nginx: https://sugi.bio/variant/pten-p-arg130gln
-Local (no proxy): http://127.0.0.1:8013/pten-p-arg130gln
+## Run
 
-Env: `bioyoda` (`python`) — fastapi + the shared
-`sugibiobtree` client. biobtree REST API must be up at localhost:9291.
+    export ATLAS_BIOBTREE=http://<biobtree-host>:9291   # a running BioBTree REST API
+    python -m uvicorn app:app --host 127.0.0.1 --port 8000
 
-## Deploy mapping (sugi.bio/variant)
-nginx `location /variant/ { proxy_pass http://127.0.0.1:8013/; }` (see
-the deploy repo/nginx-sugi.bio.conf). Trailing slash strips /variant/, so the
-app serves root paths; BASE_PATH=/variant generates the public /variant/… links.
+Then open <http://127.0.0.1:8000/>. Optional environment variables:
 
-## Status
-Prototype: verdict-card + evidence-panel view. TODO: search, protein lollipop SVG,
-JSON-LD/.md twin, sitemap, slug→VCV index, Docker/systemd.
+- `BASE_PATH` — URL prefix when served under a subpath behind a reverse proxy (e.g. `/variant`).
+- `CACHE_DIR` — page/records cache and the prebuilt resolution `index.db` (default `./cache`).
+- `GENE_CACHE_MB` — in-process LRU budget for the hottest genes (default `1500`).
 
-## Dependency: sugibiobtree (shared client)
-The variant science uses the shared `sugibiobtree` biobtree client (one source of
-truth with Sugi Atlas). Every env that runs this app must have it installed:
+## Dependencies
 
-    pip install -e the sugi-biobtree repo
+    pip install fastapi "uvicorn[standard]" httpx jinja2
 
-Dev: installed editable in the `bioyoda` env. When containerizing, the image must
-`pip install` sugibiobtree (editable during dev, or pinned/vendored for prod).
+Plus the shared `sugibiobtree` BioBTree client (one source of truth with Sugi Atlas), installed
+from the `sugi-biobtree` repository.
+
+## Layout
+
+- `app.py` — the FastAPI app (routes, caching, identifier resolution).
+- `sugivariant/` — the science package (collect / enrich / render / index / slug).
+- `templates/`, `static/` — Jinja views and assets.
+- `static/preprint/` — the built preprint, served at `/method`.
