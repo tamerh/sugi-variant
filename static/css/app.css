@@ -359,3 +359,12 @@
 
 /* breathing room between the last content card and the footer */
 body > main { padding-bottom: 2.5rem; }
+
+/* nav category dots — Genes = accent (blue), Sets = green (mirrors Sugi Predict) */
+.site-nav-group a.nav-targets::before,
+.site-nav-group a.nav-compounds::before {
+  content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  margin-right: 6px; vertical-align: middle;
+}
+.site-nav-group a.nav-targets::before { background: var(--accent, #2563eb); }
+.site-nav-group a.nav-compounds::before { background: #16a34a; }
