@@ -2,18 +2,18 @@
    accessed through BioBTree; per-source licence detail lives with each upstream source.
    Included only by the About page. #}
 <section class="src-section" id="sources">
-  <h2 class="src-h">Sources &amp; versions</h2>
+  <h2 class="src-h">Sources</h2>
   <p class="src-note">Sugi Variant draws these datasets through
     <a href="https://biobtree.org">BioBTree</a>, which integrates them. Each fact is traced
-    to its source and the dataset build date it was read from.</p>
+    to its source.</p>
   <div class="sources-table-wrap">
     <table class="sources-table">
-      <thead><tr><th>Source</th><th>As of</th></tr></thead>
+      <thead><tr><th>Source</th><th>Reference</th></tr></thead>
       <tbody>
-        {% for name, credit, built in data_provenance() %}
+        {% for name, ref, url in source_refs() %}
         <tr>
-          <td class="src-name-cell">{{ name }}</td>
-          <td class="src-date-cell">{% if built %}{{ built }}{% else %}&mdash;{% endif %}</td>
+          <td class="src-name-cell">{% if url %}<a href="{{ url }}" target="_blank" rel="noopener">{{ name }}</a>{% else %}{{ name }}{% endif %}</td>
+          <td class="src-ref-cell">{{ ref }}</td>
         </tr>
         {% endfor %}
       </tbody>

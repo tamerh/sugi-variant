@@ -380,4 +380,6 @@ body > main { padding-bottom: 2.5rem; }
 .sources-table tbody tr:hover { background:var(--bg-soft,#f9fafb); }
 .sources-table td { padding:.5rem .85rem; vertical-align:middle; }
 .sources-table .src-name-cell { font-weight:600; white-space:nowrap; }
-.sources-table .src-date-cell { color:var(--accent,#2563eb); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.sources-table .src-name-cell a { color:var(--accent,#2563eb); text-decoration:none; }
+.sources-table .src-name-cell a:hover { text-decoration:underline; }
+.sources-table .src-ref-cell { color:var(--muted,#6b7280); }

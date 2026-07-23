@@ -46,6 +46,28 @@ DATA_SOURCES = [
     ("Orphanet", "Orphanet", "orphanet"),
 ]
 
+# name -> (citation, homepage) for the About sources table (mirrors the Sugi Atlas table).
+SOURCE_REFS = {
+    "ClinVar":                              ("Landrum et al., NAR 2018",            "https://www.ncbi.nlm.nih.gov/clinvar/"),
+    "gnomAD v4.1":                          ("Chen et al., Nature 2024",            "https://gnomad.broadinstitute.org/"),
+    "AlphaMissense":                        ("Cheng et al., Science 2023",          "https://github.com/google-deepmind/alphamissense"),
+    "REVEL":                                ("Ioannidis et al., AJHG 2016",         "https://sites.google.com/site/revelgenomics/"),
+    "SaProt":                               ("Su et al., ICLR 2024",                "https://github.com/westlake-repl/SaProt"),
+    "SpliceAI":                             ("Jaganathan et al., Cell 2019",        "https://github.com/Illumina/SpliceAI"),
+    "Conservation (phyloP/phastCons/GERP)": ("Pollard et al. 2010; Davydov et al. 2010", "https://genome.ucsc.edu/"),
+    "ClinGen":                              ("Rehm et al., NEJM 2015",              "https://clinicalgenome.org/"),
+    "UniProt":                              ("UniProt Consortium, NAR 2025",        "https://www.uniprot.org/"),
+    "Reactome / GO":                        ("Milacic et al. 2024; Ashburner et al. 2000", "https://reactome.org/"),
+    "MaveDB":                               ("Esposito et al., Genome Biol 2019",   "https://www.mavedb.org/"),
+    "CIViC":                                ("Griffith et al., Nat Genet 2017",     "https://civicdb.org/"),
+    "Orphanet":                             ("Rath et al., 2012",                   "https://www.orpha.net/"),
+}
+
+
+def source_refs():
+    """[(name, citation, url)] for the About sources table."""
+    return [(name, *SOURCE_REFS.get(name, ("", ""))) for name, _lic, _grp in DATA_SOURCES]
+
 
 def data_provenance():
     """[(name, license, built_date)] — sources joined to their live biobtree build
