@@ -1,5 +1,7 @@
 # Sugi Variant — a per-variant genetic reference
 
+**Live: <https://sugi.bio/variant>**
+
 Sugi Variant assembles one reference view per germline human variant by deterministically
 mining the BioBTree knowledge graph. Anchored on ClinVar, each view brings together the
 clinical classification and condition, gnomAD population frequency and gene constraint,
@@ -14,27 +16,8 @@ disk/ETag page cache. Nothing on a view is written by a language model: each is 
 deterministically from primary databases, so it is reproducible and every number traces to its
 source and version. The method and evaluation are described in the preprint, served at `/method`.
 
-## Run
+## Documentation
 
-    export ATLAS_BIOBTREE=http://<biobtree-host>:9291   # a running BioBTree REST API
-    python -m uvicorn app:app --host 127.0.0.1 --port 8000
-
-Then open <http://127.0.0.1:8000/>. Optional environment variables:
-
-- `BASE_PATH` — URL prefix when served under a subpath behind a reverse proxy (e.g. `/variant`).
-- `CACHE_DIR` — page/records cache and the prebuilt resolution `index.db` (default `./cache`).
-- `GENE_CACHE_MB` — in-process LRU budget for the hottest genes (default `1500`).
-
-## Dependencies
-
-    pip install fastapi "uvicorn[standard]" httpx jinja2
-
-Plus the shared `sugibiobtree` BioBTree client (one source of truth with Sugi Atlas), installed
-from the `sugi-biobtree` repository.
-
-## Layout
-
-- `app.py` — the FastAPI app (routes, caching, identifier resolution).
-- `sugivariant/` — the science package (collect / enrich / render / index / slug).
-- `templates/`, `static/` — Jinja views and assets.
-- `static/preprint/` — the built preprint, served at `/method`.
+- [Getting started](docs/getting-started.md) — using the site: search, URLs, sets, gene pages.
+- [How it works](docs/how-it-works.md) — the method behind the pages.
+- [Development](docs/development.md) — running locally, dependencies, and the code layout.
