@@ -1,7 +1,7 @@
 <!DOCTYPE html> 
 <html lang='en-US' xml:lang='en-US'> 
-<head><title>Sugi Variant: A Comprehensive, Deterministic Per-Variant Germline Reference from a Knowledge
-Graph for Humans and AI Agents</title> 
+<head><title>Sugi Variant: A Deterministic Per-Variant Germline Reference from a Knowledge Graph for Humans
+and AI Agents</title> 
 <meta charset='utf-8' /> 
 <meta content='TeX4ht (https://tug.org/tex4ht/)' name='generator' /> 
 <meta content='width=device-width,initial-scale=1' name='viewport' /> 
@@ -14,162 +14,147 @@ Graph for Humans and AI Agents</title>
                                                                                       
                                                                                       
 
-<h1 class='titleHead'>Sugi Variant: A Comprehensive, Deterministic Per-Variant
-Germline Reference from a Knowledge Graph for Humans and
-AI Agents</h1>
+<h1 class='titleHead'>Sugi Variant: A Deterministic Per-Variant Germline Reference
+from a Knowledge Graph for Humans and AI Agents</h1>
 <div class='author'><span class='ecrm-1200'>Tamer Gür</span><br /><br />
 <span class='ecrm-1200'>Rottweil, Germany</span><br /><br />
 <span class='ecti-1200'>tamer.gur07@gmail.com</span></div>
-<div class='date'><span class='ecrm-1200'>July 21, 2026</span></div>
+<div class='date'><span class='ecrm-1200'>July 23, 2026</span></div>
    </div>
    <section class='abstract' role='doc-abstract'> 
 <h3 class='abstracttitle'>
 <span class='ecbx-1000'>Abstract</span>
 </h3>
      <!-- l. 7 --><p class='noindent'><span class='ecrm-1000'>Interpreting  a  germline  genetic  variant  means  assembling  evidence  that  lives  in  many
-     different  places:  its  clinical  classification  and  associated  condition  in  one  database,  its
-     population frequency in another, computational predictions of its effect in several more,
-     and the formal evidence criteria an expert panel applied in yet another. Each resource is
-     authoritative within its domain, yet assembling a connected, current per-variant picture
-     takes manual effort, and any consolidated view begins to go stale as the sources update
-     on  their  own  cycles;  the  effort  is  largest  for  the  variants  of  uncertain  significance,  and
-     the non-coding and mitochondrial variants, that many tools do not cover. This content is
-     increasingly consumed by AI agents as well as people, raising the bar on how correct and
-     current it must be, and language models are an imperfect fit for producing it at corpus
-     scale, fabricating plausible but unsupported statements most often for the rare variants that
-     dominate the long tail. We present Sugi Variant, an openly published per-variant reference
-     for germline human variants built by deterministically mining BioBTree, a graph that unifies
-     more than eighty primary databases into billions of cross-references. Rather than let a model
-     explore the graph at query time, Sugi Variant issues fixed chained-query plans, so every
-     variant is assembled the same way on each run: each value comes straight from the source
-     data and, for a given snapshot, the corpus is reproducible. For each variant it consolidates the
-     ClinVar germline classification and condition, the gnomAD frequency and gene constraint,
-     several calibrated in-silico predictors of variant effect (among them AlphaMissense, REVEL,
-     and a structure-aware protein language model, together with sequence conservation), and
-     the ClinGen ACMG/AMP criteria where an expert panel recorded them. It summarises
-     the in-silico predictors into a consensus and adds an explicit concordance readout stating
-     whether  that  computational  evidence  agrees  with  the  clinical  classification,  flagging,  as
-     a quality-control signal for review rather than a reclassification, the cases where it does
-                                                                                      
-                                                                                      
-     not. Throughout, the reference describes and aggregates the existing evidence and never
-     computes a classification of its own. Sugi Variant comprises 3,961,230 variants across 18,799
-     genes,  including  the  non-coding  and  mitochondrial  variants  many  resources  omit,  with
-     each record emitted as structured data for programmatic use. It is openly available at </span>
-<a class='url' href='https://sugi.bio/variant/'><span class='ectt-1000'>https://sugi.bio/variant/</span></a><span class='ecrm-1000'>.</span>
+     different  places:  its  clinical  classification  and  condition  in  one  database,  its  population
+     frequency in another, computational predictions in several more, and the formal evidence
+     criteria an expert panel applied in yet another. Each resource is authoritative within its
+     domain, yet a connected, current per-variant picture takes manual effort and goes stale
+     as the sources update on their own cycles. This content is increasingly consumed by AI
+     agents as well as people, raising the bar on how correct and current it must be. We present
+     Sugi Variant, an openly published per-variant reference for germline human variants built
+     by deterministically mining the BioBTree knowledge graph. It issues fixed chained-query
+     plans, so every variant is assembled the same way on each run, each value straight from the
+     source, and the reference is reproducible for a given snapshot. For each variant it consolidates
+     the ClinVar germline classification and condition, the gnomAD allele frequency and gene
+     constraint, calibrated predictors of variant effect (AlphaMissense, REVEL, a structure-aware
+     protein language model, and sequence conservation), and the ClinGen ACMG/AMP criteria
+     where an expert panel recorded them. One calibrated predictor carries evidence weight and
+     the rest are read as agreement signals; an explicit concordance readout flags, as a signal
+     for review rather than a reclassification, the variants where the computational evidence
+     disagrees with the clinical classification, drawing attention where it is needed. The reference
+     describes and aggregates existing evidence and never computes a classification of its own. It
+     comprises 3,961,230 variants across 18,799 genes, including non-coding and mitochondrial
+     variants, and is openly available at </span><a class='url' href='https://sugi.bio/variant/'><span class='ectt-1000'>https://sugi.bio/variant/</span></a><span class='ecrm-1000'>.</span>
 </p>
 </section>
    
+                                                                                      
+                                                                                      
    <h3 class='sectionHead' id='introduction'><span class='titlemark'>1   </span>   <a id='x1-10001'></a>Introduction</h3>
-<!-- l. 8 --><p class='noindent'>Interpreting a human genetic variant means assembling evidence that lives in many different places. Its
-clinical classification and the conditions it is asserted for sit in one database; its population frequency
-in another; computational predictions of its effect in several more; the formal evidence
-criteria a variant curation expert panel applied in yet another. Each resource is authoritative
-within its own domain, yet a clinician or researcher assessing a single variant must visit and
-reconcile them by hand, and because each is updated on its own cycle, any consolidated view
-begins to go stale the moment it is written down. Assembling a connected, current, and
-trustworthy per-variant picture is therefore a recurring effort, and it is most costly for
-exactly the variants where it matters most: the large and growing set of variants of uncertain
-significance, and the non-coding and mitochondrial variants that many tools do not cover at
-all.
-</p><!-- l. 21 --><p class='indent'>   This content is increasingly read by machines as well as people. Large language models encode a
-substantial body of biomedical and clinical knowledge [<a id='x1-1001'></a><a id='page.4'></a><a href='main.html#X0-singhal_large_2023'>1</a>], and a growing ecosystem of
-autonomous agents consumes genomic reference data directly. Both raise the bar on the same two
-properties: the content must be correct, and, because the data beneath it changes continually,
-current. Language models are an imperfect fit for producing such content at the scale of
-an entire variant corpus. Models retain a hallucination surface, producing plausible but
-unsupported statements, and studies of model-generated medical content have measured high
-rates of fabricated and inaccurate references [<a id='x1-1002'></a><a href='main.html#X0-bhattacharyya_high_2023'>2</a><a id='x1-1003'></a>, <a href='main.html#X0-walters_fabrication_2023'>3</a>]; this surface is largest for exactly the
-rare, sparsely-documented variants that dominate the long tail; grounding a model against
-authoritative records, for instance through the Model Context Protocol [<a id='x1-1004'></a><a href='main.html#X0-hou_model_2025'>4</a>], substantially
-mitigates fabrication, but it does not yield a catalog, because the traversal a model takes
-through a large graph varies between runs and models, so coverage is neither complete nor
-reproducible, and the per-variant cost makes rebuilding a corpus on every data refresh
+<!-- l. 8 --><p class='noindent'>Interpreting a human genetic variant means assembling evidence that is scattered across many
+separate resources. Its clinical classification and the conditions it is asserted for sit in one
+database, its population frequency in another, computational predictions of its effect in several
+more, and the formal evidence criteria a variant curation expert panel (VCEP) applied
+in yet another. Each resource is authoritative within its own domain, yet a clinician or
+researcher assessing a single variant must visit and reconcile them by hand, and because
+each is updated on its own cycle, any consolidated view begins to go stale the moment
+it is written down. Assembling a connected and current per-variant picture is therefore
+a recurring effort. This content is increasingly read by machines as well as people: large
+language models (LLMs) and autonomous agents now consume genomic reference data
+directly [<a id='x1-1001'></a><a id='page.4'></a><a href='main.html#X0-singhal_large_2023'>1</a>]. As additional consumers they raise the same properties a human reader needs,
+correctness and currency, more sharply, because an LLM asked to produce variant facts
+from memory fabricates plausible but unsupported statements, most often for the rare,
+sparsely-documented variants that dominate the long tail [<a id='x1-1002'></a><a href='main.html#X0-bhattacharyya_high_2023'>2</a><a id='x1-1003'></a>, <a href='main.html#X0-walters_fabrication_2023'>3</a>]. Grounding an LLM against
+authoritative records mitigates this [<a id='x1-1004'></a><a href='main.html#X0-hou_model_2025'>4</a>], but letting an LLM traverse a large graph does
+not yield a catalog: the traversal varies between runs and models, so coverage is neither
+complete nor reproducible, and the per-variant cost makes rebuilding on every data refresh
 impractical.
-</p><!-- l. 39 --><p class='indent'>   Several lines of work consolidate variant evidence so that it need not be gathered by hand each
+</p><!-- l. 28 --><p class='indent'>   Several lines of work consolidate variant evidence so that it need not be gathered by hand each
 time. ClinVar aggregates clinical assertions and their supporting conditions [<a id='x1-1005'></a><a href='main.html#X0-landrum_clinvar_2018'>5</a>]; gnomAD provides
 population allele frequencies and gene constraint [<a id='x1-1006'></a><a href='main.html#X0-chen_gnomad_2024'>6</a>]; dbNSFP precomputes and packages many
 computational predictors for missense variants [<a id='x1-1007'></a><a href='main.html#X0-liu_dbnsfp_2020'>7</a>]; and interpretation platforms and multi-source
-aggregators assemble several of these behind a query interface. These resources resolve much of
-the fragmentation, but a gap remains for a reference layer built on top of an integrated
-graph: one that is comprehensive across variant classes, including the uncertain, non-coding,
-and mitochondrial variants often omitted; deterministic, and therefore reproducible and
-inexpensive to refresh; and integrated, presenting each variant’s clinical, population, and
-computational evidence together with an explicit readout of whether those independent lines
-of evidence agree, in one openly published place that researchers and AI agents can rely
-on.
-</p><!-- l. 55 --><p class='indent'>   We present Sugi Variant, an openly published, per-variant reference for germline human
-variants produced by deterministically mining BioBTree [<a id='x1-1008'></a><a href='main.html#X0-biobtree'>8</a>], a biomedical graph database
-that integrates more than eighty primary sources through billions of cross-references and
-                                                                                      
-                                                                                      
-stays current as those sources release updates. For each variant, a pipeline issues fixed
-chained graph queries that assemble, every value traced to its source, the ClinVar germline
+aggregators assemble several of these behind a query interface. These resources resolve much of the
+fragmentation. A complementary reference layer built on an integrated graph can add to them: one
+that spans variant classes, including the uncertain, non-coding, and mitochondrial variants often
+omitted; that is deterministic, and therefore reproducible and inexpensive to refresh; and that
+presents each variant’s clinical, population, and computational evidence together with an
+explicit readout of whether those independent lines of evidence agree, in one openly published
+place.
+</p><!-- l. 42 --><p class='indent'>   We present Sugi Variant, an openly published, per-variant reference for germline human variants
+produced by deterministically mining the BioBTree knowledge graph [<a id='x1-1008'></a><a href='main.html#X0-biobtree'>8</a>], which integrates more than
+eighty primary sources and stays current as those sources release updates. For each variant, a pipeline
+issues fixed chained graph queries that assemble, every value traced to its source, the ClinVar germline
 classification and asserted condition, the gnomAD allele frequency and gene constraint,
 calibrated computational predictors (AlphaMissense, REVEL, SaProt, conservation, and, for
 splice-region variants, SpliceAI), the ClinGen ACMG/AMP evidence criteria where an expert
 panel has recorded them, and a cross-source <span class='ecti-1095'>concordance </span>readout that states whether the
 computational predictors agree with the clinical classification and flags the cases where they do not.
 Throughout, the reference <span class='ecti-1095'>describes and aggregates </span>the existing evidence and never computes a
-classification of its own: the concordance readout is a quality-control signal for review, not
-a reclassification. Because the corpus is a deterministic function of BioBTree’s contents,
-every variant is presented at uniform breadth and, for a given snapshot, the whole corpus is
-reproducible and can be regenerated as the sources are re-ingested. Sugi Variant comprises
-3,961,230 variants across 18,799 genes, spanning pathogenic and likely-pathogenic, conflicting,
-uncertain-significance, and benign classifications, and including the non-coding and mitochondrial
-variants that many resources omit. Section <a href='#methods'>2<!-- tex4ht:ref: sec:methods  --></a> details the mining pipeline, Section <a href='#worked-examples'>3<!-- tex4ht:ref: sec:use-cases  --></a> presents
-example variant pages and the breadth of evidence they carry, and Figure <a href='#overview-of-sugi-variant-top-the-biobtree-biomedical-graph-integrating-more-than-eighty-primary-sources-grouped-here-into-the-domains-a-variant-page-draws-on-into-a-densely-crossreferenced-network-middle-the-deterministic-pipeline-which-identifies-the-germlinevariant-corpus-collects-each-variants-evidence-integrates-it-and-assesses-crosssource-concordance-renders-one-page-per-variant-validates-the-built-corpus-and-publishes-it-bottom-the-published-pervariant-reference-and-its-machinereadable-records'>1<!-- tex4ht:ref: fig:architecture  --></a> shows the overall
+classification of its own: the concordance readout is a quality-control signal for review, not a
+reclassification. Surfacing that disagreement as a visible signal, rather than resolving it into a
+new call, is a key part of the reference’s value: it directs a reviewer to the variants where
+clinical and computational evidence part ways. Because the reference is a deterministic
+function of BioBTree’s contents, every variant is presented at uniform breadth and, for a given
+snapshot, the reference is reproducible and stays current as the sources are re-ingested.
+Sugi Variant comprises 3,961,230 variants across 18,799 genes, spanning pathogenic and
+likely-pathogenic, conflicting, uncertain-significance, and benign classifications, and including
+non-coding and mitochondrial variants. Section <a href='#methods'>2<!-- tex4ht:ref: sec:methods  --></a> details the mining pipeline, Section <a href='#example-variants'>3<!-- tex4ht:ref: sec:use-cases  --></a> presents
+example variant views and the breadth of evidence they carry, and Figure <a href='#overview-of-sugi-variant-top-the-biobtree-knowledge-graph-integrating-more-than-eighty-primary-sources-grouped-here-into-the-domains-a-variant-view-draws-on-middle-the-deterministic-pipeline-which-identifies-the-germlinevariant-corpus-collects-each-variants-evidence-integrates-it-and-assesses-crosssource-concordance-renders-each-variants-consolidated-view-and-validates-the-result-before-it-is-made-openly-available-bottom-the-sugi-variant-reference-presenting-each-variants-consolidated-evidence-as-a-browsable-view-and-a-machinereadable-record-for-researchers-and-ai-agents'>1<!-- tex4ht:ref: fig:architecture  --></a> shows the overall
+                                                                                      
+                                                                                      
 design.
 </p>
-   <figure class='figure' id='x1-1009r1'><span id='overview-of-sugi-variant-top-the-biobtree-biomedical-graph-integrating-more-than-eighty-primary-sources-grouped-here-into-the-domains-a-variant-page-draws-on-into-a-densely-crossreferenced-network-middle-the-deterministic-pipeline-which-identifies-the-germlinevariant-corpus-collects-each-variants-evidence-integrates-it-and-assesses-crosssource-concordance-renders-one-page-per-variant-validates-the-built-corpus-and-publishes-it-bottom-the-published-pervariant-reference-and-its-machinereadable-records'></span> 
+   <figure class='figure' id='x1-1009r1'><span id='overview-of-sugi-variant-top-the-biobtree-knowledge-graph-integrating-more-than-eighty-primary-sources-grouped-here-into-the-domains-a-variant-view-draws-on-middle-the-deterministic-pipeline-which-identifies-the-germlinevariant-corpus-collects-each-variants-evidence-integrates-it-and-assesses-crosssource-concordance-renders-each-variants-consolidated-view-and-validates-the-result-before-it-is-made-openly-available-bottom-the-sugi-variant-reference-presenting-each-variants-consolidated-evidence-as-a-browsable-view-and-a-machinereadable-record-for-researchers-and-ai-agents'></span> 
 
                                                                                       
                                                                                       
 
                                                                                       
                                                                                       
-<!-- l. 83 --><p class='noindent'><img alt='[Picture]' src='main0x.svg' />
+<!-- l. 72 --><p class='noindent'><img alt='[Picture]' src='main0x.svg' />
 </p>
-<figcaption class='caption'><span class='id'>Figure 1: </span><span class='content'>Overview of Sugi Variant. <span class='ecbx-1095'>Top: </span>the BioBTree biomedical graph, integrating more
-than eighty primary sources (grouped here into the domains a variant page draws on) into
-a densely cross-referenced network. <span class='ecbx-1095'>Middle: </span>the deterministic pipeline, which identifies the
-germline-variant corpus, collects each variant’s evidence, integrates it and assesses cross-source
-concordance, renders one page per variant, validates the built corpus, and publishes it. <span class='ecbx-1095'>Bottom:</span>
-the published per-variant reference and its machine-readable records.</span></figcaption><!-- tex4ht:label?: x1-1009r1  -->
+<figcaption class='caption'><span class='id'>Figure 1: </span><span class='content'>Overview of Sugi Variant. <span class='ecbx-1095'>Top: </span>the BioBTree knowledge graph, integrating more
+than  eighty  primary  sources  (grouped  here  into  the  domains  a  variant  view  draws  on).
+<span class='ecbx-1095'>Middle: </span>the deterministic pipeline, which identifies the germline-variant corpus, collects each
+variant’s evidence, integrates it and assesses cross-source concordance, renders each variant’s
+consolidated view, and validates the result before it is made openly available. <span class='ecbx-1095'>Bottom: </span>the Sugi
+Variant reference, presenting each variant’s consolidated evidence as a browsable view and a
+machine-readable record for researchers and AI agents.</span></figcaption><!-- tex4ht:label?: x1-1009r1  -->
                                                                                       
                                                                                       
    </figure>
    
    <h3 class='sectionHead' id='methods'><span class='titlemark'>2   </span>   <a id='x1-20002'></a>Methods</h3>
 <!-- l. 8 --><p class='noindent'>Sugi Variant is built on the BioBTree knowledge graph [<a id='x1-2001'></a><a id='page.8'></a><a href='main.html#X0-biobtree'>8</a>], consuming it through its API. It traverses
-the graph by <span class='ecti-1095'>chain queries</span>, which follow cross-reference edges from a starting record through a
-sequence of datasets, optionally filtering at a step, and return the records reached. Each variant page is
-assembled by issuing a fixed plan of such queries from one resolved variant. Because the
-plan is fixed in advance rather than chosen at query time, every variant is traversed along
-the same chains and assembled the same way on each build, so coverage is uniform across
-the corpus and, for a given BioBTree snapshot, the build is reproducible. The pipeline
-(Figure <a href='#overview-of-sugi-variant-top-the-biobtree-biomedical-graph-integrating-more-than-eighty-primary-sources-grouped-here-into-the-domains-a-variant-page-draws-on-into-a-densely-crossreferenced-network-middle-the-deterministic-pipeline-which-identifies-the-germlinevariant-corpus-collects-each-variants-evidence-integrates-it-and-assesses-crosssource-concordance-renders-one-page-per-variant-validates-the-built-corpus-and-publishes-it-bottom-the-published-pervariant-reference-and-its-machinereadable-records'>1<!-- tex4ht:ref: fig:architecture  --></a>) identifies the corpus of variants, collects each variant’s evidence, integrates that
-evidence and assesses its cross-source concordance, renders each variant as a page, and
+the graph by <span class='ecti-1095'>chain queries</span>, which follow cross-reference links from a starting record through a
+sequence of datasets and return the records reached. Each variant view is assembled by issuing the
+same fixed plan of such queries from one resolved variant, so every variant is assembled the same way
+on each build, coverage is uniform across the corpus, and, for a given BioBTree snapshot, the
+build is reproducible. The pipeline (Figure <a href='#overview-of-sugi-variant-top-the-biobtree-knowledge-graph-integrating-more-than-eighty-primary-sources-grouped-here-into-the-domains-a-variant-view-draws-on-middle-the-deterministic-pipeline-which-identifies-the-germlinevariant-corpus-collects-each-variants-evidence-integrates-it-and-assesses-crosssource-concordance-renders-each-variants-consolidated-view-and-validates-the-result-before-it-is-made-openly-available-bottom-the-sugi-variant-reference-presenting-each-variants-consolidated-evidence-as-a-browsable-view-and-a-machinereadable-record-for-researchers-and-ai-agents'>1<!-- tex4ht:ref: fig:architecture  --></a>) identifies the corpus, collects each variant’s
+evidence, integrates it and assesses cross-source concordance, renders each variant’s view, and
 validates the result before publication; the following subsections describe these phases in
 turn.
    
 </p>
    <h4 class='subsectionHead' id='identify-corpus'><span class='titlemark'>2.1   </span>   <a id='x1-30002.1'></a>Identify corpus</h4>
-<!-- l. 23 --><p class='noindent'>Sugi Variant covers germline human variants that carry a ClinVar clinical classification. ClinVar records
+<!-- l. 21 --><p class='noindent'>Sugi Variant covers germline human variants that carry a ClinVar clinical classification. ClinVar records
 several distinct classifications for a variant, and some variants carry, in addition to a germline
 classification, a somatic clinical-impact or oncogenicity classification asserted for tumours; Sugi Variant
-reads only the <span class='ecti-1095'>germline </span>classification and its asserted condition, so a variant that carries only a
-somatic classification is not included. The corpus is enumerated per gene: for each gene, the pipeline
-lists its ClinVar variants through the graph and admits those whose germline classification is
-pathogenic, likely-pathogenic, pathogenic/likely-pathogenic, of uncertain significance, conflicting
-(ClinVar’s “conflicting classifications of pathogenicity”), benign, likely-benign, or benign/likely-benign.
-This enumeration is not restricted to protein-coding missense variants: non-coding RNA and
+reads only the <span class='ecti-1095'>germline </span>classification and its asserted condition, so a variant that carries
+only a somatic classification is not included: those somatic classifications sit on a different
+axis, graded for oncogenicity or clinical-impact tier rather than germline pathogenicity, and
+rest on evidence the germline-calibrated concordance readout would not interpret in the
+same terms. The corpus is enumerated per gene: for each gene, the pipeline lists its ClinVar
+variants through the graph and admits those carrying any of ClinVar’s germline classification
+categories, from pathogenic through uncertain and conflicting to benign (Table <a href='#corpus-composition-by-germline-classification-shares-are-rounded-to-one-decimal-place-and-do-not-sum-to-100'>1<!-- tex4ht:ref: tab:corpus  --></a>). This
+enumeration is not restricted to protein-coding missense variants: non-coding RNA and
 mitochondrial variants are admitted on the same basis wherever they carry a germline
 classification.
-</p><!-- l. 37 --><p class='indent'>   Together these admit 3,961,230 variants across 18,799 genes (Table <a href='#corpus-composition-by-germline-classification-shares-are-rounded-to-one-decimal-place-and-do-not-sum-to-100'>1<!-- tex4ht:ref: tab:corpus  --></a>), of which the majority are of
-uncertain significance, including 1,526 non-coding-RNA variants (those whose HGVS is expressed in
-the non-coding <span class='ectt-1095'>n. </span>nucleotide form) and 3,077 mitochondrial (<span class='ectt-1095'>m.</span>) variants that many resources
-omit.
+</p><!-- l. 37 --><p class='indent'>   Together these admit 3,961,230 variants across 18,799 genes (Table <a href='#corpus-composition-by-germline-classification-shares-are-rounded-to-one-decimal-place-and-do-not-sum-to-100'>1<!-- tex4ht:ref: tab:corpus  --></a>), the majority of uncertain
+significance. Of the full corpus, 1,526 are non-coding-RNA variants (named in the non-coding <span class='ectt-1095'>n. </span>form
+of HGVS, the sequence-variant nomenclature) and 3,077 are mitochondrial (<span class='ectt-1095'>m.</span>) variants, classes many
+per-protein resources omit.
 </p>
    <div class='table'>
                                                                                       
@@ -186,7 +171,7 @@ and do not sum to 100%.</span></figcaption><!-- tex4ht:label?: x1-3001r1  -->
 </tr><tr id='TBL-1-4-' style='vertical-align:baseline;'><td class='td11' id='TBL-1-4-1' style='white-space:normal; text-align:left;'> Uncertain significance              </td><td class='td11' id='TBL-1-4-2' style='white-space:normal; text-align:right;'> 2,236,650  </td><td class='td11' id='TBL-1-4-3' style='white-space:normal; text-align:right;'> 56.5%  </td>
 </tr><tr id='TBL-1-5-' style='vertical-align:baseline;'><td class='td11' id='TBL-1-5-1' style='white-space:normal; text-align:left;'> Benign / Likely benign            </td><td class='td11' id='TBL-1-5-2' style='white-space:normal; text-align:right;'> 1,257,709  </td><td class='td11' id='TBL-1-5-3' style='white-space:normal; text-align:right;'> 31.8%  </td>
 
-</tr><tr id='TBL-1-6-' style='vertical-align:baseline;'><td class='td11' id='TBL-1-6-1' style='white-space:normal; text-align:left;'> Total                                    </td><td class='td11' id='TBL-1-6-2' style='white-space:normal; text-align:right;'> 3,961,230  </td><td class='td11' id='TBL-1-6-3' style='white-space:normal; text-align:right;'>     —  </td>
+</tr><tr id='TBL-1-6-' style='vertical-align:baseline;'><td class='td11' id='TBL-1-6-1' style='white-space:normal; text-align:left;'> Total                                    </td><td class='td11' id='TBL-1-6-2' style='white-space:normal; text-align:right;'> 3,961,230  </td><td class='td11' id='TBL-1-6-3' style='white-space:normal; text-align:right;'>      –  </td>
 
 </tr></table>                                                     </div>
                                                                                       
@@ -196,36 +181,30 @@ and do not sum to 100%.</span></figcaption><!-- tex4ht:label?: x1-3001r1  -->
    
    <h4 class='subsectionHead' id='collect-content'><span class='titlemark'>2.2   </span>   <a id='x1-40002.2'></a>Collect content</h4>
 <!-- l. 64 --><p class='noindent'>Each admitted variant is first resolved to a single canonical ClinVar record, the anchor, which every
-section of its page then shares. From this anchor, a fixed plan of chain queries assembles the
-variant’s evidence (Figure <a href='#mining-one-variant-page-each-leaf-is-a-biobtree-dataset-the-page-queries-fanned-from-the-resolved-clinvar-anchor-here-the-tp53-variant-parg175his-through-the-intermediate-keys-the-variant-resolves-to-the-condition-mondo-and-thence-orphanet-and-hpo-for-inheritance-and-phenotype-and-patient-resources-and-trials-the-genomic-coordinate-gnomad-population-frequency-sequence-conservation-and-spliceai-the-gene-gnomad-constraint-clingen-dosage-gencc-genedisease-validity-and-reactome-mechanism-pathways-and-the-protein-change-alphamissense-revel-saprot-and-the-reviewed-structure-the-clingen-expertpanel-curation-and-the-dbsnp-crossreference-are-reached-directly-from-the-clinvar-record-the-righthand-column-shows-how-those-data-assemble-into-the-sections-of-the-page-alphamissense-carries-the-calibrated-acmg-weight-with-revel-saprot-and-conservation-shown-as-agreement-signals-rather-than-additive-votes-and-spliceai-as-a-splice-read-so-the-insilico-concordance-of-sectionref-secmethodsconcordance-is-a-descriptive-qualitycontrol-read-and-the-variant-is-flagged-for-review-when-the-evidence-disagrees-colours-group-the-datasets-by-evidence-type-as-in-figureref-figarchitecture'>2<!-- tex4ht:ref: fig:mining  --></a>), each value read directly from its source dataset rather than
-reconstructed: from ClinVar, the germline classification, the review status and submitter count,
-and the asserted condition, carried through to its Mondo [<a id='x1-4001'></a><a id='page.11'></a><a href='main.html#X0-vasilevsky_mondo_2022'>9</a>] and Orphanet [<a id='x1-4002'></a><a href='main.html#X0-maiella_orphanet_2013'>10</a>] terms;
-from gnomAD, the population allele frequency, the grouped-population maximum, and
-the gene-level constraint; and, for the amino-acid change, the computational predictors
+section of its view then shares. From this anchor, a fixed plan of chain queries assembles the variant’s
+evidence (Figure <a href='#mining-one-variant-view-each-leaf-is-a-biobtree-dataset-the-view-queries-fanned-from-the-resolved-clinvar-anchor-here-the-tp53-variant-parg175his-through-the-intermediate-keys-the-variant-resolves-to-the-condition-mondo-and-thence-orphanet-and-hpo-for-inheritance-and-phenotype-and-patient-resources-and-trials-the-genomic-coordinate-gnomad-population-frequency-sequence-conservation-and-spliceai-the-gene-gnomad-constraint-clingen-dosage-gencc-genedisease-validity-and-reactome-mechanism-pathways-and-the-protein-change-alphamissense-revel-saprot-and-the-reviewed-structure-the-clingen-expertpanel-curation-and-the-dbsnp-crossreference-are-reached-directly-from-the-clinvar-record-the-righthand-column-shows-how-those-data-assemble-into-the-sections-of-the-view-alphamissense-carries-the-calibrated-acmg-weight-with-revel-saprot-and-conservation-shown-as-agreement-signals-rather-than-additive-votes-and-spliceai-as-a-splice-read-so-the-insilico-concordance-of-sectionref-secmethodsconcordance-is-a-descriptive-qualitycontrol-read-and-the-variant-is-flagged-for-review-when-the-evidence-disagrees-colours-group-the-datasets-by-evidence-type-as-in-figureref-figarchitecture'>2<!-- tex4ht:ref: fig:mining  --></a>), each value read directly from its source dataset rather than reconstructed: from
+ClinVar, the germline classification, the review status and submitter count, and the asserted
+condition, carried through to its Mondo [<a id='x1-4001'></a><a id='page.11'></a><a href='main.html#X0-vasilevsky_mondo_2022'>9</a>] and Orphanet [<a id='x1-4002'></a><a href='main.html#X0-maiella_orphanet_2013'>10</a>] terms; from gnomAD, the global
+allele frequency, the grouped-population maximum (grpmax), and the gene-level constraint
+(such as LOEUF and pLI); and, for the amino-acid change, the computational predictors
 AlphaMissense [<a id='x1-4003'></a><a href='main.html#X0-cheng_alphamissense_2023'>11</a>], REVEL [<a id='x1-4004'></a><a href='main.html#X0-ioannidis_revel_2016'>12</a>], and SaProt [<a id='x1-4005'></a><a href='main.html#X0-su_saprot_2024'>13</a>], together with sequence conservation [<a id='x1-4006'></a><a href='main.html#X0-pollard_phylop_2010'>14</a><a id='x1-4007'></a>, <a href='main.html#X0-davydov_gerp_2010'>15</a>] and,
-for splice-region variants, SpliceAI [<a id='x1-4008'></a><a href='main.html#X0-jaganathan_spliceai_2019'>16</a>]. Where ClinGen variant curation expert panels [<a id='x1-4009'></a><a href='main.html#X0-rehm_clingen_2015'>17</a>]
+for splice-region variants, SpliceAI [<a id='x1-4008'></a><a href='main.html#X0-jaganathan_spliceai_2019'>16</a>]. Where ClinGen variant curation expert panels (VCEPs) [<a id='x1-4009'></a><a href='main.html#X0-rehm_clingen_2015'>17</a>]
 have recorded a curation, the ACMG/AMP evidence criteria they applied are collected
 verbatim. A variant that resolves to nothing is recorded and skipped rather than aborting the
 build.
-</p><!-- l. 81 --><p class='indent'>   The evidence types differ in how many variants they apply to. Table <a href='#perevidencetype-coverage-measured-as-the-fraction-of-variants-carrying-each-evidence-type-on-a-representative-random-sample-of-2500-variants-clinvar-classification-is-100-by-construction-spliceai-is-measured-against-the-pergene-splice-cache-the-missense-predictors-apply-to-missense-substitutions-conservation-is-positionbased-spliceai-annotates-splicerelevant-positions-with-a-delta-score-02-and-the-clingen-criteria-are-present-only-where-an-expert-panel-has-recorded-a-curation'>2<!-- tex4ht:ref: tab:coverage  --></a> reports, for a representative
-random sample of the corpus, the fraction of variants that carry each type. Every variant carries the
-ClinVar germline classification by construction, and sequence conservation, being position-based, is
-available for almost all. The missense predictors (AlphaMissense, REVEL, and SaProt)
-apply only to missense substitutions and so reach roughly half the corpus; a gnomAD allele
-frequency is present for the variants observed in the population database, the remainder
-being absent and therefore rare; an asserted Mondo disease term is recorded for just under
-half; SpliceAI annotates only splice-relevant positions and so applies to a small fraction;
-and the ClinGen ACMG/AMP criteria exist only for the small, expert-curated subset a
-variant curation expert panel has reviewed. This unevenness is intrinsic to the evidence
-rather than a gap in the pipeline, and it is greatest exactly on the uncertain, non-coding,
-and mitochondrial variants where the missense predictors fall silent, which is where an
-integrated view that still carries conservation, frequency, and condition evidence is most
-useful.
+</p><!-- l. 81 --><p class='indent'>   The evidence types differ in how many variants they apply to (Table <a href='#perevidencetype-coverage-measured-as-the-fraction-of-variants-carrying-each-evidence-type-on-a-representative-random-sample-of-2500-variants-clinvar-classification-is-100-by-construction-spliceai-is-measured-against-the-pergene-splice-cache-the-missense-predictors-apply-to-missense-substitutions-conservation-is-positionbased-spliceai-annotates-splicerelevant-positions-with-a-delta-score-02-and-the-clingen-criteria-are-present-only-where-an-expert-panel-has-recorded-a-curation'>2<!-- tex4ht:ref: tab:coverage  --></a>, on a representative random
+sample). Position-based conservation reaches almost every variant; the missense predictors, scoring
+only amino-acid substitutions, reach about half; a gnomAD allele frequency is present only for variants
+observed in that database, absent for the many ClinVar variants that are private or novel alleles; and
+the ClinGen ACMG/AMP criteria exist only for the small, expert-curated subset a panel has reviewed.
+This unevenness is intrinsic to the evidence rather than a gap in the pipeline, and it is greatest on
+the uncertain, non-coding, and mitochondrial variants where the missense predictors fall
+silent.
 </p>
    <div class='table'>
                                                                                       
                                                                                       
-<!-- l. 97 --><p class='indent' id='perevidencetype-coverage-measured-as-the-fraction-of-variants-carrying-each-evidence-type-on-a-representative-random-sample-of-2500-variants-clinvar-classification-is-100-by-construction-spliceai-is-measured-against-the-pergene-splice-cache-the-missense-predictors-apply-to-missense-substitutions-conservation-is-positionbased-spliceai-annotates-splicerelevant-positions-with-a-delta-score-02-and-the-clingen-criteria-are-present-only-where-an-expert-panel-has-recorded-a-curation'>   <a id='x1-4010r2'></a></p><figure class='float'>
+<!-- l. 91 --><p class='indent' id='perevidencetype-coverage-measured-as-the-fraction-of-variants-carrying-each-evidence-type-on-a-representative-random-sample-of-2500-variants-clinvar-classification-is-100-by-construction-spliceai-is-measured-against-the-pergene-splice-cache-the-missense-predictors-apply-to-missense-substitutions-conservation-is-positionbased-spliceai-annotates-splicerelevant-positions-with-a-delta-score-02-and-the-clingen-criteria-are-present-only-where-an-expert-panel-has-recorded-a-curation'>   <a id='x1-4010r2'></a></p><figure class='float'>
                                                                                       
                                                                                       
 <figcaption class='caption'><span class='id'>Table 2:  </span><span class='content'>Per-evidence-type  coverage,  measured  as  the  fraction  of  variants  carrying  each
@@ -253,79 +232,67 @@ where an expert panel has recorded a curation.</span></figcaption><!-- tex4ht:la
    </div>
    
    <h4 class='subsectionHead' id='integrate-evidence-and-assess-concordance'><span class='titlemark'>2.3   </span>   <a id='x1-50002.3'></a>Integrate evidence and assess concordance</h4>
-<!-- l. 127 --><p class='noindent'>The distinguishing step assembles the collected evidence into a single readout and states
-whether its independent lines agree. Throughout, Sugi Variant follows the ClinGen Sequence
-Variant Interpretation framework [<a id='x1-5001'></a><a id='page.14'></a><a href='main.html#X0-pejaver_calibration_2022'>18</a>] and <span class='ecti-1095'>describes </span>the evidence rather than computing a
-classification of its own; the concordance readout is a quality-control signal for review, not a
-reclassification.
-</p><!-- l. 133 --><p class='indent'>   Computational predictors are treated as this framework prescribes rather than summed. Because
-in-silico predictors are not independent, exactly one calibrated tool is read as carrying evidence weight
-for a variant: AlphaMissense for a missense change, and, for a non-missense change where the missense
-predictors do not apply, sequence conservation. The remaining predictors (REVEL and SaProt on
-missense, conservation as a check) are presented as agreement signals that either concur with or dissent
-from that calibrated call, never as additive votes; SaProt, an unsupervised structure-aware protein
-language model, is included specifically because it is independent of the ClinVar and HGMD-derived
-labels that a supervised ensemble such as REVEL is trained on. Its damaging/tolerated
-read is set at a threshold calibrated against ClinVar: the model is thus independent of
-ClinVar labels, while this display threshold is not, and because the threshold was fit on an
-unsplit sample its reported operating characteristics should be read as optimistic. Population
-rarity is shown but not counted as concordant evidence, and condition names are carried
-verbatim.
-</p><!-- l. 147 --><p class='indent'>   From these signals the page presents an explicit concordance readout, and, where the
-independent lines disagree, labels the disagreement into a small set of quality-control categories: a
-pathogenic classification against which the calibrated predictor leans benign; a conflicting
-classification on which the independent predictors instead agree; a conflicting classification resolved
-by a loss-of-function signal; a split among the predictors themselves; and, for a variant of
-uncertain significance, a unanimous predictor lean. These are surfaced as flags for review;
-consistent with the describe-not-reclassify principle, none of them changes the recorded
+<!-- l. 121 --><p class='noindent'>The integration step assembles the collected evidence into a single readout and states whether its
+independent lines agree. Throughout, Sugi Variant follows the ClinGen Sequence Variant
+Interpretation framework [<a id='x1-5001'></a><a id='page.14'></a><a href='main.html#X0-pejaver_calibration_2022'>18</a>] and <span class='ecti-1095'>describes </span>the evidence rather than computing a classification of its
+own; the concordance readout is a quality-control signal for review, not a reclassification.
+</p><!-- l. 127 --><p class='indent'>   Because these predictors are not independent, the readout does not sum them. One calibrated
+predictor carries the evidence weight, AlphaMissense for a missense change and sequence conservation
+otherwise, and the rest are shown as agreement signals that concur or dissent, never as
+additive votes. SaProt, a structure-aware protein language model, is included because, unlike a
+ClinVar-trained ensemble such as REVEL, it does not learn from ClinVar labels, so its agreement is
+genuinely independent. Population rarity is shown for context but not counted as concordant
+evidence.
+</p><!-- l. 135 --><p class='indent'>   From these signals the view presents an explicit concordance readout and, where the independent
+lines disagree, labels the disagreement into a small set of quality-control categories, for example a
+pathogenic classification the calibrated predictor leans against, or a unanimous predictor lean on a
+variant of uncertain significance. These are surfaced as flags for review; none changes the recorded
 classification.
    
 </p>
-   <h4 class='subsectionHead' id='render-pages'><span class='titlemark'>2.4   </span>   <a id='x1-60002.4'></a>Render pages</h4>
-<!-- l. 158 --><p class='noindent'>Every variant page presents the same canonical sequence of sections in a fixed order, each under a
-stable anchor identifier; a section for which no data resolves is shown as an explicit “no data” state
-rather than omitted, so that every page has identical structure and a deep link to any section
-resolves on every variant. Beyond its sections, each page carries a one-sentence description
-and a short list of headline facts, both composed by template from the collected values.
-Every element of a page is produced in this way, by deterministic composition from the
-record’s data; no part of a page is generated by a language model. Each page is written
-as a Markdown document with a machine-readable metadata header and a schema.org
-record, so that programmatic consumers, including AI agents, can read the same content the
-page presents. To make each variant addressable by the identifiers people actually use, a
-resolution index maps a variant’s HGVS expressions, rsID, genomic coordinate, and canonical
-page slug to its ClinVar record, so that a query in any of these forms resolves to the same
-page.
+   <h4 class='subsectionHead' id='render-the-variant-view'><span class='titlemark'>2.4   </span>   <a id='x1-60002.4'></a>Render the variant view</h4>
+<!-- l. 143 --><p class='noindent'>Every variant is presented through the same canonical sequence of sections in a fixed order, each under
+a stable anchor identifier; a section for which no data resolves is shown as an explicit “no data” state
+rather than omitted, so that every variant has identical structure and a deep link to any section
+resolves for every variant. Beyond its sections, each view carries a one-sentence description and a short
+list of headline facts, both composed by template from the collected values. Every element is produced
+in this way, by deterministic composition from the record’s data; no part is generated by a language
+model. Each view is emitted as a Markdown document with a machine-readable metadata header and
+a schema.org record, so that programmatic consumers, including AI agents, read the same
+content it presents. To make each variant addressable by the identifiers people actually use, a
+resolution index maps its HGVS expressions, rsID (dbSNP identifier), genomic coordinate, and
+canonical slug to its ClinVar record, so that a query in any of these forms resolves to the same
+variant.
    
-                                                                                      
-                                                                                      
 </p>
    <h4 class='subsectionHead' id='validate-and-publish'><span class='titlemark'>2.5   </span>   <a id='x1-70002.5'></a>Validate and publish</h4>
-<!-- l. 174 --><p class='noindent'>Validation is layered, and begins upstream: BioBTree re-runs over a thousand test cases on every
-release to check the integrity of the underlying data and its cross-references [<a id='x1-7001'></a><a id='page.15'></a><a href='main.html#X0-biobtree'>8</a>]. On top of that,
-Sugi Variant is checked by a deterministic regression suite that samples variants stratified
-across variant type and classification, and, for each, verifies a set of invariants: that the
-page resolves and renders, that the displayed classification and review status match an
-independent query of the ClinVar summary service, that no missense predictor is shown for a
-variant type it does not score (for example, that a non-coding variant carries no protein
-constraint), and that a variant of uncertain or benign significance is described without
-pathogenic framing. The suite additionally carries a set of canonical variants whose facts are
-known independently of the pipeline, and a set of negative controls confirming that the
-checks fail on deliberately corrupted pages, so that a passing run is evidence the checks have
-force rather than that nothing was tested. Because the corpus is a deterministic function of
-BioBTree’s contents, the validated reference is regenerated in full as BioBTree re-ingests
-its sources, so its currency tracks the underlying databases rather than a manual release
+<!-- l. 159 --><p class='noindent'>Validation is layered, and begins upstream: BioBTree re-runs over a thousand test cases on every
+release to check the integrity of the underlying data and its cross-references [<a id='x1-7001'></a><a href='main.html#X0-biobtree'>8</a>]. On top of that, Sugi
+Variant is checked by a deterministic regression suite that samples variants stratified across variant
+type and classification, and, for each, verifies a set of invariants: that the variant view resolves and
+renders, that the displayed classification and review status match an independent query of the ClinVar
+summary service, that no missense predictor is shown for a variant type it does not score (for
+example, that a non-coding variant carries no protein constraint), and that a variant of
+                                                                                      
+                                                                                      
+uncertain or benign significance is described without pathogenic framing. The suite additionally
+carries a set of canonical variants whose facts are known independently of the pipeline,
+and a set of negative controls confirming that the checks fail on deliberately corrupted
+views, so that a passing run is evidence the checks have force rather than that nothing was
+tested. Because the reference is a deterministic function of BioBTree’s contents, it tracks the
+underlying databases as BioBTree re-ingests its sources, rather than following a manual release
 cycle.
 </p>
-   <figure class='figure' id='x1-7002r2'><span id='mining-one-variant-page-each-leaf-is-a-biobtree-dataset-the-page-queries-fanned-from-the-resolved-clinvar-anchor-here-the-tp53-variant-parg175his-through-the-intermediate-keys-the-variant-resolves-to-the-condition-mondo-and-thence-orphanet-and-hpo-for-inheritance-and-phenotype-and-patient-resources-and-trials-the-genomic-coordinate-gnomad-population-frequency-sequence-conservation-and-spliceai-the-gene-gnomad-constraint-clingen-dosage-gencc-genedisease-validity-and-reactome-mechanism-pathways-and-the-protein-change-alphamissense-revel-saprot-and-the-reviewed-structure-the-clingen-expertpanel-curation-and-the-dbsnp-crossreference-are-reached-directly-from-the-clinvar-record-the-righthand-column-shows-how-those-data-assemble-into-the-sections-of-the-page-alphamissense-carries-the-calibrated-acmg-weight-with-revel-saprot-and-conservation-shown-as-agreement-signals-rather-than-additive-votes-and-spliceai-as-a-splice-read-so-the-insilico-concordance-of-sectionref-secmethodsconcordance-is-a-descriptive-qualitycontrol-read-and-the-variant-is-flagged-for-review-when-the-evidence-disagrees-colours-group-the-datasets-by-evidence-type-as-in-figureref-figarchitecture'></span> 
+   <figure class='figure' id='x1-7002r2'><span id='mining-one-variant-view-each-leaf-is-a-biobtree-dataset-the-view-queries-fanned-from-the-resolved-clinvar-anchor-here-the-tp53-variant-parg175his-through-the-intermediate-keys-the-variant-resolves-to-the-condition-mondo-and-thence-orphanet-and-hpo-for-inheritance-and-phenotype-and-patient-resources-and-trials-the-genomic-coordinate-gnomad-population-frequency-sequence-conservation-and-spliceai-the-gene-gnomad-constraint-clingen-dosage-gencc-genedisease-validity-and-reactome-mechanism-pathways-and-the-protein-change-alphamissense-revel-saprot-and-the-reviewed-structure-the-clingen-expertpanel-curation-and-the-dbsnp-crossreference-are-reached-directly-from-the-clinvar-record-the-righthand-column-shows-how-those-data-assemble-into-the-sections-of-the-view-alphamissense-carries-the-calibrated-acmg-weight-with-revel-saprot-and-conservation-shown-as-agreement-signals-rather-than-additive-votes-and-spliceai-as-a-splice-read-so-the-insilico-concordance-of-sectionref-secmethodsconcordance-is-a-descriptive-qualitycontrol-read-and-the-variant-is-flagged-for-review-when-the-evidence-disagrees-colours-group-the-datasets-by-evidence-type-as-in-figureref-figarchitecture'></span> 
 
                                                                                       
                                                                                       
 
                                                                                       
                                                                                       
-<!-- l. 194 --><p class='noindent'> <img alt='[Picture]' src='main1x.svg' />
+<!-- l. 179 --><p class='noindent'> <img alt='[Picture]' src='main1x.svg' />
 </p>
-<figcaption class='caption'><span class='id'>Figure 2: </span><span class='content'><span class='ecbx-1095'>Mining one variant page. </span>Each leaf is a BioBTree dataset the page queries, fanned
+<figcaption class='caption'><span class='id'>Figure 2: </span><span class='content'><span class='ecbx-1095'>Mining one variant view. </span>Each leaf is a BioBTree dataset the view queries, fanned
 from the resolved ClinVar anchor (here the TP53 variant p.Arg175His) through the intermediate
 keys the variant resolves to: the <span class='ecti-1095'>condition </span>(Mondo, and thence Orphanet and HPO for inheritance
 and phenotype, and patient resources and trials); the <span class='ecti-1095'>genomic coordinate </span>(gnomAD population
@@ -333,177 +300,167 @@ frequency, sequence conservation, and SpliceAI); the <span class='ecti-1095'>gen
 GenCC gene–disease validity, and Reactome mechanism pathways); and the <span class='ecti-1095'>protein  </span>change
 (AlphaMissense,  REVEL,  SaProt,  and  the  reviewed  structure).  The  ClinGen  expert-panel
 curation  and  the  dbSNP  cross-reference  are  reached  directly  from  the  ClinVar  record.  The
-right-hand column shows how those data assemble into the sections of the page. AlphaMissense
+right-hand column shows how those data assemble into the sections of the view. AlphaMissense
 carries the calibrated ACMG weight, with REVEL, SaProt, and conservation shown as agreement
 signals rather than additive votes and SpliceAI as a splice read, so the in-silico concordance of
 Section <a href='#integrate-evidence-and-assess-concordance'>2.3<!-- tex4ht:ref: sec:methods-concordance  --></a> is a descriptive quality-control read, and the variant is flagged for review when the
-evidence disagrees. Colours group the datasets by evidence type, as in Figure <a href='#overview-of-sugi-variant-top-the-biobtree-biomedical-graph-integrating-more-than-eighty-primary-sources-grouped-here-into-the-domains-a-variant-page-draws-on-into-a-densely-crossreferenced-network-middle-the-deterministic-pipeline-which-identifies-the-germlinevariant-corpus-collects-each-variants-evidence-integrates-it-and-assesses-crosssource-concordance-renders-one-page-per-variant-validates-the-built-corpus-and-publishes-it-bottom-the-published-pervariant-reference-and-its-machinereadable-records'>1<!-- tex4ht:ref: fig:architecture  --></a>.</span></figcaption><!-- tex4ht:label?: x1-7002r2  -->
+evidence disagrees. Colours group the datasets by evidence type, as in Figure <a href='#overview-of-sugi-variant-top-the-biobtree-knowledge-graph-integrating-more-than-eighty-primary-sources-grouped-here-into-the-domains-a-variant-view-draws-on-middle-the-deterministic-pipeline-which-identifies-the-germlinevariant-corpus-collects-each-variants-evidence-integrates-it-and-assesses-crosssource-concordance-renders-each-variants-consolidated-view-and-validates-the-result-before-it-is-made-openly-available-bottom-the-sugi-variant-reference-presenting-each-variants-consolidated-evidence-as-a-browsable-view-and-a-machinereadable-record-for-researchers-and-ai-agents'>1<!-- tex4ht:ref: fig:architecture  --></a>.</span></figcaption><!-- tex4ht:label?: x1-7002r2  -->
                                                                                       
                                                                                       
    </figure>
    
-   <h3 class='sectionHead' id='worked-examples'><span class='titlemark'>3   </span>   <a id='x1-80003'></a>Worked examples</h3>
+   <h3 class='sectionHead' id='example-variants'><span class='titlemark'>3   </span>   <a id='x1-80003'></a>Example variants</h3>
 <!-- l. 8 --><p class='noindent'>We illustrate the reference through four variants chosen to span its breadth and the concordance
-readout that is its distinguishing feature: a variant on which every line of evidence agrees, one on which
-they do not, and two from classes many resources omit. Every variant follows the same page contract;
-these are representative slices, not special cases.
+readout central to it: a variant on which every line of evidence agrees, one on which they do not, and
+two from classes many resources omit. Every variant follows the same contract; these are representative
+slices, not special cases.
    
 </p>
    <h4 class='subsectionHead' id='a-concordant-variant-tp53-parg175his'><span class='titlemark'>3.1   </span>   <a id='x1-90003.1'></a>A concordant variant: TP53 p.Arg175His</h4>
-<!-- l. 17 --><p class='noindent'>The page for the TP53 missense variant p.Arg175His opens with a deterministic lead composed from
+<!-- l. 17 --><p class='noindent'>The view for the TP53 missense variant p.Arg175His opens with a deterministic lead composed from
 the collected fields, and its at-a-glance figures are read directly from the source: it is classified
 Pathogenic, reviewed by an expert panel (a three-star review status), and asserted for Li-Fraumeni
-syndrome, and it is very rare in the population (a gnomAD grouped-population maximum frequency of
+syndrome, and it is very rare in the population (a gnomAD grouped-population maximum, grpmax, of
 <span class='cmr-10x-x-109'>1</span><span class='cmmi-10x-x-109'>.</span><span class='cmr-10x-x-109'>5 </span><span class='cmsy-10x-x-109'>× </span><span class='cmr-10x-x-109'>10</span><sup><span class='cmsy-8'>−</span><span class='cmr-8'>5</span></sup>). The computational evidence is presented as Section <a href='#integrate-evidence-and-assess-concordance'>2.3<!-- tex4ht:ref: sec:methods-concordance  --></a> prescribes: AlphaMissense, the
 calibrated missense predictor, calls the variant likely-pathogenic (0.986), and REVEL (0.922) and
 SaProt (a log-likelihood ratio of <span class='cmsy-10x-x-109'>−</span><span class='cmr-10x-x-109'>15</span><span class='cmmi-10x-x-109'>.</span><span class='cmr-10x-x-109'>6</span>) are shown as concurring agreement signals rather than
-additional votes; all three lean damaging, concordant with the pathogenic classification. The page
+additional votes; all three lean damaging, concordant with the pathogenic classification. The view
 also carries, verbatim, the ACMG/AMP criteria the ClinGen TP53 expert panel applied
-(PM2_Supporting, PP1_Moderate, PS3, PS4_Moderate, PM1, and PP3). This is the common case: a
-well-studied variant on which clinical, population, and computational evidence agree, assembled in one
-place.
+(PM2_Supporting, PP1_Moderate, PS3, PS4_Moderate, PM1, and PP3). This is the common case:
+a well-studied variant on which clinical, population, and computational evidence agree,
+assembled in one place, and the concordance readout confirms the alignment and raises no
+flag.
    
 </p>
    <h4 class='subsectionHead' id='a-variant-of-uncertain-significance-with-a-discordance-flag-pten-ppro38ser'><span class='titlemark'>3.2   </span>   <a id='x1-100003.2'></a>A variant of uncertain significance with a discordance flag: PTEN p.Pro38Ser</h4>
-<!-- l. 34 --><p class='noindent'>The PTEN missense variant p.Pro38Ser is the case the concordance readout is built for. It is
+<!-- l. 35 --><p class='noindent'>The PTEN missense variant p.Pro38Ser is the case the concordance readout is built for. It is
 classified as of uncertain significance, and, as with the TP53 example, that classification is
 an expert-panel one: the ClinGen PTEN expert panel recorded it as uncertain, applying
 PM2_Supporting, PS3_Moderate, PP2, and PP3. The variant is absent from gnomAD. Yet all
 three computational predictors lean damaging: AlphaMissense (0.9998) and REVEL (0.957)
 strongly, and SaProt (log-likelihood ratio <span class='cmsy-10x-x-109'>−</span><span class='cmr-10x-x-109'>10</span><span class='cmmi-10x-x-109'>.</span><span class='cmr-10x-x-109'>3</span>) only narrowly, just past its calibrated
 damaging threshold of <span class='cmsy-10x-x-109'>−</span><span class='cmr-10x-x-109'>10</span><span class='cmmi-10x-x-109'>.</span><span class='cmr-10x-x-109'>0</span>, so its contribution to the unanimous lean is marginal. The
-page holds the recorded uncertain classification unchanged and surfaces this tension as a
+view holds the recorded uncertain classification unchanged and surfaces this tension as a
 quality-control flag: the computational predictors unanimously lean damaging on a variant the
-clinical record leaves uncertain, a signal for review, not a reclassification. The distinction
-is the point. The expert panel held the variant at uncertain <span class='ecti-1095'>despite </span>the predictor lean,
-because the evidence a panel weighs (the strength of functional data, gene-specific criteria) is
-not captured by predictor scores alone; Sugi Variant therefore makes the disagreement
-visible without overriding either line of evidence, so that a reviewer can see, in one place,
-both that the panel’s call is uncertain and that the independent computational evidence is
-not.
+clinical record leaves uncertain, a signal for review, not a reclassification. The view makes
+the disagreement visible in one place without overriding either line of evidence; Section <a href='#discussion'>4<!-- tex4ht:ref: sec:discussion  --></a>
+discusses why a panel may hold such a variant uncertain despite a unanimous predictor
+lean.
    
-                                                                                      
-                                                                                      
 </p>
+                                                                                      
+                                                                                      
    <h4 class='subsectionHead' id='variants-outside-the-missense-predictors-scope-mttl1-m3243ag-and-rmrp-n72ag'><span class='titlemark'>3.3   </span>   <a id='x1-110003.3'></a>Variants outside the missense predictors’ scope: MT-TL1 m.3243A<span class='cmmi-10x-x-109'>&gt;</span>G and RMRP
 n.72A<span class='cmmi-10x-x-109'>&gt;</span>G</h4>
-<!-- l. 56 --><p class='noindent'>A large class of clinically important variants cannot be scored by the missense-predictor stack at all,
-and Sugi Variant carries them on the same page contract rather than omitting them. The
-mitochondrial variant m.3243A<span class='cmmi-10x-x-109'>&gt;</span>G in <span class='ecti-1095'>MT-TL1</span>, classified Pathogenic by the ClinGen Mitochondrial
-Diseases expert panel and asserted for mitochondrial disease, lies in a mitochondrial transfer-RNA
-gene; its page presents the clinical and population evidence, the expert-panel criteria (PM6_Strong,
-PP1_Moderate, PS4, and PP3), and the mitochondrial mode of inheritance, with the missense
-predictors marked as inapplicable rather than left blank. The non-coding-RNA variant n.72A<span class='cmmi-10x-x-109'>&gt;</span>G in
-<span class='ecti-1095'>RMRP</span>, classified pathogenic/likely-pathogenic and asserted for anauxetic dysplasia, is similarly
-outside the predictors’ scope; its page presents classification, condition, and population
+<!-- l. 54 --><p class='noindent'>A large class of clinically important variants cannot be scored by the missense-predictor stack at all,
+and Sugi Variant carries them on the same contract rather than omitting them. The mitochondrial
+variant m.3243A<span class='cmmi-10x-x-109'>&gt;</span>G in <span class='ecti-1095'>MT-TL1</span>, classified Pathogenic by the ClinGen Mitochondrial Diseases expert
+panel and asserted for mitochondrial disease, lies in a mitochondrial transfer-RNA gene; its view
+presents the clinical and population evidence, the expert-panel criteria (PM6_Strong, PP1_Moderate,
+PS4, and PP3), and the mitochondrial mode of inheritance, with the missense predictors marked as
+inapplicable rather than left blank. The non-coding-RNA variant n.72A<span class='cmmi-10x-x-109'>&gt;</span>G in <span class='ecti-1095'>RMRP</span>,
+classified pathogenic/likely-pathogenic and asserted for anauxetic dysplasia, is similarly
+outside the predictors’ scope; its view presents classification, condition, and population
 frequency together with the conservation signal where it is available. Its grouped-population
-maximum frequency of <span class='cmr-10x-x-109'>1</span><span class='cmmi-10x-x-109'>.</span><span class='cmr-10x-x-109'>4 </span><span class='cmsy-10x-x-109'>× </span><span class='cmr-10x-x-109'>10</span><sup><span class='cmsy-8'>−</span><span class='cmr-8'>3</span></sup> understates its local frequency, since n.72A<span class='cmmi-10x-x-109'>&gt;</span>G is a founder
+maximum (grpmax) of <span class='cmr-10x-x-109'>1</span><span class='cmmi-10x-x-109'>.</span><span class='cmr-10x-x-109'>4 </span><span class='cmsy-10x-x-109'>× </span><span class='cmr-10x-x-109'>10</span><sup><span class='cmsy-8'>−</span><span class='cmr-8'>3</span></sup> understates its local frequency, since n.72A<span class='cmmi-10x-x-109'>&gt;</span>G is a founder
 variant for cartilage-hair hypoplasia, reaching several per cent in the Amish and near one per
-cent in Finns, so the per-population values the page also carries matter more than the
-aggregate. Both variants resolve for exactly the cases that per-protein tools return nothing
-for.
+cent in Finns, so the per-population values the view also carries matter more than the
+aggregate.
    
 </p>
    <h4 class='subsectionHead' id='grounding-a-language-model-with-sugi-variant'><span class='titlemark'>3.4   </span>   <a id='x1-120003.4'></a>Grounding a language model with Sugi Variant</h4>
-<!-- l. 75 --><p class='noindent'>Because each record is emitted as machine-readable structured data, it can also serve as a grounding
+<!-- l. 72 --><p class='noindent'>Because each record is emitted as machine-readable structured data, it can also serve as a grounding
 source for a language model answering a question about a variant, a setting in which a closed-book
-model is otherwise prone to fabricate plausible but unsupported facts, most often for the rare variants
-sparsely represented in their training data [<a id='x1-12001'></a><a id='page.19'></a><a href='main.html#X0-bhattacharyya_high_2023'>2</a><a id='x1-12002'></a>, <a href='main.html#X0-walters_fabrication_2023'>3</a>], and in which grounding against authoritative records
-reduces such fabrication [<a id='x1-12003'></a><a href='main.html#X0-hou_model_2025'>4</a><a id='x1-12004'></a>, <a href='main.html#X0-jin_genegpt_2024'>19</a>]. We ran a paired evaluation over two frontier models on a stratified
-sample of variants, comparing a closed-book arm, a web-search arm, and an arm additionally
-given the Sugi Variant record, with answers graded deterministically against gnomAD and
-ClinVar. Two results follow. First, the closed-book model is unreliable on variant facts: it
-recovered essentially none of the population allele frequencies and only a few per cent of
-the classifications, and grounding, of either kind, removes this failure. Second, once the
-record and a live web search are both available, they are statistically indistinguishable in
-accuracy: a capable model with web tools recovers these facts about as well as it does from
-the curated record, on both the common and the rare tail. The value of the record for
-grounding is therefore not higher accuracy but <span class='ecti-1095'>determinism </span>and <span class='ecti-1095'>cost</span>: it returns the same
-facts on every run, where a web search varies between runs and models, and it supplies
-them in a single lookup at lower token cost than assembling them across several searches
-(about a quarter less in our runs). We report this as a demonstration of utility rather than a
-benchmark.
+model is otherwise prone to fabricate plausible but unsupported facts, most often for the rare
+variants sparsely represented in its training data [<a id='x1-12001'></a><a id='page.19'></a><a href='main.html#X0-bhattacharyya_high_2023'>2</a><a id='x1-12002'></a>, <a href='main.html#X0-walters_fabrication_2023'>3</a>], and in which grounding against
+authoritative records reduces such fabrication [<a id='x1-12003'></a><a href='main.html#X0-hou_model_2025'>4</a><a id='x1-12004'></a>, <a href='main.html#X0-jin_genegpt_2024'>19</a>]. In a small paired trial over two frontier
+Claude models (Sonnet and Opus), grounding with the record recovered variant facts a
+closed-book model essentially could not, and it matched a live web search on accuracy
+while returning the same facts on every run, in a single lookup at lower token cost (about a
+quarter less in our runs). Its value for grounding is thus <span class='ecti-1095'>determinism </span>and <span class='ecti-1095'>cost </span>rather than
+higher accuracy; we report it as an illustration, and leave a powered evaluation to future
+work.
    
 </p>
    <h3 class='sectionHead' id='discussion'><span class='titlemark'>4   </span>   <a id='x1-130004'></a>Discussion</h3>
-<!-- l. 8 --><p class='noindent'>Sugi Variant mines BioBTree deterministically into a per-variant reference for germline human
-variants. Each page is assembled by issuing a fixed plan of chain queries and rendering the records
-they return, and the clinical, population, and computational evidence gathered along the
-way is presented together with an explicit readout of whether its independent lines agree.
-                                                                                      
-                                                                                      
-We took this deterministic route for what a reference most needs: each value is exactly
-what the source data records, every variant is presented at the same breadth, and, for
-a given BioBTree snapshot, the corpus is reproducible and inexpensive to regenerate as
-the sources are refreshed. The result, as the worked examples illustrate, is a page that
+<!-- l. 8 --><p class='noindent'>Sugi Variant mines BioBTree deterministically into a per-variant reference for germline
+human variants. Each variant view is assembled by issuing a fixed plan of chain queries
+and rendering the records they return, and the clinical, population, and computational
+evidence gathered along the way is presented together with an explicit readout of whether
+its independent lines agree. We took this deterministic route for what a reference most
+needs: each value is exactly what the source data records, every variant is presented at
+the same breadth, and, for a given BioBTree snapshot, the reference is reproducible and
+stays current as the sources are refreshed. The result, as the example variants illustrate,
 consolidates a variant’s scattered evidence in one place and states plainly whether that evidence is
 concordant.
-</p><!-- l. 19 --><p class='indent'>   The reference describes and aggregates existing evidence rather than producing a new
-interpretation, and this is a deliberate boundary, not an omission. In-silico predictors are not
-statistically independent, so the ClinGen framework the pipeline follows [<a id='x1-13001'></a><a id='page.20'></a><a href='main.html#X0-pejaver_calibration_2022'>18</a>] treats one calibrated
-predictor as carrying evidence weight and the others as agreement signals rather than summing them;
-Sugi Variant presents them exactly this way, and the concordance readout it derives is a quality-control
-flag for review, never a computed classification. The PTEN p.Pro38Ser example shows why this
-matters: an expert panel held the variant at uncertain while every predictor leaned damaging, and the
-value of the reference is to make that disagreement visible in one place without overriding either line of
-evidence, so a reviewer sees both. Where evidence is simply absent, such as the missense predictors on
-a mitochondrial transfer-RNA or a non-coding-RNA variant, the page shows an honest
+</p><!-- l. 19 --><p class='indent'>   A distinctive strength follows from a deliberate boundary: the reference describes and aggregates
+the evidence rather than reducing it to a new interpretation, so it makes disagreement visible instead
+of hiding it inside a single call. Following the ClinGen interpretation framework [<a id='x1-13001'></a><a href='main.html#X0-pejaver_calibration_2022'>18</a>], it reads one
+calibrated predictor as carrying weight and the others as agreement signals rather than combining
+                                                                                      
+                                                                                      
+them into a single score, and the concordance readout it derives is a quality-control flag for review,
+never a computed classification. The PTEN p.Pro38Ser example shows why this matters: an expert
+panel held the variant at uncertain while every predictor leaned damaging, and the reference’s value is
+to put that disagreement in front of a reviewer, in one place, without overriding either line, guiding
+attention rather than issuing a verdict. Where evidence is simply absent, such as the missense
+predictors on a mitochondrial transfer-RNA or a non-coding-RNA variant, the view shows an honest
 empty rather than a missing field, and carries the variant on the same contract as any
 other.
-</p><!-- l. 33 --><p class='indent'>   Several established resources also consolidate variant evidence: ClinVar aggregates clinical
-assertions [<a id='x1-13002'></a><a href='main.html#X0-landrum_clinvar_2018'>5</a>], gnomAD provides population frequencies and constraint [<a id='x1-13003'></a><a href='main.html#X0-chen_gnomad_2024'>6</a>], dbNSFP packages
-computational predictors for missense variants [<a id='x1-13004'></a><a href='main.html#X0-liu_dbnsfp_2020'>7</a>], and interpretation platforms assemble several of
-these behind a query interface. These are valuable and offer much that Sugi Variant does not. In turn,
-Sugi Variant brings a variant’s clinical, population, and computational evidence into one
-deterministically-assembled view, adds an explicit cross-source concordance readout, extends
-coverage to the uncertain, non-coding, and mitochondrial variants often omitted, and is
-reproducible and refreshable from a single integrated graph, with each record emitted as
-structured data for programmatic use. Its contribution is this consolidation, coverage, and
-reproducibility rather than any new predictive signal, and on those terms it is a complementary
+</p><!-- l. 34 --><p class='indent'>   Several established resources also consolidate variant evidence (ClinVar, gnomAD, dbNSFP, and
+interpretation platforms, as noted in Section <a href='#introduction'>1<!-- tex4ht:ref: sec:introduction  --></a>); these are valuable and offer much that Sugi
+Variant does not. In turn, Sugi Variant’s principal contribution is a per-variant germline
+reference assembled deterministically from an integrated biomedical knowledge graph, and
+therefore reproducible and current. Its breadth across variant classes, the explicit cross-source
+concordance readout, and the machine-readable records follow from that design rather than
+standing as separate claims: one fixed traversal of one integrated graph is what lets the
+same broad, structured view be produced for every variant and regenerated as the sources
+change. Sugi Variant adds no new predictive signal; on these terms it is a complementary
 reference.
+</p><!-- l. 45 --><p class='indent'>   Because each record is machine-readable, the reference also serves as a grounding source for
+language-model question answering. In a paired pilot it matched a live web search on accuracy while
+adding determinism and lower token cost (Section <a href='#grounding-a-language-model-with-sugi-variant'>3.4<!-- tex4ht:ref: sec:uc-grounding  --></a>), the properties a fixed reference, rather than a
+search, is meant to provide.
    
 </p>
-   <h4 class='subsectionHead' id='limitations'><span class='titlemark'>4.1   </span>   <a id='x1-140004.1'></a>Limitations</h4>
-<!-- l. 49 --><p class='noindent'>Sugi Variant aggregates existing, largely public sources; its accuracy for any single value is therefore
+   <h3 class='sectionHead' id='limitations'><span class='titlemark'>5   </span>   <a id='x1-140005'></a>Limitations</h3>
+<!-- l. 53 --><p class='noindent'>Sugi Variant aggregates existing, largely public sources; its accuracy for any single value is therefore
 inherited from the source, and its contribution is integration, coverage, and reproducibility rather than
-new evidence about a variant. By design it does not resolve variants of uncertain significance: it
-surfaces the evidence and flags disagreement, but records the source classification unchanged, and the
-concordance flags are review signals whose calibration to clinical outcome we do not claim. Coverage is
-scoped to germline variants that carry a ClinVar germline classification; somatic clinical-impact and
-oncogenicity interpretations, and variants absent from ClinVar, are out of scope. For non-missense and
+new evidence about a variant. A few displayed quantities depend on Sugi Variant’s own
+aggregation conventions rather than on a source value alone, among them the allele-frequency
+denominator and the predictor display thresholds, and are documented with the pipeline. By
+design it does not resolve variants of uncertain significance: it surfaces the evidence and flags
+disagreement, but records the source classification unchanged, and the concordance flags are review
+signals whose calibration to clinical outcome we do not claim. Coverage is scoped to germline
+variants that carry a ClinVar germline classification; somatic clinical-impact and oncogenicity
+interpretations, and variants absent from ClinVar, are out of scope. For non-missense and
 non-coding variants the computational layer is necessarily thin, because the calibrated
-predictors score amino-acid substitutions only, so for those classes the page rests on clinical and
+predictors score amino-acid substitutions only, so for those classes the view rests on clinical and
 population evidence and conservation where available. Finally, the grounding result is a
 small pilot on two models and a single run; it demonstrates the utility of the structured
 record as a grounding source but is not a powered evaluation, which we leave to future
 work.
    
 </p>
-                                                                                      
-                                                                                      
-   <h4 class='subsectionHead' id='future-work'><span class='titlemark'>4.2   </span>   <a id='x1-150004.2'></a>Future work</h4>
-<!-- l. 67 --><p class='noindent'>Several directions would extend Sugi Variant. Because the reference is a deterministic function of
+   <h3 class='sectionHead' id='future-work'><span class='titlemark'>6   </span>   <a id='x1-150006'></a>Future work</h3>
+<!-- l. 74 --><p class='noindent'>Several directions would extend Sugi Variant. Because the reference is a deterministic function of
 BioBTree and inexpensive to rebuild, we plan to regenerate it on a regular cadence so that it tracks the
+                                                                                      
+                                                                                      
 underlying sources as they release updates. The grounding demonstration invites a powered evaluation
 of the reference as a grounding source for agentic variant question-answering, with the stratified,
 deterministic scoring the pilot prototypes. Separately, the temporal record of how classifications change
-over successive ClinVar releases supports a benchmark for variant reclassification, which we develop
-in a companion report [<a id='x1-15001'></a><a href='main.html#X0-gur_revus_2026'>20</a>]. Finally, the same deterministic mining can extend the page
+over successive ClinVar releases supports a benchmark for variant reclassification, which we develop in
+a companion work [<a id='x1-15001'></a><a id='page.20'></a><a href='main.html#X0-gur_revus_2026'>20</a>]. Finally, the same deterministic mining can extend the per-variant
 contract with further curated evidence as it becomes available, within the same reproducible
 design.
    
 </p>
-   <h3 class='sectionHead' id='availability'><span class='titlemark'>5   </span>   <a id='x1-160005'></a>Availability</h3>
+   <h3 class='sectionHead' id='availability'><span class='titlemark'>7   </span>   <a id='x1-160007'></a>Availability</h3>
 <!-- l. 7 --><p class='noindent'>Sugi Variant is openly available at <a class='url' href='https://sugi.bio/variant/'><span class='ectt-1095'>https://sugi.bio/variant/</span></a>, where every variant has a stable,
-browsable page. The build pipeline is open-source software released under the MIT license, and can be
-deployed locally. Sugi Variant is built on BioBTree [<a id='x1-16001'></a><a id='page.21'></a><a href='main.html#X0-biobtree'>8</a>], the biomedical graph it mines, and can be
+browsable view. The build pipeline is open-source software released under the MIT license, and can be
+deployed locally. Sugi Variant is built on BioBTree [<a id='x1-16001'></a><a id='page.21'></a><a href='main.html#X0-biobtree'>8</a>], the knowledge graph it mines, and can be
 regenerated as that graph is refreshed.
-</p><!-- l. 13 --><p class='indent'>   The pipeline software is MIT-licensed. The published pages aggregate content from the underlying
-sources under their respective terms: ClinVar is public domain and gnomAD is released under CC0,
-while AlphaMissense predictions are CC BY-NC-SA and REVEL is restricted to non-commercial use.
-Accordingly, the reference is provided for viewing and programmatic access rather than as a
-redistributable bulk dataset of third-party scores; a local deployment regenerates each source’s content
-from that source under its own license.
 </p>
      <ul class='itemize1'>
      <li class='itemize'>Sugi         Variant         pipeline         (source         and         documentation):         
@@ -511,15 +468,12 @@ from that source under its own license.
      </li>
      <li class='itemize'>Published reference: <a class='url' href='https://sugi.bio/variant/'><span class='ectt-1095'>https://sugi.bio/variant/</span></a>
      </li>
-     <li class='itemize'>BioBTree:    <a class='url' href='https://github.com/tamerh/biobtree'><span class='ectt-1095'>https://github.com/tamerh/biobtree</span></a>,    public    instance    
-<a class='url' href='https://sugi.bio'><span class='ectt-1095'>https://sugi.bio</span></a></li></ul>
+     <li class='itemize'>BioBTree: <a class='url' href='https://github.com/tamerh/biobtree'><span class='ectt-1095'>https://github.com/tamerh/biobtree</span></a></li></ul>
    
    <h3 class='sectionHead' id='references'> <a id='x1-17000'></a>References</h3>
 <!-- l. 107 --><p class='noindent'>
      </p><dl class='thebibliography'><dt class='thebibliography' id='X0-singhal_large_2023'>
  [1]  </dt><dd class='thebibliography' id='bib-1'>
-                                                                                      
-                                                                                      
      <!-- l. 107 --><p class='noindent'><a href='main.html' id='X0-'></a>K. Singhal, S. Azizi, T. Tu, S. S. Mahdavi, J. Wei, H. W. Chung, N. Scales, A. Tanwani,
      H. Cole-Lewis, S. Pfohl, et al. “Large language models encode clinical knowledge”. In:
      <span class='ecti-1095'>Nature </span>620.7972 (2023), pp. 172–180. <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.1038/s41586-023-06291-2'>10.1038/s41586-023-06291-2</a>.
@@ -530,6 +484,8 @@ from that source under its own license.
      <span class='ecti-1095'>Cureus </span>15.5 (2023), e39238. <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.7759/cureus.39238'>10.7759/cureus.39238</a>.
      </p></dd><dt class='thebibliography' id='X0-walters_fabrication_2023'>
  [3]  </dt><dd class='thebibliography' id='bib-3'>
+                                                                                      
+                                                                                      
      <!-- l. 107 --><p class='noindent'>W. H.   Walters   and   E. I.   Wilder.   “Fabrication   and   errors   in   the   bibliographic
      citations  generated  by  ChatGPT”.  In:  <span class='ecti-1095'>Scientific  Reports  </span>13  (2023),  p. 14045.  <span class='eccc1095-'><span class='small-caps'>doi</span></span>:
      <a href='https://doi.org/10.1038/s41598-023-41032-5'>10.1038/s41598-023-41032-5</a>.
@@ -568,8 +524,6 @@ from that source under its own license.
      (2013), S3–S8. <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.1016/S0035-3787(13)70060-3'>10.1016/S0035-3787(13)70060-3</a>.
      </p></dd><dt class='thebibliography' id='X0-cheng_alphamissense_2023'>
 [11]  </dt><dd class='thebibliography' id='bib-11'>
-                                                                                      
-                                                                                      
      <!-- l. 107 --><p class='noindent'>J.  Cheng  et  al.  “Accurate  proteome-wide  missense  variant  effect  prediction  with
      AlphaMissense”. In: <span class='ecti-1095'>Science </span>381.6664 (2023), eadg7492. <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.1126/science.adg7492'>10.1126/science.adg7492</a>.
      </p></dd><dt class='thebibliography' id='X0-ioannidis_revel_2016'>
@@ -579,6 +533,8 @@ from that source under its own license.
      pp. 877–885. <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.1016/j.ajhg.2016.08.016'>10.1016/j.ajhg.2016.08.016</a>.
      </p></dd><dt class='thebibliography' id='X0-su_saprot_2024'>
 [13]  </dt><dd class='thebibliography' id='bib-13'>
+                                                                                      
+                                                                                      
      <!-- l. 107 --><p class='noindent'>J. Su, C. Han, Y. Zhou, J. Shan, X. Zhou, and F. Yuan. “SaProt: Protein Language
      Modeling with Structure-aware Vocabulary”. In: <span class='ecti-1095'>The Twelfth International Conference on
      Learning Representations (ICLR)</span>. 2024.
@@ -615,7 +571,7 @@ from that source under its own license.
      </p></dd><dt class='thebibliography' id='X0-gur_revus_2026'>
 [20]  </dt><dd class='thebibliography' id='bib-20'>
      <!-- l. 107 --><p class='noindent'>T. Gür. <span class='ecti-1095'>ReVUS: A Temporal-Holdout Benchmark for the Reclassification of Variants of
-     Uncertain Significance</span>. Preprint, <a class='url' href='https://github.com/tamerh/ReVUS'><span class='ectt-1095'>https://github.com/tamerh/ReVUS</span></a>. 2026.</p></dd></dl>
+     Uncertain Significance</span>. <a class='url' href='https://sugi.bio/revus'><span class='ectt-1095'>https://sugi.bio/revus</span></a>. 2026. <span class='eccc1095-'><span class='small-caps'>doi</span></span>: <a href='https://doi.org/10.5281/zenodo.21496351'>10.5281/zenodo.21496351</a>.</p></dd></dl>
     
 </body> 
 </html>
