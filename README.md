@@ -16,6 +16,13 @@ disk/ETag page cache. Nothing on a view is written by a language model: each is 
 deterministically from primary databases, so it is reproducible and every number traces to its
 source and version. The method and evaluation are described in the preprint, served at `/method`.
 
+## Publication
+
+Preprint
+- https://sugi.bio/variant/method
+- https://zenodo.org/records/21509445
+- https://doi.org/10.5281/zenodo.21509445
+
 ## Documentation
 
 - [Getting started](docs/getting-started.md) — using the site: search, URLs, sets, gene pages.
