@@ -11,11 +11,6 @@ criteria, verbatim. Every fact is shown with its source and dataset build date, 
 variant classes (including non-coding and mitochondrial), and it surfaces the variants where the
 independent signals disagree, as a quality-control signal for review.
 
-It is a server-rendered FastAPI + Jinja app over the self-contained `sugivariant` package, with a
-disk/ETag page cache. Nothing on a view is written by a language model: each is composed
-deterministically from primary databases, so it is reproducible and every number traces to its
-source and version. The method and evaluation are described in the preprint, served at `/method`.
-
 ## Publication
 
 Preprint
