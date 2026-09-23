@@ -12,7 +12,7 @@ import re
 import sys
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, Response, RedirectResponse
+from fastapi.responses import HTMLResponse, Response, RedirectResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -61,9 +61,10 @@ from sugivariant.render import short_hgvs as _short_hgvs   # noqa: E402
 env.globals.update(label=variant_label, cls_class=cls_class, stars=stars, hgvs_disp=_short_hgvs)
 # Data-source attribution (AlphaMissense CC BY 4.0 + REVEL ODbL require it) — single
 # source of truth in render.py so HTML and the markdown twin can't drift.
-from sugivariant.render import data_provenance, source_refs   # noqa: E402
+from sugivariant.render import data_provenance, source_refs, data_asof   # noqa: E402
 env.globals["data_provenance"] = data_provenance
 env.globals["source_refs"] = source_refs
+env.globals["data_asof"] = data_asof
 env.globals["tier_label"] = tier_label
 
 # ClinGen dosage haploinsufficiency: 0–3 is the evidence scale; 30/40 are category codes
@@ -583,6 +584,7 @@ def genes_directory():
 
 
 _PUB = "https://sugi.bio" + (BASE or "/variant")
+env.globals["pub"] = _PUB   # absolute public base, for canonical citation URLs
 
 
 def _index_lastmod():
@@ -595,23 +597,35 @@ def _index_lastmod():
         return None
 
 
+# Sitemap index memo: enumerating 6.5k genes takes ~5s, so cache the built XML and
+# regenerate only when index.db changes (keyed on its lastmod). Per-worker + in-memory:
+# first hit after a rebuild is slow, every hit after is instant. Auto-invalidates.
+_SITEMAP_INDEX_CACHE = None  # (lastmod, xml)
+
+
 @app.get("/sitemap.xml")
 def sitemap():
     # Sitemap INDEX (not a flat urlset): a 600k-URL urlset breaches the sitemaps.org
     # 50k/50MB cap and Google silently drops it. One child sitemap per gene, each
     # well under the cap.
+    global _SITEMAP_INDEX_CACHE
     ix = _index()
     if not ix:
         raise StarletteHTTPException(503, "Sitemap needs the resolution index; run sugivariant.index.")
     lm = _index_lastmod()
-    lm_tag = f"<lastmod>{lm}</lastmod>" if lm else ""
-    children = "".join(
-        f"<sitemap><loc>{_PUB}/sitemap-{g.lower()}.xml</loc>{lm_tag}</sitemap>"
-        for g, _ in IX.sitemap_genes(ix))
-    xml = ('<?xml version="1.0" encoding="UTF-8"?>'
-           '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-           f'{children}</sitemapindex>')
-    return Response(content=xml, media_type="application/xml")
+    if _SITEMAP_INDEX_CACHE and _SITEMAP_INDEX_CACHE[0] == lm:
+        xml = _SITEMAP_INDEX_CACHE[1]
+    else:
+        lm_tag = f"<lastmod>{lm}</lastmod>" if lm else ""
+        children = "".join(
+            f"<sitemap><loc>{_PUB}/sitemap-{g.lower()}.xml</loc>{lm_tag}</sitemap>"
+            for g, _ in IX.sitemap_genes(ix))
+        xml = ('<?xml version="1.0" encoding="UTF-8"?>'
+               '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+               f'{children}</sitemapindex>')
+        _SITEMAP_INDEX_CACHE = (lm, xml)
+    return Response(content=xml, media_type="application/xml",
+                    headers={"Cache-Control": "public, max-age=3600"})
 
 
 @app.get("/sitemap-{gene}.xml")
@@ -628,7 +642,8 @@ def sitemap_gene(gene: str):
     xml = ('<?xml version="1.0" encoding="UTF-8"?>'
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
            f'{urls}</urlset>')
-    return Response(content=xml, media_type="application/xml")
+    return Response(content=xml, media_type="application/xml",
+                    headers={"Cache-Control": "public, max-age=3600"})
 
 
 @app.get("/disagreements")
@@ -686,6 +701,22 @@ def gene_hub(gene: str):
 
 
 _VIEW_TEMPLATES = {"datasheet": "variant_v3.html", "classic": "variant_classic.html"}
+
+
+@app.get("/{slug}.md", response_class=PlainTextResponse)
+def variant_md(slug: str):
+    """Markdown twin of a variant page — the same prose the page renders, as plain text
+    for LLMs and AI agents (which ingest Markdown better than HTML), at the same URL as
+    the page + '.md'. Deterministic; GET + cached; CORS-open."""
+    rec = _resolve_page(slug.lower().strip("/"))
+    if not rec:
+        raise StarletteHTTPException(404, f"No variant page for “{slug}”.")
+    from sugivariant.render import render_body
+    title = rec.get("name") or f"{rec.get('gene_symbol', '')} {rec.get('hgvs_p') or rec.get('hgvs_c') or ''}".strip()
+    md = f"# {title}\n\n{_PUB}/{rec['canonical_slug']}\n\n" + render_body(rec)
+    return PlainTextResponse(md, headers={"Cache-Control": "public, max-age=3600",
+                                          "Access-Control-Allow-Origin": "*",
+                                          "Content-Type": "text/markdown; charset=utf-8"})
 
 
 @app.get("/{slug}", response_class=HTMLResponse)

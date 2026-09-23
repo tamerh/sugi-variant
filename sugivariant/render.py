@@ -24,7 +24,7 @@ def short_hgvs(s, keep=10):
     n, unit = (len(seq), "bp") if nt else (len(seq) // 3, "aa")
     return s[:m.start(2)] + f"{seq[:keep]}…[{n} {unit}]"
 
-# Data sources + attribution. AlphaMissense (CC BY 4.0) and REVEL (ODbL) legally
+# Data sources + attribution. AlphaMissense (CC BY-NC-SA 4.0) and REVEL (ODbL) legally
 # REQUIRE attribution; the rest are credited as good practice. Everything here is
 # usable in this FREE/non-commercial product (see docs/variant-product-strategy).
 # Single source of truth — the HTML template reads the same list via env.globals.
@@ -33,7 +33,7 @@ def short_hgvs(s, keep=10):
 DATA_SOURCES = [
     ("ClinVar", "NCBI — public domain", "clinvar"),
     ("gnomAD v4.1", "Broad Institute", "gnomad_variant"),
-    ("AlphaMissense", "Cheng et al. 2023, © Google DeepMind — CC BY 4.0", "alphamissense"),
+    ("AlphaMissense", "Cheng et al. 2023, © Google DeepMind — CC BY-NC-SA 4.0", "alphamissense"),
     ("REVEL", "Ioannidis et al. 2016 — ODbL", "revel"),
     ("SaProt", "Su et al. 2023 — MIT", "saprot"),
     ("SpliceAI", "Illumina — free for non-commercial use", "spliceai"),
@@ -75,6 +75,13 @@ def data_provenance():
     from sugivariant.enrich import dataset_versions
     ver = dataset_versions()
     return [(name, lic, ver.get(group)) for name, lic, group in DATA_SOURCES]
+
+
+def data_asof():
+    """Freshest dataset build date (YYYY-MM) across sources, or None — the single
+    'data current as of' stamp for the per-page provenance line."""
+    dates = [b for _n, _lic, b in data_provenance() if b]
+    return max(dates)[:7] if dates else None
 
 
 def attribution_md():

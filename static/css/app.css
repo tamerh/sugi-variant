@@ -334,6 +334,22 @@
 .src-mini{margin-top:2rem;border-top:1px solid var(--border,#e5e7eb);padding-top:.8rem;font-size:.85rem}
 .src-mini a{white-space:nowrap}
 
+/* Low-profile "Cite this page" — collapsed by default, quiet muted summary. */
+.cite{margin:.5rem 0 0;font-size:.8rem}
+.cite>summary{cursor:pointer;color:var(--text-muted,#6b7280);list-style:none;display:inline-block;
+  border-bottom:1px dashed var(--border,#cbd5e1);padding-bottom:1px;user-select:none}
+.cite>summary::-webkit-details-marker{display:none}
+.cite>summary::marker{content:""}
+.cite>summary:hover{color:var(--accent,#2563eb);border-bottom-color:var(--accent,#2563eb)}
+.cite-body{margin-top:.55rem;padding:.7rem .85rem;background:var(--bg-soft,#f9fafb);
+  border:1px solid var(--border,#e5e7eb);border-radius:8px;max-width:660px}
+.cite-text{margin:0;font-size:.82rem;line-height:1.55;color:var(--text,#111827)}
+.cite-copy{margin:.55rem .7rem 0 0;font-size:.72rem;padding:.2rem .6rem;border:1px solid var(--border,#cbd5e1);
+  border-radius:6px;background:var(--bg,#fff);color:var(--text-muted,#374151);cursor:pointer;vertical-align:middle}
+.cite-copy:hover{border-color:var(--accent,#2563eb);color:var(--accent,#2563eb)}
+.cite-note{font-size:.72rem;color:var(--text-muted,#6b7280)}
+.cite-note a{white-space:nowrap}
+
 /* computational-card footnote (§8 framing, moved out of the result rows) */
 .vd-preds-note{margin:.6rem 0 0;font-size:.8rem;line-height:1.45;color:var(--fg-soft,#6b7280)}
 
