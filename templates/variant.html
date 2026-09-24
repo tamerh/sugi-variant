@@ -81,7 +81,7 @@
           <h3>What this gene does <span class="section-sub" style="text-transform:none;letter-spacing:0">— {{ v.gene_symbol }} roles, not per-variant effects</span></h3>
           {% if v.mechanism %}<p>{{ v.mechanism|mdbold }}</p>{% endif %}
           {% if v.pathways and v.pathways.pathways %}<details><summary class="vv-sum">Pathways affected ({{ v.pathways.pathways|length }})</summary>
-            <ul class="vv-mini" style="margin-top:.5rem">{% for pw in v.pathways.pathways[:10] %}<li>{% if pw.is_disease %}⚕ {% endif %}<a href="https://reactome.org/content/detail/{{ pw.id }}">{{ pw.name }}</a></li>{% endfor %}</ul></details>{% endif %}
+            <ul class="vv-mini" style="margin-top:.5rem">{% for pw in v.pathways.pathways %}<li>{% if pw.is_disease %}⚕ {% endif %}<a href="https://reactome.org/content/detail/{{ pw.id }}">{{ pw.name }}</a></li>{% endfor %}</ul></details>{% endif %}
         </section>
         {% endif %}
 

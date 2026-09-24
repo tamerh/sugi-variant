@@ -293,7 +293,7 @@ def _mechanism_zone(v):
               table(["Pathway (Reactome)", "Evidence"],
                     [(("⚕ " if p["is_disease"] else "")
                       + f"[{p['name']}](https://reactome.org/content/detail/{p['id']})",
-                      p["evidence"]) for p in pws[:10]])]
+                      p["evidence"]) for p in pws])]
     mf, bp = pw.get("go_mf") or [], pw.get("go_bp") or []
     if mf or bp:
         tier = "experimentally supported" if pw.get("go_experimental") else "annotated"
