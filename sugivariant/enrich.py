@@ -141,7 +141,11 @@ def dataset_versions():
         import urllib.request
         import json as _json
         import os
-        base = os.environ.get("BIOBTREE_WS", "http://localhost:9291")
+        # BIOBTREE_WS overrides; otherwise use the SAME endpoint the rest of the app
+        # reaches biobtree on (ATLAS_BIOBTREE). Without this the container queries
+        # localhost:9291 (nothing there) and every version stamp goes blank in prod.
+        base = (os.environ.get("BIOBTREE_WS")
+                or os.environ.get("ATLAS_BIOBTREE", "http://localhost:9291"))
         with urllib.request.urlopen(base + "/ws/meta", timeout=5) as r:
             meta = _json.load(r)
         for v in (meta.get("datasets") or {}).values():
