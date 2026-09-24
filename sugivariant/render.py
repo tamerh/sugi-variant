@@ -370,6 +370,11 @@ def render_body(v, jsonld_tag=""):
                                         links.gene_url(symbol=v.get("gene_symbol"), hgnc_id=v.get("hgnc_id")))),
               ("Protein change (HGVS p.)", v.get("hgvs_p")),
               ("Coding change (HGVS c.)", v.get("hgvs_c")),
+              ("MANE Select transcript",
+               (f"[{v['mane']['mrna']}](https://www.ncbi.nlm.nih.gov/nuccore/{v['mane']['mrna']})"
+                + (f" (variant reported on {v['mane']['clinvar_transcript']})"
+                   if v["mane"].get("clinvar_on_mane") is False else "")
+                if v.get("mane") and v["mane"].get("mrna") else None)),
               ("dbSNP", (f"[{v['rsid']}](https://www.ncbi.nlm.nih.gov/snp/{v['rsid']}/)"
                          if v.get("rsid") else None)),
               ("Variant type", v.get("variant_type")),

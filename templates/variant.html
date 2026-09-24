@@ -109,6 +109,7 @@
             <dt>Gene</dt><dd><a href="{{ base }}/gene/{{ v.gene_symbol }}">{{ v.gene_symbol }}</a></dd>
             {% if v.hgvs_p %}<dt>Protein</dt><dd>{{ v.hgvs_p }}</dd>{% endif %}
             {% if v.hgvs_c %}<dt>{{ 'Non-coding' if v.hgvs_c[:2] == 'n.' else 'Mitochondrial' if v.hgvs_c[:2] == 'm.' else 'Coding' }}</dt><dd>{{ v.hgvs_c }}</dd>{% endif %}
+            {% if v.mane and v.mane.mrna %}<dt>MANE Select</dt><dd><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ v.mane.mrna }}">{{ v.mane.mrna }}</a>{% if v.mane.clinvar_on_mane is sameas false %} <span class="dd-note">· reported on {{ v.mane.clinvar_transcript }}</span>{% endif %}</dd>{% endif %}
             {% if v.rsid %}<dt>dbSNP</dt><dd><a href="https://www.ncbi.nlm.nih.gov/snp/{{ v.rsid }}/">{{ v.rsid }}</a></dd>{% endif %}
             <dt>Type</dt><dd>{{ v.variant_type }}</dd>
             {% if v.chromosome %}<dt>Location</dt><dd>chr{{ v.chromosome }}:{{ v.start }} ({{ v.assembly }})</dd>{% endif %}

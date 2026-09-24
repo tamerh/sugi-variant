@@ -291,6 +291,33 @@ def am_isoform_mismatch(am, hgvs_p):
     return None
 
 
+_NM_ACCESSION_RE = re.compile(r"^\s*([NX][MR]_\d+)")
+
+
+def clinvar_transcript(name):
+    """Base RefSeq transcript accession (version stripped) from a ClinVar variant name
+    like 'NM_000546.6(TP53):c.328C>G' -> 'NM_000546'. None if the name has no NM_/NR_
+    prefix (e.g. genomic-only names)."""
+    m = _NM_ACCESSION_RE.match(name or "")
+    return m.group(1) if m else None
+
+
+def mane_select(hgnc_id):
+    """MANE Select transcript for a gene, read the way sugi-atlas reads it — the
+    is_mane_select flag lives on the RefSeq relation, not the Ensembl-transcript one:
+    map_all(hgnc, '>>hgnc>>ensembl>>refseq[is_mane_select==true]'). Returns
+    {mrna, protein} (RefSeq accessions, no version) or None. MANE Select is the single
+    NCBI+EMBL-EBI-agreed reference transcript for clinical reporting."""
+    if not hgnc_id:
+        return None
+    rows = map_all(hgnc_id, ">>hgnc>>ensembl>>refseq[is_mane_select==true]") or []
+    mrna = next((t["id"] for t in rows if t.get("type") == "mRNA"), None)
+    if not mrna:
+        return None
+    prot = next((t["id"] for t in rows if t.get("type") == "protein"), None)
+    return {"mrna": mrna, "protein": prot}
+
+
 # ClinVar-calibrated SaProt damaging divider (Youden-optimal; tools/eval/saprot_calibration.py,
 # 2026-07-20). Was a -7.5 heuristic; -10.0 lifts specificity 0.69 -> 0.94.
 _SAPROT_DAMAGING = -10.0

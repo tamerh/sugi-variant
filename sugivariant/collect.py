@@ -205,6 +205,17 @@ def attach_enrichment(rec, ctx=None):
     rec["gene_context"] = ctx.get("gene_context")
     rec["structure"] = ctx.get("structure")
     rec["panels"] = ctx.get("panels")
+    # MANE Select transcript — the clinical-reporting reference transcript. Gene-level,
+    # so cache once per gene in ctx (works on the empty-ctx fast path too, just one call).
+    if "mane" not in ctx:
+        ctx["mane"] = EN.mane_select(rec.get("hgnc_id"))
+    mane = ctx["mane"]
+    if mane:
+        cvt = EN.clinvar_transcript(rec.get("name"))
+        rec["mane"] = {**mane, "clinvar_transcript": cvt,
+                       "clinvar_on_mane": (cvt == mane["mrna"]) if cvt else None}
+    else:
+        rec["mane"] = None
     # molecular-consequence typing + LoF-intolerance mechanism (the non-missense
     # ~51% where AlphaMissense/REVEL/SaProt are dark). Needs gene_context above.
     rec["consequence"] = EN.molecular_consequence(rec)
