@@ -229,14 +229,16 @@ def set_rows(conn, slugs):
 
 
 def slug_flags(conn, slugs):
-    """{canonical_slug: flag} for the given slugs (flag = disagreement category or None).
-    A cheap read from the index — used to add a discordance cue to on-page cross-links."""
-    out = {}
-    for s in slugs:
-        r = conn.execute("SELECT flag FROM variant WHERE slug=?", ((s or "").lower(),)).fetchone()
-        if r and r["flag"]:
-            out[s] = r["flag"]
-    return out
+    """{slug: flag} for the given slugs (flag = disagreement category or None). One batched
+    query over the INDEXED alias.key (+ vcv PK join) — `variant.slug` is not indexed, so a
+    `WHERE slug=?` per slug is a full-table scan (~300ms each). Used to add a discordance
+    cue to on-page cross-links, so it must be cheap."""
+    keys = [(s or "").lower() for s in slugs if s]
+    if not keys:
+        return {}
+    q = ("SELECT a.key, v.flag FROM alias a JOIN variant v ON v.vcv=a.vcv "
+         "WHERE a.key IN (%s)" % ",".join("?" * len(keys)))
+    return {key: flag for key, flag in conn.execute(q, keys).fetchall() if flag}
 
 
 def gene_count(conn, gene):
