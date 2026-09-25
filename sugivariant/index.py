@@ -228,6 +228,17 @@ def set_rows(conn, slugs):
     return found, missing
 
 
+def slug_flags(conn, slugs):
+    """{canonical_slug: flag} for the given slugs (flag = disagreement category or None).
+    A cheap read from the index — used to add a discordance cue to on-page cross-links."""
+    out = {}
+    for s in slugs:
+        r = conn.execute("SELECT flag FROM variant WHERE slug=?", ((s or "").lower(),)).fetchone()
+        if r and r["flag"]:
+            out[s] = r["flag"]
+    return out
+
+
 def gene_count(conn, gene):
     r = conn.execute("SELECT n FROM gene_meta WHERE gene=?", (gene.upper(),)).fetchone()
     return (r["n"] if r else 0) or 0

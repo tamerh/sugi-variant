@@ -5,7 +5,7 @@
 {% block description %}{{ v.plain }}{% endblock %}
 {% block head %}<link rel="canonical" href="https://sugi.bio/variant/{{ v.canonical_slug }}">{% endblock %}
 {% block content %}
-{% include "_viewswitch.html" %}
+<div class="vd-viewswitch-fixed">{% with sw_inline=true %}{% include "_viewswitch.html" %}{% endwith %}</div>
 <article class="entity-page ds">
   <div class="container container-narrow">
     <p class="breadcrumb"><a href="{{ base }}/">Sugi Variant</a><span>/</span>

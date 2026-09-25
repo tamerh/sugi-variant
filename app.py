@@ -59,6 +59,8 @@ def stars(review_status):
 
 from sugivariant.render import short_hgvs as _short_hgvs   # noqa: E402
 env.globals.update(label=variant_label, cls_class=cls_class, stars=stars, hgvs_disp=_short_hgvs)
+from sugivariant import links as _links   # noqa: E402
+env.globals["atlas_gene"] = lambda sym: _links.gene_url(symbol=sym)
 # Data-source attribution (AlphaMissense CC BY 4.0 + REVEL ODbL require it) — single
 # source of truth in render.py so HTML and the markdown twin can't drift.
 from sugivariant.render import data_provenance, source_refs, data_asof   # noqa: E402
@@ -727,6 +729,14 @@ def variant_page(slug: str, view: str = ""):
     rec = _resolve_page(slug)
     if not rec:
         raise StarletteHTTPException(404, f"No variant page for “{slug}”.")
+    # Add a live discordance cue to the similar-variant cross-links (the flag isn't in
+    # the sibling records at build time; the index carries it per slug — cheap lookup).
+    sims = rec.get("similar")
+    ix = _index()
+    if sims and ix:
+        flags = IX.slug_flags(ix, [s["slug"] for s in sims])
+        for s in sims:
+            s["flag"] = flags.get(s["slug"])
     # ?view= selects a layout preview (Default / Dashboard / Datasheet); the switcher
     # bar links between them. canonical stays the p-slug regardless.
     tpl = _VIEW_TEMPLATES.get(view, "variant.html")

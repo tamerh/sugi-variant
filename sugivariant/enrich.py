@@ -1107,9 +1107,39 @@ def similar_variants(rec, recs):
             s += 1
         if s:
             scored.append((s, r))
-    scored.sort(key=lambda x: (-x[0], x[1]["canonical_slug"]))
-    return [{"label": f"{r['gene_symbol']} {r.get('hgvs_p') or r.get('hgvs_c')}",
-             "slug": r["canonical_slug"]} for _, r in scored[:6]]
+    # Rank within relation-score by what's most worth a click: more review stars, then
+    # the more clinically interesting call (P/LP or VUS/conflicting over benign), then
+    # slug for determinism. Keeps the alphabetical-tie problem from burying the useful
+    # same-condition neighbors under intronic/splice siblings.
+    def _interest(cls):
+        cl = (cls or "").lower()
+        if "pathogenic" in cl and "conflict" not in cl:
+            return 3
+        if "uncertain" in cl or "conflict" in cl:
+            return 2
+        if "benign" in cl:
+            return 1
+        return 0
+    scored.sort(key=lambda x: (
+        -x[0],
+        -_STAR_N.get((x[1].get("review_status") or "").strip().lower(), 0),
+        -_interest(x[1].get("classification")),
+        x[1]["canonical_slug"]))
+    out = []
+    for _, r in scored[:8]:
+        # the dominant relation (why it's similar) — for a scannable "why click" cue
+        if pos is not None and protein_position(r.get("hgvs_p")) == pos:
+            rel = "same residue"
+        elif conds & {c.get("mondo_id") for c in (r.get("conditions") or [])}:
+            rel = "same condition"
+        else:
+            rel = "same type"
+        out.append({"label": f"{r['gene_symbol']} {r.get('hgvs_p') or r.get('hgvs_c')}",
+                    "slug": r["canonical_slug"],
+                    "classification": r.get("classification"),
+                    "stars": _STAR_N.get((r.get("review_status") or "").strip().lower(), 0),
+                    "relation": rel})
+    return out
 
 
 def submission_timeline(submissions):

@@ -1,4 +1,4 @@
-<div class="view-switch container container-wide">
+<div class="view-switch{% if not sw_inline %} container container-wide{% endif %}">
   <span>Layout:</span>
   <a href="?view=" class="{{ 'on' if not view }}">Dashboard</a>
   <a href="?view=datasheet" class="{{ 'on' if view == 'datasheet' }}">Datasheet</a>

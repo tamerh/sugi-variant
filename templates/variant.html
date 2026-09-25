@@ -8,7 +8,7 @@
 {% block description %}{{ v.plain }}{% endblock %}
 {% block head %}<link rel="canonical" href="https://sugi.bio/variant/{{ v.canonical_slug }}">{% endblock %}
 {% block content %}
-{% include "_viewswitch.html" %}
+<div class="vd-viewswitch-fixed">{% with sw_inline=true %}{% include "_viewswitch.html" %}{% endwith %}</div>
 <article class="entity-page vd">
   <div class="container container-wide">
     <p class="breadcrumb">
@@ -41,7 +41,7 @@
       {% if v.conditions %}<div class="vd-tile"><div class="lab">Conditions</div><div class="val">{{ v.conditions|length }}</div><div class="sub">{{ v.conditions[0].name }}</div></div>{% endif %}
     </div>
 
-    {% if v.plain %}<p class="vd-lead">{{ v.plain }}</p>{% endif %}
+    {% if v.plain %}<p class="vd-lead vv-cls-{{ cls_class(v.classification) }}">{{ v.plain }}</p>{% endif %}
 
 
     <div class="vd-grid">
@@ -97,7 +97,8 @@
             {% if d and d.inheritance %}<dt>Inheritance</dt><dd>{{ d.inheritance[:3]|join(', ') }}</dd>{% endif %}
             {% if d and d.onset %}<dt>Onset</dt><dd>{{ d.onset|join(', ') }}</dd>{% endif %}
             {% if d and d.prevalence %}<dt>Prevalence</dt><dd>{{ d.prevalence }}</dd>{% endif %}
-            {% if v.condition_links and v.condition_links.trial_count %}<dt>Clinical trials</dt><dd>{{ v.condition_links.trial_count }} registered</dd>{% endif %}
+            {% if v.condition_links and v.condition_links.trial_count %}<dt>Clinical trials</dt><dd><a href="https://clinicaltrials.gov/search?cond={{ v.conditions[0].name|urlencode }}" target="_blank" rel="noopener">{{ v.condition_links.trial_count }} registered</a></dd>{% endif %}
+            {% if v.condition_links and v.condition_links.gard %}<dt>GARD</dt><dd><a href="https://rarediseases.info.nih.gov/diseases/{{ v.condition_links.gard }}/index" target="_blank" rel="noopener">Rare-disease registry</a></dd>{% endif %}
           </dl>{% endif %}
         </section>{% endif %}
       </div>
@@ -106,7 +107,7 @@
       <aside class="vd-side">
         <section class="vd-card"><h3>Identity</h3>
           <dl class="vd-dl">
-            <dt>Gene</dt><dd><a href="{{ base }}/gene/{{ v.gene_symbol }}">{{ v.gene_symbol }}</a></dd>
+            <dt>Gene</dt><dd><a href="{{ base }}/gene/{{ v.gene_symbol }}">{{ v.gene_symbol }}</a> · <a href="{{ atlas_gene(v.gene_symbol) }}" title="Full gene report on Sugi Atlas">Atlas report ↗</a></dd>
             {% if v.hgvs_p %}<dt>Protein</dt><dd>{{ v.hgvs_p }}</dd>{% endif %}
             {% if v.hgvs_c %}<dt>{{ 'Non-coding' if v.hgvs_c[:2] == 'n.' else 'Mitochondrial' if v.hgvs_c[:2] == 'm.' else 'Coding' }}</dt><dd>{{ v.hgvs_c }}</dd>{% endif %}
             {% if v.mane and v.mane.mrna %}<dt>MANE Select</dt><dd><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ v.mane.mrna }}">{{ v.mane.mrna }}</a>{% if v.mane.clinvar_on_mane is sameas false %} <span class="dd-note">· reported on {{ v.mane.clinvar_transcript }}</span>{% endif %}</dd>{% endif %}
@@ -123,7 +124,13 @@
           {% if v.hotspot and v.hotspot.others %}<p class="section-sub">Residue {{ v.hotspot.position }}: {{ v.hotspot.others|length }} other pathogenic variant{{ 's' if v.hotspot.others|length != 1 }} ({% for o in v.hotspot.others[:4] %}<a href="{{ base }}/{{ o.slug }}">{{ o.label.split(' ')[-1] }}</a>{{ ', ' if not loop.last }}{% endfor %}).</p>{% endif %}
         </section>{% endif %}
         {% if v.similar %}<section class="vd-card"><h3>Similar variants</h3>
-          <div class="vd-chips">{% for s in v.similar %}<a class="vv-chip" href="{{ base }}/{{ s.slug }}">{{ s.label }}</a>{% endfor %}</div></section>{% endif %}
+          <ul class="vd-similar">{% for s in v.similar %}<li class="vv-cls-{{ cls_class(s.classification) }}">
+            <a class="vd-similar-lnk" href="{{ base }}/{{ s.slug }}">{{ s.label }}</a>
+            {% if s.classification %}<span class="vd-similar-cls">{{ s.classification }}</span>{% endif %}
+            {% if s.stars %}<span class="vv-stars" title="{{ s.stars }}-star ClinVar review">{{ '★' * s.stars }}</span>{% endif %}
+            {% if s.flag %}<span class="vd-similar-flag" title="evidence disagreement — see the gene’s flagged variants">⚠</span>{% endif %}
+            <span class="vd-similar-rel">{{ s.relation }}</span>
+          </li>{% endfor %}</ul></section>{% endif %}
       </aside>
     </div>
 

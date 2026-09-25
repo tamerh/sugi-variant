@@ -41,6 +41,17 @@
 .vv-pill-cls{display:inline-block;background:var(--cls);color:#fff;font-weight:700;
   padding:.28rem .7rem;border-radius:999px;font-size:.9rem;letter-spacing:.01em}
 .vv-stars{color:var(--cls);font-size:1.05rem}.vv-stars-n{color:var(--muted,#6b7280);font-size:.82rem}
+/* Signal-bearing similar-variants list: classification pill + stars + relation per sibling */
+.vd-similar{list-style:none;margin:.4rem 0 0;padding:0;display:flex;flex-direction:column;gap:.1rem}
+.vd-similar li{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem;padding:.34rem .1rem;
+  border-top:1px solid var(--border,#eef0f3);font-size:.9rem}
+.vd-similar li:first-child{border-top:none}
+.vd-similar-lnk{font-weight:600}
+.vd-similar-cls{display:inline-block;background:var(--cls-soft,#eef);color:var(--cls,#333);
+  border:1px solid var(--cls,#ccc);padding:.02rem .42rem;border-radius:999px;font-size:.72rem;font-weight:600;white-space:nowrap}
+.vd-similar .vv-stars{font-size:.9rem}
+.vd-similar-flag{color:var(--flag,#b45309);font-size:.9rem;cursor:help}
+.vd-similar-rel{margin-left:auto;color:var(--muted,#6b7280);font-size:.76rem;white-space:nowrap}
 .vv-meta{color:var(--muted,#6b7280);font-size:.86rem}
 .vv-concordance{display:flex;align-items:baseline;gap:.5rem;font-size:.98rem;margin:.4rem 0;
   padding:.5rem .7rem;border-radius:9px;background:var(--bg,#fff)}
@@ -187,6 +198,17 @@
 .ac-sub{margin-left:auto;color:var(--muted,#6b7280);font-size:.8rem;white-space:nowrap}
 
 /* ── view switcher (layout preview) ─────────────────────────────────────────── */
+/* Layout switcher pinned in the RIGHT GUTTER (the non-content margin beside the page),
+   as a fixed vertical control — never inside the content column. Appears only when there's
+   a real gutter (wide viewports); hidden where the content fills the width. */
+.vd-viewswitch-fixed{display:none}
+@media(min-width:1400px){
+  .vd-viewswitch-fixed{display:block;position:fixed;top:100px;right:1.25rem;z-index:20;
+    background:var(--bg,#fff);border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:.55rem .6rem}
+  .vd-viewswitch-fixed .view-switch{flex-direction:column;align-items:stretch;gap:.3rem;padding:0;margin:0}
+  .vd-viewswitch-fixed .view-switch span{font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;opacity:.65;text-align:center}
+  .vd-viewswitch-fixed .view-switch a{text-align:center}
+}
 .view-switch{display:flex;align-items:center;gap:.45rem;font-size:.78rem;color:var(--muted,#6b7280);
   padding:.5rem 0;margin-top:.4rem;flex-wrap:wrap}
 .view-switch a{padding:.18rem .6rem;border:1px solid var(--border,#e5e7eb);border-radius:999px;
@@ -208,7 +230,8 @@
 .vd-grid{display:grid;grid-template-columns:1fr;gap:1.1rem;align-items:start}
 @media(min-width:920px){.vd-grid{grid-template-columns:minmax(0,1.95fr) minmax(0,1fr)}}
 .vd-card{border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:.9rem 1rem;margin-bottom:1rem;background:var(--bg,#fff)}
-.vd-card>h3{font-size:.73rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted,#6b7280);margin:0 0 .6rem}
+.vd-card>h3{font-size:.9rem;font-weight:700;letter-spacing:.01em;color:var(--text,#111827);
+  margin:0 0 .7rem;padding-bottom:.45rem;border-bottom:1px solid var(--border,#eef0f3)}
 .vd-card p{margin:.4rem 0;line-height:1.5;font-size:.92rem}
 .vd-side .vd-card{font-size:.86rem}
 .vd-side .vd-card p{font-size:.85rem;margin:.3rem 0}
@@ -365,7 +388,9 @@
 .vd-stars .off{color:var(--border,#d1d5db)}
 
 /* neutral plain-language lead under the stat tiles (was the 'For patients' card) */
-.vd-lead{margin:1rem 0 1.2rem;font-size:1.05rem;line-height:1.5;color:var(--fg);max-width:70ch}
+.vd-lead{margin:1rem 0 1.3rem;font-size:1.05rem;line-height:1.55;color:var(--text,var(--fg));
+  background:var(--cls-soft,#f5f7fb);border-left:4px solid var(--cls,#cbd5e1);
+  padding:.85rem 1.1rem;border-radius:0 10px 10px 0}
 
 /* ── set results: compact header (not the landing-page hero) ── */
 .set-head{padding:1.3rem 0 .3rem}
