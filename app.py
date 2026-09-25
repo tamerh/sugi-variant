@@ -679,6 +679,18 @@ def gene_hub(gene: str):
     if not rows:                                   # not indexed yet → live build fallback
         recs = _records(g)
         if not recs:
+            # A real gene with no ClinVar variants in our corpus (e.g. Sugi Atlas links here
+            # for tRNA/Y-chromosome/ORF genes we don't build) → a graceful cross-link back to
+            # Atlas instead of a bare 404. Garbage symbols fall through to the generic 404.
+            try:
+                from sugivariant.build import _hgnc_id
+                real_gene = bool(_hgnc_id(g))
+            except Exception:
+                real_gene = False
+            if real_gene:
+                return HTMLResponse(_render("error.html", code=404,
+                                            detail=f"No variant page for “{g}”.", gene=g),
+                                    status_code=404)
             raise StarletteHTTPException(404, f"No variants built for “{g}”.")
         rows = sorted(({"slug": x["canonical_slug"], "hgvs_p": x.get("hgvs_p"),
                         "hgvs_c": x.get("hgvs_c"), "classification": x["classification"],

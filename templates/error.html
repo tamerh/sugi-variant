@@ -9,12 +9,23 @@
     </h1>
     <p class="hero-lead" style="margin-left:auto;margin-right:auto">
       {% if code == 404 %}
-        {{ detail or "No page at that address." }} It may be a variant we don’t build (we cover only
-        Pathogenic / Likely-pathogenic / Conflicting), or a typo. Search for a variant, gene, or rsID:
+        {% if gene is defined and gene %}
+          {{ detail }} It’s a valid gene — there just aren’t any ClinVar germline variants for it in
+          Sugi Variant’s corpus.
+        {% else %}
+          {{ detail or "No page at that address." }} It may be a typo, or a variant/gene we don’t build.
+          Search for a variant, gene, or rsID:
+        {% endif %}
       {% else %}
         {{ detail or "An unexpected error occurred." }}
       {% endif %}
     </p>
+
+    {% if code == 404 and gene is defined and gene %}
+    <p style="margin-top:1.2rem">
+      <a class="btn btn-primary" href="{{ atlas_gene(gene) }}">See the full {{ gene }} gene report on Sugi Atlas →</a>
+    </p>
+    {% endif %}
 
     {% if code == 404 %}
     <form class="hero-search-box" action="{{ base }}/" method="get" role="search"
