@@ -61,6 +61,7 @@ from sugivariant.render import short_hgvs as _short_hgvs   # noqa: E402
 env.globals.update(label=variant_label, cls_class=cls_class, stars=stars, hgvs_disp=_short_hgvs)
 from sugivariant import links as _links   # noqa: E402
 env.globals["atlas_gene"] = lambda sym: _links.gene_url(symbol=sym)
+env.globals["atlas_disease"] = lambda name: _links.disease_url(name=name)
 # Data-source attribution (AlphaMissense CC BY 4.0 + REVEL ODbL require it) — single
 # source of truth in render.py so HTML and the markdown twin can't drift.
 from sugivariant.render import data_provenance, source_refs, data_asof   # noqa: E402

@@ -87,6 +87,8 @@
 .vv-ident dd{margin:0}
 .vv-chip{display:inline-block;margin:.15rem .3rem .15rem 0;padding:.2rem .6rem;font-size:.85rem;
   border:1px solid var(--border,#e5e7eb);border-radius:999px;text-decoration:none;background:var(--bg,#fff)}
+.vv-chip-lnk{color:var(--accent,#2563eb)}
+.vv-chip-lnk:hover{border-color:var(--accent,#2563eb);background:var(--accent-soft,#eff4ff)}
 
 .vv-patient{border:1px solid var(--accent-soft,#dbeafe);background:var(--accent-soft,#eff6ff);
   border-radius:14px;padding:1.2rem 1.4rem;margin:1.6rem 0}
@@ -229,6 +231,27 @@
 .vd-tile .sub{font-size:.76rem;color:var(--muted,#6b7280);margin-top:.1rem}
 .vd-grid{display:grid;grid-template-columns:1fr;gap:1.1rem;align-items:start}
 @media(min-width:920px){.vd-grid{grid-template-columns:minmax(0,1.95fr) minmax(0,1fr)}}
+/* Dashboard v2: one coherent centred column (header, tiles, lead, cards share a width) */
+.vd-container{max-width:1000px}
+/* Single-column stack: cards one below another, filling the column */
+.vd-stack{display:flex;flex-direction:column;gap:.7rem}
+.vd-stack .vd-card{margin-bottom:0}   /* gap controls spacing; drop the card's own margin */
+/* Sub-sections inside the combined "Variant & gene context" card */
+.vd-sub{margin-top:1.1rem;padding-top:.9rem;border-top:1px solid var(--border,#eef0f3)}
+.vd-sub h4{font-size:.85rem;font-weight:700;letter-spacing:.01em;margin:0 0 .55rem;color:var(--text,#111827)}
+.vd-sub p{margin:.35rem 0}
+.vd-context-id{margin-bottom:0}
+/* Prominent Sugi Atlas cross-link (gene-level depth lives there) */
+.vd-atlas-cta{display:flex;flex-direction:column;gap:.15rem;margin-top:1rem;padding:.75rem 1rem;
+  border:1px solid var(--accent,#2563eb);border-radius:10px;background:var(--accent-soft,#eff4ff);
+  text-decoration:none;transition:background .12s}
+.vd-atlas-cta:hover{background:var(--accent,#2563eb)}
+.vd-atlas-cta:hover .vd-atlas-cta-main,.vd-atlas-cta:hover .vd-atlas-cta-sub{color:#fff}
+.vd-atlas-cta-main{font-weight:700;font-size:.95rem;color:var(--accent,#2563eb)}
+.vd-atlas-cta-sub{font-size:.8rem;color:var(--muted,#6b7280)}
+/* Gene/protein-level metrics block inside the Computational evidence card */
+.vd-genemetrics{margin-top:.9rem;padding-top:.75rem;border-top:1px dashed var(--border,#e5e7eb)}
+.vd-genemetrics-lab{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted,#6b7280);margin:0 0 .35rem}
 .vd-card{border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:.9rem 1rem;margin-bottom:1rem;background:var(--bg,#fff)}
 .vd-card>h3{font-size:.9rem;font-weight:700;letter-spacing:.01em;color:var(--text,#111827);
   margin:0 0 .7rem;padding-bottom:.45rem;border-bottom:1px solid var(--border,#eef0f3)}

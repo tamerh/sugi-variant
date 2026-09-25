@@ -13,8 +13,12 @@ def gene_url(symbol=None, hgnc_id=None):
 def disease_url(mondo_id=None, name=None):
     if not name:
         return None
-    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-    return f"{_ATLAS}/disease/{slug}/"
+    # match atlas.disease.slug.slugify exactly (apostrophes drop, not become separators)
+    s = name.lower()
+    s = re.sub(r"['’]", "", s)
+    s = re.sub(r"[^a-z0-9]+", "-", s)
+    s = re.sub(r"-+", "-", s).strip("-")
+    return f"{_ATLAS}/disease/{s}/" if s else None
 
 
 def maybe_link(text, url):

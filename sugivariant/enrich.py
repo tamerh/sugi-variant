@@ -866,15 +866,19 @@ def mechanism_narrative(rec, pathways):
     from sugivariant.render import short_hgvs   # local: render has no top-level enrich dep
     gene = rec.get("gene_symbol")
     pchange = short_hgvs(rec.get("hgvs_p") or rec.get("hgvs_c"))
-    vtype = (rec.get("variant_type") or "variant").lower()
-    lead = f"This {vtype} alters {gene} at {pchange}"
     st = rec.get("structural") or {}
     dom = next((f for f in (st.get("features") or []) if "domain" in f or "region" in f), None)
     if dom:
-        lead += f", in {dom}"
-    parts = [lead + "."]
+        dom = dom.replace("'", "")           # drop stray quotes from the UniProt feature label
+    # Gene function first (this section is gene-level), then the variant's position as a
+    # plain locational fact — never an asserted effect.
+    parts = []
     if top_fn:
-        parts.append(f" {gene}'s established role includes {top_fn}.")
+        parts.append(f"{gene}'s established molecular role includes {top_fn}.")
+    if dom:
+        parts.append(f"{' ' if parts else ''}{pchange} falls in {dom}.")
+    elif not top_fn:
+        parts.append(f"{gene} participates in disease-associated pathways.")
     # (per-variant AlphaMissense/SpliceAI predictions live in the Computational card — this
     #  gene-function narrative stays gene-level; benchmark 2026-07 flagged a SpliceAI overclaim.)
     if disease_pw:
@@ -999,6 +1003,18 @@ def _digest_via_parent(mondo_id):
     return None
 
 
+_ORPHA_PREFIX = re.compile(r"^[A-Z][A-Z0-9 ,/'()\-]{2,}:\s*")
+
+
+def _clean_disorder_name(name):
+    """Strip Orphanet classification-of-rarity prefixes (e.g. 'NON RARE IN EUROPE: ')
+    that leak into the disorder name. Only removes a leading ALL-CAPS 'PREFIX: ' run,
+    so real names like 'Hemochromatosis type 1' are untouched."""
+    if not name:
+        return name
+    return _ORPHA_PREFIX.sub("", name).strip() or name
+
+
 def _build_orphanet_digest(oid, fallback_name=None):
     o = _orphanet_entry(oid)
     if not o:
@@ -1008,7 +1024,7 @@ def _build_orphanet_digest(oid, fallback_name=None):
     prev = (o.get("prevalences") or [{}])[0]
     pc = prev.get("prevalence_class")
     return {
-        "name": o.get("name") or fallback_name,
+        "name": _clean_disorder_name(o.get("name")) or fallback_name,
         "inheritance": o.get("inheritance") or [],
         "onset": o.get("onset") or [],
         "prevalence": (f"{pc} ({prev.get('geographic')})"
