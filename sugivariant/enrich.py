@@ -105,8 +105,13 @@ def gnomad_frequency(rec):
             af, popmax = _f(g.get("af")), _f(g.get("af_grpmax"))
             anc = g.get("grpmax_ancestry")
             pops = {k[3:]: g[k] for k in g if k.startswith("af_") and k != "af_grpmax" and g.get(k)}
+            ac, an = _f(g.get("ac")), _f(g.get("an"))
             return {"af": g.get("af"), "popmax": popmax, "ancestry": anc,
-                    "faf": g.get("faf"), "populations": pops,
+                    "faf": g.get("faf"), "faf99": _f(g.get("faf99")),
+                    "ac": int(ac) if ac is not None else None,
+                    "an": int(an) if an is not None else None,
+                    "ac_grpmax": _f(g.get("ac_grpmax")), "an_grpmax": _f(g.get("an_grpmax")),
+                    "populations": pops,
                     "absent": False, "is_common": (popmax or 0) >= 0.05,
                     "band": _gnomad_band(af, popmax, anc), "source": "gnomAD v4.1"}
         return {"absent": True, "is_common": False, "popmax": None,

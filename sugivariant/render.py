@@ -431,13 +431,28 @@ def render_body(v, jsonld_tag=""):
             L.append(f"- AlphaMissense ranks this among the **top {pctl['top_pct']}%** "
                      f"most-pathogenic-predicted substitutions in {v.get('gene_symbol')} "
                      f"(of {pctl['n']:,} modeled).")
+        gf = v.get("gnomad")
+        if gf and not gf.get("absent"):
+            gp = []
+            if gf.get("popmax") is not None:
+                gp.append(f"grpmax **{gf['popmax'] * 100:.3g}%**"
+                          + (f" ({gf['ancestry']})" if gf.get("ancestry") else ""))
+            if gf.get("faf99") is not None:
+                gp.append(f"faf99 {gf['faf99'] * 100:.3g}%")
+            if gf.get("ac") is not None and gf.get("an"):
+                gp.append(f"{gf['ac']:,}/{gf['an']:,} alleles")
+            if gp:
+                L.append(f"- Population frequency (gnomAD v4.1): " + " · ".join(gp)
+                         + (f" — {gf['band']}" if gf.get("band") else "") + ".")
+        elif gf and gf.get("absent"):
+            L.append("- Population frequency: **absent from gnomAD v4.1** (a supporting rarity signal).")
         L.append("\n*Computational predictors are not independent (ClinGen SVI): "
                  "AlphaMissense (Cheng et al. 2023) carries the ACMG weight for missense "
                  "and conservation (phyloP/GERP/phastCons) for non-missense; REVEL "
                  "(Pejaver-2022 calibrated strength bands) and SaProt (Su et al. 2023, structure-"
                  "aware, ClinVar-independent protein language model, raw LLR) are shown as orthogonal "
                  "agreement signals, not additive. gnomAD v4.1 grpmax with the ClinGen-recommended "
-                 "filtering allele frequency (faf) is the BA1/BS1/PM2 metric; thresholds are "
+                 "filtering allele frequency (faf99) is the BA1/BS1/PM2 metric; thresholds are "
                  "disease-specific. Predictions, not a clinical determination.*")
 
     # Gene ACMG context + protein/structural context + mechanism/pathways

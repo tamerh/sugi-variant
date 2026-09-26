@@ -382,6 +382,18 @@
 .src-mini a{white-space:nowrap}
 
 /* Low-profile "Cite this page" — collapsed by default, quiet muted summary. */
+/* Prominent "Send feedback" pill — fixed bottom-right on all screens; on wide screens it
+   sits in the right gutter just under the layout switcher. */
+.vd-feedback{position:fixed;bottom:1.1rem;right:1.1rem;z-index:30;display:inline-flex;align-items:center;gap:.4rem;
+  padding:.5rem .9rem;border-radius:999px;background:var(--accent,#2563eb);color:#fff;font-size:.82rem;font-weight:600;
+  text-decoration:none;box-shadow:0 3px 10px rgba(0,0,0,.16)}
+.vd-feedback:hover{filter:brightness(1.08)}
+.vd-feedback-ico{font-size:.95rem}
+@media(min-width:1400px){
+  .vd-feedback{top:100px;right:1.25rem;bottom:auto;box-shadow:none;background:var(--accent-soft,#eff4ff);
+    color:var(--accent,#2563eb);border:1px solid var(--accent,#2563eb)}
+}
+.cite-row{display:flex;flex-wrap:wrap;gap:.4rem 1.4rem;align-items:flex-start}
 .cite{margin:.5rem 0 0;font-size:.8rem}
 .cite>summary{cursor:pointer;color:var(--text-muted,#6b7280);list-style:none;display:inline-block;
   border-bottom:1px dashed var(--border,#cbd5e1);padding-bottom:1px;user-select:none}

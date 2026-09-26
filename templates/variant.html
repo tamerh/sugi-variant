@@ -8,7 +8,7 @@
 {% block description %}{{ v.plain }}{% endblock %}
 {% block head %}<link rel="canonical" href="https://sugi.bio/variant/{{ v.canonical_slug }}">{% endblock %}
 {% block content %}
-<div class="vd-viewswitch-fixed">{% with sw_inline=true %}{% include "_viewswitch.html" %}{% endwith %}</div>
+{% include "_feedback.html" %}
 <article class="entity-page vd">
   <div class="container vd-container">
     <p class="breadcrumb">
@@ -57,6 +57,8 @@
             {% if v.saprot %}<tr><th>SaProt</th><td class="vd-num">LLR {{ '%.2f'|format(v.saprot.llr) }}</td><td class="section-sub">{{ 'damaging' if v.saprot.damaging else 'tolerated' }}</td></tr>{% endif %}
             {% if v.spliceai %}<tr><th>SpliceAI</th><td class="vd-num">Δ{{ v.spliceai.score }}</td><td class="section-sub">{{ v.spliceai.effect|replace('_',' ') }}</td></tr>{% endif %}
             {% if v.conservation and v.conservation.phylop is not none %}<tr><th>Conservation</th><td class="vd-num">phyloP {{ '%.2g'|format(v.conservation.phylop) }}</td><td class="section-sub">{% if v.conservation.gerp is not none %}GERP {{ '%.2g'|format(v.conservation.gerp) }}{% endif %}{% if v.conservation.phastcons is not none %}{% if v.conservation.gerp is not none %}, {% endif %}phastCons {{ '%.2g'|format(v.conservation.phastcons) }}{% endif %}</td></tr>{% endif %}
+            {% if g and not g.absent %}<tr><th>gnomAD v4.1</th><td class="vd-num">{% if g.popmax is not none %}{{ '%.3g'|format(g.popmax*100) }}%{% elif g.af %}{{ '%.3g'|format(g.af|float*100) }}%{% else %}—{% endif %}</td><td class="section-sub">grpmax{% if g.ancestry %} ({{ g.ancestry }}){% endif %}{% if g.faf99 is not none %} · faf99 {{ '%.3g'|format(g.faf99*100) }}%{% endif %}{% if g.ac is not none and g.an %} · {{ "{:,}".format(g.ac) }}/{{ "{:,}".format(g.an) }} alleles{% endif %}</td></tr>
+            {% elif g and g.absent %}<tr><th>gnomAD v4.1</th><td colspan="2" class="section-sub">absent from gnomAD v4.1</td></tr>{% endif %}
           </tbody></table>
           {% if c and c.consensus %}<p class="vd-consensus {{ 'is-agree' if c.consensus.unanimous }}">⇒ In-silico consensus: {{ c.consensus.summary }}.</p>{% endif %}
           {% if c and c.verdict and 'triage' in c.verdict %}<p class="vd-consensus is-flag">{{ c.verdict|mdbold }}</p>{% endif %}

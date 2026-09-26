@@ -715,9 +715,6 @@ def gene_hub(gene: str):
                    dcap=_DZ_CAP, cats=DISAGREEMENT_CATEGORIES, meta=CAT_META)
 
 
-_VIEW_TEMPLATES = {"datasheet": "variant_v3.html", "classic": "variant_classic.html"}
-
-
 @app.get("/{slug}.md", response_class=PlainTextResponse)
 def variant_md(slug: str):
     """Markdown twin of a variant page — the same prose the page renders, as plain text
@@ -750,8 +747,7 @@ def variant_page(slug: str, view: str = ""):
         flags = IX.slug_flags(ix, [s["slug"] for s in sims])
         for s in sims:
             s["flag"] = flags.get(s["slug"])
-    # ?view= selects a layout preview (Default / Dashboard / Datasheet); the switcher
-    # bar links between them. canonical stays the p-slug regardless.
-    tpl = _VIEW_TEMPLATES.get(view, "variant.html")
-    return _render(tpl, v=rec, canonical=rec["canonical_slug"], nav="variant",
-                   view=view, disagreement=disagreement_flag(rec))
+    # One canonical layout (the dashboard). A legacy ?view= param is accepted but ignored
+    # so old bookmarks/links still resolve to the same page instead of 404ing.
+    return _render("variant.html", v=rec, canonical=rec["canonical_slug"], nav="variant",
+                   disagreement=disagreement_flag(rec))
