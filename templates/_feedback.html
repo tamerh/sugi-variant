@@ -5,6 +5,4 @@
 {% set fb_subject = "Sugi Variant feedback — " ~ v.gene_symbol ~ " " ~ (v.hgvs_p or v.hgvs_c or "") ~ " (VCV" ~ v.variation_id ~ ")" %}
 {% set fb_body = "Page: " ~ pub ~ "/" ~ canonical ~ "\n\nYour feedback — a data issue (wrong mapping, stale value, broken link), a suggestion, or anything useful:\n\n\n(About the data shown on this page. Not variant interpretation for a patient — please don't include patient information.)" %}
 <a class="vd-feedback" href="mailto:tamer.gur07@gmail.com?subject={{ fb_subject|urlencode }}&amp;body={{ fb_body|urlencode }}"
-   title="Send feedback about this page — a data issue or a suggestion">
-  <span class="vd-feedback-ico" aria-hidden="true">✉</span> Send feedback
-</a>
+   title="Send feedback about this page — a data issue or a suggestion">Send feedback</a>
