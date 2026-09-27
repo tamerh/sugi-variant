@@ -102,14 +102,29 @@ def gnomad_frequency(rec):
     if coord:
         g = _coord_entry(coord, "gnomad_variant")
         if g:
-            af, popmax = _f(g.get("af")), _f(g.get("af_grpmax"))
+            popmax = _f(g.get("af_grpmax"))
             anc = g.get("grpmax_ancestry")
-            pops = {k[3:]: g[k] for k in g if k.startswith("af_") and k != "af_grpmax" and g.get(k)}
-            ac, an = _f(g.get("ac")), _f(g.get("an"))
-            return {"af": g.get("af"), "popmax": popmax, "ancestry": anc,
+            pops = {k[3:]: g[k] for k in g if k.startswith("af_") and k not in ("af_grpmax", "af_exomes", "af_genomes") and g.get(k)}
+            # Correct the AF denominator: the combined `af` adds a callset's AN even when the
+            # variant is absent from it, so exome-only / genome-only variants under-report
+            # (COL4A1 P484A: combined 3.72e-6 vs gnomAD's exome-only 4.10e-6). Recompute from the
+            # per-callset AC/AN, summing only callsets that actually observed the variant (ac>0).
+            ace, ane = _f(g.get("ac_exomes")), _f(g.get("an_exomes"))
+            acg, ang = _f(g.get("ac_genomes")), _f(g.get("an_genomes"))
+            obs_ac = obs_an = 0.0
+            if ace:
+                obs_ac += ace; obs_an += (ane or 0)
+            if acg:
+                obs_ac += acg; obs_an += (ang or 0)
+            if obs_an:                       # per-callset available → corrected AF + honest AC/AN
+                af, ac, an = obs_ac / obs_an, int(obs_ac), int(obs_an)
+            else:                            # fall back to the combined values
+                af = _f(g.get("af"))
+                ac = int(_f(g.get("ac"))) if _f(g.get("ac")) is not None else None
+                an = int(_f(g.get("an"))) if _f(g.get("an")) is not None else None
+            return {"af": af, "popmax": popmax, "ancestry": anc,
                     "faf": g.get("faf"), "faf99": _f(g.get("faf99")),
-                    "ac": int(ac) if ac is not None else None,
-                    "an": int(an) if an is not None else None,
+                    "ac": ac, "an": an,
                     "ac_grpmax": _f(g.get("ac_grpmax")), "an_grpmax": _f(g.get("an_grpmax")),
                     "populations": pops,
                     "absent": False, "is_common": (popmax or 0) >= 0.05,
