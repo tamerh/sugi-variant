@@ -238,7 +238,7 @@
 .vd-stack .vd-card{margin-bottom:0}   /* gap controls spacing; drop the card's own margin */
 /* Sub-sections inside the combined "Variant & gene context" card */
 .vd-sub{margin-top:1.1rem;padding-top:.9rem;border-top:1px solid var(--border,#eef0f3)}
-.vd-sub h4{font-size:.85rem;font-weight:700;letter-spacing:.01em;margin:0 0 .55rem;color:var(--text,#111827)}
+.vd-sub h4{font-size:.85rem;font-weight:700;letter-spacing:.01em;margin:0 0 .55rem;color:var(--fg,#111827)}
 .vd-sub p{margin:.35rem 0}
 .vd-context-id{margin-bottom:0}
 /* Prominent Sugi Atlas cross-link (gene-level depth lives there) */
@@ -253,7 +253,7 @@
 .vd-genemetrics{margin-top:.9rem;padding-top:.75rem;border-top:1px dashed var(--border,#e5e7eb)}
 .vd-genemetrics-lab{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted,#6b7280);margin:0 0 .35rem}
 .vd-card{border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:.9rem 1rem;margin-bottom:1rem;background:var(--bg,#fff)}
-.vd-card>h3{font-size:.9rem;font-weight:700;letter-spacing:.01em;color:var(--text,#111827);
+.vd-card>h3{font-size:.9rem;font-weight:700;letter-spacing:.01em;color:var(--fg,#111827);
   margin:0 0 .7rem;padding-bottom:.45rem;border-bottom:1px solid var(--border,#eef0f3)}
 .vd-card p{margin:.4rem 0;line-height:1.5;font-size:.92rem}
 .vd-side .vd-card{font-size:.86rem}
@@ -377,7 +377,7 @@
 .src-lic{font-size:.7rem;color:var(--muted,#6b7280);line-height:1.3}
 
 /* compact per-variant sources footer (full grid lives on /about + /method) */
-.dd-note{color:var(--text-muted,#6b7280);font-size:.85em}
+.dd-note{color:var(--fg-muted,#6b7280);font-size:.85em}
 .src-mini{margin-top:2rem;border-top:1px solid var(--border,#e5e7eb);padding-top:.8rem;font-size:.85rem}
 .src-mini a{white-space:nowrap}
 
@@ -394,18 +394,18 @@
 }
 .cite-row{display:flex;flex-wrap:wrap;gap:.4rem 1.4rem;align-items:flex-start}
 .cite{margin:.5rem 0 0;font-size:.8rem}
-.cite>summary{cursor:pointer;color:var(--text-muted,#6b7280);list-style:none;display:inline-block;
+.cite>summary{cursor:pointer;color:var(--fg-muted,#6b7280);list-style:none;display:inline-block;
   border-bottom:1px dashed var(--border,#cbd5e1);padding-bottom:1px;user-select:none}
 .cite>summary::-webkit-details-marker{display:none}
 .cite>summary::marker{content:""}
 .cite>summary:hover{color:var(--accent,#2563eb);border-bottom-color:var(--accent,#2563eb)}
 .cite-body{margin-top:.55rem;padding:.7rem .85rem;background:var(--bg-soft,#f9fafb);
   border:1px solid var(--border,#e5e7eb);border-radius:8px;max-width:660px}
-.cite-text{margin:0;font-size:.82rem;line-height:1.55;color:var(--text,#111827)}
+.cite-text{margin:0;font-size:.82rem;line-height:1.55;color:var(--fg,#111827)}
 .cite-copy{margin:.55rem .7rem 0 0;font-size:.72rem;padding:.2rem .6rem;border:1px solid var(--border,#cbd5e1);
-  border-radius:6px;background:var(--bg,#fff);color:var(--text-muted,#374151);cursor:pointer;vertical-align:middle}
+  border-radius:6px;background:var(--bg,#fff);color:var(--fg-muted,#475569);cursor:pointer;vertical-align:middle}
 .cite-copy:hover{border-color:var(--accent,#2563eb);color:var(--accent,#2563eb)}
-.cite-note{font-size:.72rem;color:var(--text-muted,#6b7280)}
+.cite-note{font-size:.72rem;color:var(--fg-muted,#6b7280)}
 .cite-note a{white-space:nowrap}
 
 /* computational-card footnote (§8 framing, moved out of the result rows) */
@@ -422,7 +422,7 @@
 .vd-stars .off{color:var(--border,#d1d5db)}
 
 /* neutral plain-language lead under the stat tiles (was the 'For patients' card) */
-.vd-lead{margin:1rem 0 1.3rem;font-size:1.05rem;line-height:1.55;color:var(--text,var(--fg));
+.vd-lead{margin:1rem 0 1.3rem;font-size:1.05rem;line-height:1.55;color:var(--fg);
   background:var(--cls-soft,#f5f7fb);border-left:4px solid var(--cls,#cbd5e1);
   padding:.85rem 1.1rem;border-radius:0 10px 10px 0}
 
