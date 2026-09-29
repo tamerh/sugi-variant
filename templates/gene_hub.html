@@ -33,7 +33,7 @@
             <span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(r.classification) }}">{{ r.classification|replace('Conflicting classifications of pathogenicity','Conflicting') }}</span>
             <span class="rv-badge rv{{ r.stars }} rv-sm">{{ tier_label(r.stars) }}</span>
           </a>
-          {% if r.primary_condition %}<p class="dz-reason">{% set du = atlas_disease(r.primary_condition) %}{% if du %}<a href="{{ du }}" title="Disease report on Sugi Atlas">{{ r.primary_condition }}</a>{% else %}{{ r.primary_condition }}{% endif %}</p>{% endif %}
+          {% if r.primary_condition %}<p class="dz-reason">{{ r.primary_condition }}</p>{% endif %}
         </li>
         {% endfor %}
       </ul>
@@ -52,7 +52,7 @@
         <li class="gh-row">
           <a href="{{ base }}/{{ r.slug }}"><b>{{ r.hgvs_p or r.hgvs_c }}</b></a>
           <span class="rv-badge rv{{ r.stars }} rv-sm">{{ tier_label(r.stars) }}</span>
-          {% if r.primary_condition %}<span class="gh-cond section-sub">{% set du = atlas_disease(r.primary_condition) %}{% if du %}<a href="{{ du }}" title="Disease report on Sugi Atlas">{{ r.primary_condition }}</a>{% else %}{{ r.primary_condition }}{% endif %}</span>{% endif %}
+          {% if r.primary_condition %}<span class="gh-cond section-sub">{{ r.primary_condition }}</span>{% endif %}
           {% if r.flag %}<a class="gh-flag" href="#disagreements" title="evidence disagreement">⚠</a>{% endif %}
         </li>
         {% endfor %}
