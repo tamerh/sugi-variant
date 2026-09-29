@@ -10,8 +10,15 @@ def gene_url(symbol=None, hgnc_id=None):
     return f"{_ATLAS}/gene/{symbol}/" if symbol else None
 
 
+# ClinVar placeholder "conditions" that are not real diseases → never link to Atlas.
+_NON_DISEASE = {"not provided", "not specified", "see cases", "not available",
+                "none", "-", "association", "affected", "variant of unknown significance"}
+
+
 def disease_url(mondo_id=None, name=None):
     if not name:
+        return None
+    if name.strip().lower() in _NON_DISEASE:
         return None
     # match atlas.disease.slug.slugify exactly (apostrophes drop, not become separators)
     s = name.lower()
