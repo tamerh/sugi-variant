@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ gene }} — pathogenic variants{% endblock %}
-{% block description %}{{ total }} clinically significant (pathogenic / likely-pathogenic / conflicting) {{ gene }} variants, each with cross-sourced evidence — ClinVar, gnomAD, AlphaMissense, conservation and more.{% endblock %}
+{% block description %}{{ total }} ClinVar germline {{ gene }} variants across every classification, each with cross-sourced evidence — ClinVar, gnomAD, AlphaMissense, conservation and more.{% endblock %}
 {% block head %}<link rel="canonical" href="https://sugi.bio/variant/gene/{{ gene }}">{% endblock %}
 {% block content %}
 <div class="container">
