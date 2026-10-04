@@ -11,6 +11,7 @@ Nothing here is a clinical call: concordance/consensus are transparent
 descriptions of independent evidence, each shown with its source.
 """
 import re
+import threading
 from collections import Counter
 
 from sugibiobtree import map_all
@@ -74,6 +75,43 @@ def variant_coordinate(rec):
     return None
 
 
+class _FetchError:
+    """Falsy sentinel: a coordinate-keyed fetch FAILED (network/BiobtreeError), as
+    distinct from `None` meaning "upstream genuinely has no data for this variant".
+
+    Falsy on purpose, so every existing `if x:` caller keeps its old behaviour
+    (degrade to no-data) while a caller that cares can test `x is FETCH_ERROR`.
+    Conflating the two let a transient outage render as a positive clinical claim
+    ("absent from gnomAD v4.1" -> ACMG PM2-supporting) and persist to disk forever."""
+    __slots__ = ()
+
+    def __bool__(self):
+        return False
+
+    def __repr__(self):
+        return "FETCH_ERROR"
+
+
+FETCH_ERROR = _FetchError()
+
+_BUILD = threading.local()
+
+
+def begin_build():
+    """Start a fresh degradation scope for the current thread (one per record/gene build)."""
+    _BUILD.failures = 0
+
+
+def note_fetch_failure():
+    _BUILD.failures = getattr(_BUILD, "failures", 0) + 1
+
+
+def build_degraded():
+    """True if any upstream fetch failed since begin_build() on this thread. A
+    degraded record must NOT be persisted or indexed — it under-reports evidence."""
+    return getattr(_BUILD, "failures", 0) > 0
+
+
 def _coord_entry(coord, dataset):
     """Attributes dict for a coordinate-keyed dataset via entry() — the ONLY
     working access for gnomad_variant / alphamissense / conservation (they are
@@ -84,7 +122,10 @@ def _coord_entry(coord, dataset):
     try:
         a = (entry(coord, dataset) or {}).get("Attributes") or {}
     except Exception:
-        return None
+        # A FAILED fetch, not an absence. Record it so the caller can degrade
+        # honestly and so the record is never persisted as if it were complete.
+        note_fetch_failure()
+        return FETCH_ERROR
     if not a:
         return None
     # single-key Attributes wrapper (e.g. {"GnomadVariant": {...}}); biobtree
@@ -101,6 +142,10 @@ def gnomad_frequency(rec):
     coord = variant_coordinate(rec)
     if coord:
         g = _coord_entry(coord, "gnomad_variant")
+        if g is FETCH_ERROR:
+            # The fetch failed. "Unknown" is the only honest answer — asserting
+            # absence here would render as an ACMG PM2-supporting rarity claim.
+            return None
         if g:
             popmax = _f(g.get("af_grpmax"))
             anc = g.get("grpmax_ancestry")
@@ -455,7 +500,12 @@ def gnomad_for(rsid):
     when no coordinate is available). Absence is itself a signal."""
     if not rsid:
         return None
-    d = map_all(rsid, ">>dbsnp")
+    try:
+        d = map_all(rsid, ">>dbsnp")
+    except Exception:
+        # A failed fetch is not an absence, and must not surface as a 500 either.
+        note_fetch_failure()
+        return None
     if not d:
         return None
     freq = (d[0].get("gnomad_frequency") or "").strip()

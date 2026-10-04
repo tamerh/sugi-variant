@@ -27,6 +27,9 @@ from sugivariant.slug import _norm, _norm_hgvs            # noqa: E402
 from sugivariant.enrich import (review_stars, review_tier, tier_label,  # noqa: E402
                                 missense_short, disagreement_flag,
                                 DISAGREEMENT_CATEGORIES)
+from sugivariant.enrich import (begin_build as _begin_build,   # noqa: E402
+                               build_degraded as _build_degraded)
+from sugibiobtree.client import BiobtreeError          # noqa: E402
 from sugivariant import index as IX                       # noqa: E402
 
 ROOT = pathlib.Path(__file__).parent
@@ -192,12 +195,24 @@ def _records(gene):
                 return recs
             except Exception:
                 pass
+        _begin_build()
         recs = enriched_records(g) or []
+        if _build_degraded():
+            # An upstream fetch FAILED during this build, so the records under-report
+            # evidence (a missing gnomAD read used to render as "absent from gnomAD" —
+            # an ACMG PM2-supporting claim — and a missing predictor silently drops the
+            # variant out of the disagreement worklist). Serve it once, but never cache
+            # or persist it: a transient outage must not freeze into the corpus.
+            for r in recs:
+                r["_degraded"] = True
+            return recs
         _cache_put(g, recs)
         if recs:                     # don't persist empty/invalid-gene results
             try:
                 _RECORDS_DIR.mkdir(parents=True, exist_ok=True)
-                tmp = path.with_suffix(".tmp")
+                # PID-scoped tmp: _gene_lock is per-process but all workers share
+                # /cache/records, so a fixed .tmp name can interleave between workers.
+                tmp = path.with_suffix(f".{os.getpid()}.tmp")
                 with gzip.open(tmp, "wb") as f:
                     pickle.dump(recs, f)
                 tmp.replace(path)    # atomic
@@ -211,10 +226,13 @@ def _collect_one(vcv):
     build. Used as a resolution fallback and for the whale fast path."""
     from sugivariant.collect import attach_enrichment
     try:
+        _begin_build()
         rec = collect(str(vcv))
         if rec:
             attach_enrichment(rec, {})              # single-variant enrichment (no per-gene caches)
             rec["_partial"] = True
+            if _build_degraded():
+                rec["_degraded"] = True
             return rec
     except Exception:
         pass
@@ -461,7 +479,10 @@ async def _cache_html(request, call_next):
         # CDN-cacheable: browsers revalidate via ETag (max-age=0), but Cloudflare
         # caches for a day (s-maxage) and serves stale while revalidating — so a page
         # built once is served fast from the edge instead of rebuilding the gene.
-        h["Cache-Control"] = "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800, stale-if-error=86400"
+        if "no-store" in (resp.headers.get("cache-control") or ""):
+            h["Cache-Control"] = "no-store"          # degraded/incomplete render — never cache it
+        else:
+            h["Cache-Control"] = "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800, stale-if-error=86400"
         if request.headers.get("if-none-match") == etag:
             return Response(status_code=304, headers=h)
         return HTMLResponse(content=body, headers=h)
@@ -472,6 +493,20 @@ async def _cache_html(request, call_next):
 async def _err(request, exc):
     return HTMLResponse(_render("error.html", code=exc.status_code,
                                 detail=exc.detail), status_code=exc.status_code)
+
+
+@app.exception_handler(BiobtreeError)
+async def _upstream_down(request, exc):
+    """Upstream (BioBTree) is unreachable or erroring after its retries. That is a
+    503 with a Retry-After, not a 500 — the request is fine, the dependency is not.
+    Explicitly no-store so a transient outage is never cached as a page."""
+    return HTMLResponse(
+        _render("error.html", code=503,
+                detail="A data source is temporarily unavailable. "
+                       "This page builds live from the reference databases — "
+                       "please retry in a moment."),
+        status_code=503,
+        headers={"Retry-After": "30", "Cache-Control": "no-store"})
 
 
 # ── routes ─────────────────────────────────────────────────────────────────────
@@ -749,5 +784,10 @@ def variant_page(slug: str, view: str = ""):
             s["flag"] = flags.get(s["slug"])
     # One canonical layout (the dashboard). A legacy ?view= param is accepted but ignored
     # so old bookmarks/links still resolve to the same page instead of 404ing.
-    return _render("variant.html", v=rec, canonical=rec["canonical_slug"], nav="variant",
+    html = _render("variant.html", v=rec, canonical=rec["canonical_slug"], nav="variant",
                    disagreement=disagreement_flag(rec))
+    if rec.get("_degraded"):
+        # Built while an upstream fetch was failing → incomplete evidence. Serve it,
+        # but keep it out of every cache so the next request re-builds it cleanly.
+        return HTMLResponse(html, headers={"Cache-Control": "no-store"})
+    return html
