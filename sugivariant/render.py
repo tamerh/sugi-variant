@@ -391,7 +391,9 @@ def render_body(v, jsonld_tag=""):
     # (non-missense LoF variants often have no coordinate → no verdict, but the
     # consequence/LoF-context is still the key computational signal for them).
     conc = v.get("concordance") or {}
-    if conc.get("verdict") or v.get("lof_context") or v.get("consequence"):
+    if (conc.get("verdict") or v.get("lof_context") or v.get("consequence")
+            or (v.get("gnomad") or {}).get("frequency")
+            or (v.get("gnomad") or {}).get("af")):
         L += ["", "## Computational & population evidence {#evidence}", ""]
         if conc.get("verdict"):
             L += [f"**Concordance:** {conc['verdict']}.", ""]
@@ -437,6 +439,14 @@ def render_body(v, jsonld_tag=""):
             if gf.get("popmax") is not None:
                 gp.append(f"grpmax **{gf['popmax'] * 100:.3g}%**"
                           + (f" ({gf['ancestry']})" if gf.get("ancestry") else ""))
+            elif gf.get("af") or gf.get("frequency"):
+                # No coordinate -> the dbSNP inline GLOBAL frequency, not a grpmax.
+                # Label it as such rather than dropping the only number we have.
+                _af = gf.get("af") or gf.get("frequency")
+                try:
+                    gp.append(f"global (via dbSNP) **{float(_af) * 100:.3g}%**")
+                except (TypeError, ValueError):
+                    pass
             if gf.get("faf99") is not None:
                 gp.append(f"faf99 {gf['faf99'] * 100:.3g}%")
             if gf.get("ac") is not None and gf.get("an"):
