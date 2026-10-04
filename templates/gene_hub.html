@@ -11,7 +11,7 @@
     <p class="dz-summary" style="margin:.5rem 0 0">
       {% for grp in groups %}<span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(grp.cls) }}">{{ grp.total }}</span> {{ grp.cls|replace('Conflicting classifications of pathogenicity','Conflicting') }}{% if not loop.last %} · {% endif %}{% endfor %}
     </p>
-    <a class="vd-atlas-cta" href="{{ atlas_gene(gene) }}" style="max-width:640px">
+    <a class="vd-atlas-cta" href="{{ atlas_gene(gene) }}" style="max-width:640px" target="_blank" rel="noopener">
       <span class="vd-atlas-cta-main">Full {{ gene }} gene report on Sugi Atlas →</span>
       <span class="vd-atlas-cta-sub">Gene function, pathways, protein structure, constraint &amp; interactions</span>
     </a>

@@ -23,7 +23,7 @@
 
     {% if code == 404 and gene is defined and gene %}
     <p style="margin-top:1.2rem">
-      <a class="btn btn-primary" href="{{ atlas_gene(gene) }}">See the full {{ gene }} gene report on Sugi Atlas →</a>
+      <a class="btn btn-primary" href="{{ atlas_gene(gene) }}" target="_blank" rel="noopener">See the full {{ gene }} gene report on Sugi Atlas →</a>
     </p>
     {% endif %}
 

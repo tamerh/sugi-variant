@@ -100,7 +100,7 @@
             {% if v.structural and v.structural.features %}<dt>Residue {{ v.structural.position }}</dt><dd>{{ v.structural.features|join('; ') }}</dd>{% endif %}
           </dl>
 
-          <a class="vd-atlas-cta" href="{{ atlas_gene(v.gene_symbol) }}">
+          <a class="vd-atlas-cta" href="{{ atlas_gene(v.gene_symbol) }}" target="_blank" rel="noopener">
             <span class="vd-atlas-cta-main">Full {{ v.gene_symbol }} gene report on Sugi Atlas →</span>
             <span class="vd-atlas-cta-sub">Gene function, pathways, protein structure, interactions &amp; more</span>
           </a>
@@ -110,12 +110,12 @@
             <h4>Disease context</h4>
             {% set primary = v.conditions[0] %}
             {% if primary.mondo_id %}
-            <a class="vd-atlas-cta" href="{{ atlas_disease(primary.name) }}">
+            <a class="vd-atlas-cta" href="{{ atlas_disease(primary.name) }}" target="_blank" rel="noopener">
               <span class="vd-atlas-cta-main">{{ primary.name }} — disease report on Sugi Atlas →</span>
               <span class="vd-atlas-cta-sub">Associated genes, phenotypes, clinical trials &amp; treatments</span>
             </a>
             {% else %}<div class="vd-chips"><span class="vv-chip">{{ primary.name }}</span></div>{% endif %}
-            {% if v.conditions|length > 1 %}<p class="vd-chips" style="margin-top:.5rem"><span class="section-sub">Also linked: </span>{% for cd in v.conditions[1:] %}{% if cd.mondo_id %}<a class="vv-chip vv-chip-lnk" href="{{ atlas_disease(cd.name) }}">{{ cd.name }}</a>{% else %}<span class="vv-chip">{{ cd.name }}</span>{% endif %}{% endfor %}</p>{% endif %}
+            {% if v.conditions|length > 1 %}<p class="vd-chips" style="margin-top:.5rem"><span class="section-sub">Also linked: </span>{% for cd in v.conditions[1:] %}{% if cd.mondo_id %}<a class="vv-chip vv-chip-lnk" href="{{ atlas_disease(cd.name) }}" target="_blank" rel="noopener">{{ cd.name }}</a>{% else %}<span class="vv-chip">{{ cd.name }}</span>{% endif %}{% endfor %}</p>{% endif %}
             {% set orpha_facts = d and (d.inheritance or d.onset or d.prevalence) %}
             {% if orpha_facts %}{% if d and d.name %}<p class="section-sub" style="margin:.6rem 0 -.2rem">For <b>{{ d.name }}</b> (Orphanet):</p>{% endif %}<dl class="vd-dl" style="margin-top:.5rem">
               {% if d.inheritance %}<dt>Inheritance</dt><dd>{{ d.inheritance[:3]|join(', ') }}</dd>{% endif %}
