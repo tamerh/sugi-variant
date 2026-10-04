@@ -168,7 +168,11 @@ def gnomad_frequency(rec):
                 ac = int(_f(g.get("ac"))) if _f(g.get("ac")) is not None else None
                 an = int(_f(g.get("an"))) if _f(g.get("an")) is not None else None
             return {"af": af, "popmax": popmax, "ancestry": anc,
-                    "faf": g.get("faf"), "faf99": _f(g.get("faf99")),
+                    # FAF95 is ClinGen's designated BA1/BS1 input (gnomAD v4 guidance
+                    # v3.0, June 2025) — the grpmax filtering allele frequency. Keep `faf`
+                    # as a back-compat alias for records already on disk.
+                    "faf95": _f(g.get("faf")), "faf": _f(g.get("faf")),
+                    "faf99": _f(g.get("faf99")),
                     "ac": ac, "an": an,
                     "ac_grpmax": _f(g.get("ac_grpmax")), "an_grpmax": _f(g.get("an_grpmax")),
                     "populations": pops,
@@ -514,7 +518,7 @@ def gnomad_for(rsid):
     # shape here crashed the variant template on every fallback record with a frequency
     # (Jinja: a missing key is Undefined, and `Undefined is not none` is True).
     return {"frequency": freq, "af": _f(freq), "absent": absent,
-            "popmax": None, "ancestry": None, "faf": None, "faf99": None,
+            "popmax": None, "ancestry": None, "faf": None, "faf95": None, "faf99": None,
             "ac": None, "an": None, "ac_grpmax": None, "an_grpmax": None,
             "populations": {},
             "is_common": (d[0].get("is_common") == "true"),
@@ -665,9 +669,9 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
         elif gnomad.get("absent"):
             lines.append("Absent from gnomAD v4.1 (very rare — ACMG PM2-supporting only)")
         else:
-            faf = gnomad.get("faf")
-            faf_note = (f"; filtering AF (faf95) {faf}" if faf
-                        else "; faf/AC-AN not in this data projection")
+            faf = gnomad.get("faf95") or gnomad.get("faf")
+            faf_note = (f"; grpmax filtering AF (FAF95) {faf * 100:.3g}%" if faf
+                        else "; FAF not published for this variant")
             lines.append(gnomad["band"][0].upper() + gnomad["band"][1:]
                          + f" (gnomAD v4.1{faf_note} — BA1/BS1 are disease-specific thresholds, "
                          "not a blanket 5%)")

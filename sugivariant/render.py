@@ -447,6 +447,9 @@ def render_body(v, jsonld_tag=""):
                     gp.append(f"global (via dbSNP) **{float(_af) * 100:.3g}%**")
                 except (TypeError, ValueError):
                     pass
+            _faf95 = gf.get("faf95") if gf.get("faf95") is not None else gf.get("faf")
+            if _faf95 is not None:
+                gp.append(f"FAF95 {_faf95 * 100:.3g}%")
             if gf.get("faf99") is not None:
                 gp.append(f"faf99 {gf['faf99'] * 100:.3g}%")
             if gf.get("ac") is not None and gf.get("an"):
@@ -456,14 +459,15 @@ def render_body(v, jsonld_tag=""):
                          + (f" — {gf['band']}" if gf.get("band") else "") + ".")
         elif gf and gf.get("absent"):
             L.append("- Population frequency: **absent from gnomAD v4.1** (a supporting rarity signal).")
-        L.append("\n*Computational predictors are not independent (ClinGen SVI): "
-                 "AlphaMissense (Cheng et al. 2023) carries the ACMG weight for missense "
-                 "and conservation (phyloP/GERP/phastCons) for non-missense; REVEL "
-                 "(Pejaver-2022 calibrated strength bands) and SaProt (Su et al. 2023, structure-"
-                 "aware, ClinVar-independent protein language model, raw LLR) are shown as orthogonal "
-                 "agreement signals, not additive. gnomAD v4.1 grpmax with the ClinGen-recommended "
-                 "filtering allele frequency (faf99) is the BA1/BS1/PM2 metric; thresholds are "
-                 "disease-specific. Predictions, not a clinical determination.*")
+        L.append("\n*Computational predictors are not independent (ClinGen Variant "
+                 "Classification guidance): AlphaMissense (Cheng et al. 2023) carries the ACMG "
+                 "weight for missense and conservation (phyloP/GERP/phastCons) for non-missense; "
+                 "REVEL (Pejaver-2022 calibrated strength bands) and SaProt (Su et al. 2023, "
+                 "structure-aware, ClinVar-independent protein language model, raw LLR) are shown "
+                 "as orthogonal agreement signals, not additive. For frequency, the gnomAD v4.1 "
+                 "grpmax filtering allele frequency (FAF95) is ClinGen's designated BA1/BS1 input "
+                 "(gnomAD v4 guidance v3.0, June 2025); BA1/BS1 thresholds are disease-specific, "
+                 "not a blanket 5%. Predictions, not a clinical determination.*")
 
     # Gene ACMG context + protein/structural context + mechanism/pathways
     L += _gene_context_zone(v)

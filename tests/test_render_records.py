@@ -91,3 +91,37 @@ def test_gnomad_fallback_shape_renders_a_frequency():
             break
     if not checked:
         pytest.skip("no fallback-shape records in the sampled genes")
+
+
+def test_faf95_is_surfaced_and_is_the_named_ba1_bs1_input():
+    """FAF95 (grpmax filtering AF) is ClinGen's designated BA1/BS1 input per the gnomAD
+    v4 guidance v3.0 (June 2025). We stored it as `faf` and displayed only faf99; both
+    surfaces must now show FAF95, including for records cached before the `faf95` key
+    existed (the dict shape on disk is never auto-migrated)."""
+    os.environ.setdefault("BASE_PATH", "/variant")
+    import re
+
+    import app
+    from sugivariant.enrich import disagreement_flag
+    from sugivariant.render import render_body
+
+    row = re.compile(r"gnomAD v4\.1</th><td[^>]*>[^<]*</td><td[^>]*>(.*?)</td>", re.S)
+    checked = 0
+    for _gene, rec in _records():
+        g = rec.get("gnomad") or {}
+        faf95 = g.get("faf95") if g.get("faf95") is not None else g.get("faf")
+        if not isinstance(g, dict) or g.get("absent") or faf95 is None:
+            continue
+        html = app._render("variant.html", v=rec, canonical=rec.get("canonical_slug"),
+                           nav="variant", disagreement=disagreement_flag(rec))
+        m = row.search(html)
+        if m:
+            assert "FAF95" in m.group(1), f"{rec.get('canonical_slug')}: FAF95 missing from the row"
+        body = render_body(rec)
+        if "Population frequency" in body:
+            assert "FAF95" in body, f"{rec.get('canonical_slug')}: FAF95 missing from the .md"
+        checked += 1
+        if checked >= 20:
+            break
+    if not checked:
+        pytest.skip("no records with a published FAF in the sampled genes")
