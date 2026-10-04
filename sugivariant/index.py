@@ -45,6 +45,10 @@ def open_ro(path):
     connection — SQLite allows unlimited concurrent readers across separate connections."""
     conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    # A reindex writes this file in place, so a reader can meet a write lock. Without a
+    # busy_timeout SQLite raises "database is locked" after Python's 5s default and that
+    # surfaces as a 500; wait it out instead.
+    conn.execute("PRAGMA busy_timeout=15000")
     return conn
 
 
@@ -97,9 +101,48 @@ def index_gene(conn, gene, recs=None):
              r.get("rsid"), r.get("coordinate"), cond, flag["category"] if flag else None))
         cur.executemany("INSERT OR IGNORE INTO alias VALUES(?,?)",
                         [(k.lower(), vcv) for k in variant_keys(r)])  # lookup() lowercases
-    cur.execute("INSERT OR REPLACE INTO gene_meta VALUES(?,?)", (gene.upper(), len(recs)))
+    # gene_meta must describe the rows AS FILED, not as enumerated. collect() takes
+    # gene_symbol from the HGVS transcript, so enumerating TTN-AS1 files every row under
+    # TTN; keying meta on the enumerated name produced 1,067 "phantom" genes claiming
+    # 46,944 variants they had no rows for. Those URLs then fell through to an unbounded
+    # live build, and suggest() advertised them. Recount every symbol this call touched.
+    touched = {gene.upper()} | {str(r["gene_symbol"]).upper() for r in recs if r.get("gene_symbol")}
+    for g in touched:
+        n = cur.execute("SELECT COUNT(*) FROM variant WHERE gene=?", (g,)).fetchone()[0]
+        cur.execute("INSERT OR REPLACE INTO gene_meta VALUES(?,?)", (g, n))
     conn.commit()
     return len(recs)
+
+
+def reconcile_gene_meta(conn, log=None):
+    """Rebuild gene_meta from the variant table — the single source of truth.
+
+    Repairs an index built before index_gene recounted by filed symbol: phantom genes
+    drop to n=0 (which also keeps them as a negative marker, so they are not
+    re-enumerated), genes missing a row get one, and wrong counts are corrected.
+    Returns (phantoms_zeroed, rows_added, counts_fixed)."""
+    cur = conn.cursor()
+    real = dict(cur.execute("SELECT gene, COUNT(*) FROM variant GROUP BY gene").fetchall())
+    meta = dict(cur.execute("SELECT gene, n FROM gene_meta").fetchall())
+    phantom = added = fixed = 0
+    for g, n in meta.items():
+        r = real.get(g, 0)
+        if n == r:
+            continue
+        cur.execute("UPDATE gene_meta SET n=? WHERE gene=?", (r, g))
+        if r == 0:
+            phantom += 1
+        else:
+            fixed += 1
+    for g, r in real.items():
+        if g not in meta:
+            cur.execute("INSERT OR REPLACE INTO gene_meta VALUES(?,?)", (g, r))
+            added += 1
+    conn.commit()
+    if log:
+        log(f"gene_meta reconciled: {phantom} phantom genes zeroed, "
+            f"{added} missing rows added, {fixed} counts corrected")
+    return phantom, added, fixed
 
 
 def build_index(genes, db_path, skip_done=True, log_every=200):
@@ -239,6 +282,16 @@ def slug_flags(conn, slugs):
     q = ("SELECT a.key, v.flag FROM alias a JOIN variant v ON v.vcv=a.vcv "
          "WHERE a.key IN (%s)" % ",".join("?" * len(keys)))
     return {key: flag for key, flag in conn.execute(q, keys).fetchall() if flag}
+
+
+def gene_known_empty(conn, gene):
+    """True if the index has already enumerated this gene and nothing was filed under
+    it (gene_meta row present, n == 0). A caller must NOT fall through to a live build
+    in that case: for a phantom symbol that is a full enumeration + enrichment of
+    thousands of variants on the request path. Distinguished from "no row at all",
+    which means we have never looked and a build is legitimate."""
+    r = conn.execute("SELECT n FROM gene_meta WHERE gene=?", (gene.upper(),)).fetchone()
+    return r is not None and (r["n"] or 0) == 0
 
 
 def gene_count(conn, gene):

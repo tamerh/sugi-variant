@@ -552,16 +552,18 @@ def variant_set(v: str = "", q: str = ""):
     # paste box → resolve each line via the shared resolver → canonical permalink
     if q.strip():
         slugs = []
-        for line in _SET_SPLIT.split(q):
-            line = line.strip()
-            if not line:
-                continue
+        # Cap the INPUT, not just the output. resolve_query() can fall through to a live
+        # per-gene build, so resolving every pasted line let one unauthenticated GET
+        # trigger an unbounded number of them (_SET_MAX used to be applied only to the
+        # resulting slug list, below).
+        lines = [ln.strip() for ln in _SET_SPLIT.split(q) if ln.strip()][:_SET_MAX]
+        for line in lines:
             for h in resolve_query(line)[2]:
                 if h["canonical_slug"] not in slugs:
                     slugs.append(h["canonical_slug"])
         if slugs:
             return RedirectResponse(f"{BASE}/set?v=" + ",".join(slugs[:_SET_MAX]), status_code=307)
-        miss = [ln.strip() for ln in _SET_SPLIT.split(q) if ln.strip()]
+        miss = lines
         return HTMLResponse(_render("set.html", rows=[], missing=miss, stats=None,
                                     worklist=[], gene_groups=[], meta=CAT_META, nav="set", capped=False))
     reqs = [s.strip() for s in v.split(",") if s.strip()]
@@ -712,7 +714,17 @@ def gene_hub(gene: str):
     ix = _index()
     rows = IX.gene_rows(ix, g) if ix else None
     if not rows:                                   # not indexed yet → live build fallback
-        recs = _records(g)
+        # The index is authoritative once built. If it already holds a gene_meta row for
+        # this symbol saying zero, we have enumerated it and nothing was filed under it —
+        # do NOT fall through to a live build. For a phantom symbol (TTN-AS1 claimed 6,410
+        # variants it had no rows for) that build is a ~80,000-call enumeration on the
+        # request path, with no deadline, triggerable by anyone, and advertised by
+        # type-ahead. It also short-circuits the repeated re-enumeration of genes we
+        # already know are empty, which previously cost a full search on every cold hit.
+        if ix is not None and IX.gene_known_empty(ix, g):
+            recs = []
+        else:
+            recs = _records(g)
         if not recs:
             # A real gene with no ClinVar variants in our corpus (e.g. Sugi Atlas links here
             # for tRNA/Y-chromosome/ORF genes we don't build) → a graceful cross-link back to
