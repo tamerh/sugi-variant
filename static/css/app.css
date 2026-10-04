@@ -382,16 +382,13 @@
 .src-mini a{white-space:nowrap}
 
 /* Low-profile "Cite this page" — collapsed by default, quiet muted summary. */
-/* Prominent "Send feedback" pill — fixed bottom-right on all screens; on wide screens it
-   sits in the right gutter just under the layout switcher. */
-.vd-feedback{position:fixed;bottom:1.1rem;right:1.1rem;z-index:30;display:inline-flex;align-items:center;gap:.4rem;
+/* Prominent "Send feedback" pill — fixed bottom-LEFT on all screens, matching the
+   Sugi Atlas feedback button for a consistent affordance across the two products. */
+.vd-feedback{position:fixed;bottom:1.1rem;left:1.1rem;z-index:30;display:inline-flex;align-items:center;gap:.4rem;
   padding:.55rem 1rem;border-radius:999px;background:#16a34a;color:#fff;font-size:.82rem;font-weight:600;
   text-decoration:none;border:none;box-shadow:0 3px 10px rgba(0,0,0,.18);cursor:pointer}
 .vd-feedback:hover,.vd-feedback:focus{background:#15803d;color:#fff;text-decoration:none}
 .vd-feedback:active{transform:translateY(1px)}
-@media(min-width:1400px){
-  .vd-feedback{top:100px;right:1.25rem;bottom:auto}   /* into the right gutter; stays a solid button */
-}
 .cite-row{display:flex;flex-wrap:wrap;gap:.4rem 1.4rem;align-items:flex-start}
 .cite{margin:.5rem 0 0;font-size:.8rem}
 .cite>summary{cursor:pointer;color:var(--fg-muted,#6b7280);list-style:none;display:inline-block;
