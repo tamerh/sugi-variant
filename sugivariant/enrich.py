@@ -460,7 +460,13 @@ def gnomad_for(rsid):
         return None
     freq = (d[0].get("gnomad_frequency") or "").strip()
     absent = freq in ("", "0", "0.0")
-    return {"frequency": freq, "absent": absent,
+    # Return the SAME key set as the coordinate path (gnomad_frequency) — a divergent
+    # shape here crashed the variant template on every fallback record with a frequency
+    # (Jinja: a missing key is Undefined, and `Undefined is not none` is True).
+    return {"frequency": freq, "af": _f(freq), "absent": absent,
+            "popmax": None, "ancestry": None, "faf": None, "faf99": None,
+            "ac": None, "an": None, "ac_grpmax": None, "an_grpmax": None,
+            "populations": {},
             "is_common": (d[0].get("is_common") == "true"),
             "band": _freq_band(freq, absent), "source": "dbSNP/gnomAD"}
 
