@@ -338,7 +338,11 @@ def test_mechanism_narrative_gates():
     pw = {"disease_pathways": [{"id": "R-HSA-5674404", "name": "PTEN Loss of Function in Cancer"}],
           "top_function": "protein tyrosine phosphatase activity"}
     s = mechanism_narrative(rec, pw)
-    assert "alters PTEN at p.Arg173Cys" in s and "phosphatase domain" in s
+    # Leads with GENE FUNCTION, then locates the variant (rewritten 2026-09; the old
+    # phrasing "alters PTEN at ..." led with the variant and read as a causal claim).
+    assert s.startswith("PTEN's established molecular role")
+    assert "protein tyrosine phosphatase activity" in s
+    assert "p.Arg173Cys" in s and "phosphatase domain" in s
     # Reactome pathway is stated as a FACT (annotation), not fabricated as "the mechanism of"
     # the condition (benchmark 2026-07). Per-variant AlphaMissense/SpliceAI live in the
     # Computational card, not this gene-function narrative.
