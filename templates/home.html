@@ -7,8 +7,10 @@
     <p class="hero-search-eyebrow">cross-sourced human variant reference</p>
     <h1 class="hero-search-title">Sugi Variant</h1>
     <p class="hero-search-sub">One deterministic, cited reference page for every clinically significant human
-      variant — <b>{{ "{:,}".format(n_variants) }}</b> pathogenic, likely-pathogenic and conflicting variants
-      across <b>{{ "{:,}".format(n_genes) }}</b> genes. ClinVar, gnomAD&nbsp;v4.1, AlphaMissense, conservation,
+      variant — <b>{{ "{:,}".format(n_variants) }}</b> ClinVar germline variants
+      across <b>{{ "{:,}".format(n_genes) }}</b> genes{% if n_pathogenic and n_vus %}, from
+      {{ "{:,}".format(n_pathogenic) }} pathogenic or likely pathogenic through
+      {{ "{:,}".format(n_vus) }} of uncertain significance{% endif %}. ClinVar, gnomAD&nbsp;v4.1, AlphaMissense, conservation,
       SpliceAI, ClinGen VCEP codes and more, assembled into one place. Search a variant, gene, or rsID.</p>
 
     <form class="hero-search-box" action="{{ base }}/" method="get" role="search">

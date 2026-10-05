@@ -305,6 +305,14 @@ def corpus_stats(conn):
         "variants": conn.execute("SELECT COUNT(*) FROM variant").fetchone()[0],
         "genes": conn.execute("SELECT COUNT(DISTINCT gene) FROM variant").fetchone()[0],
         "flagged": conn.execute("SELECT COUNT(*) FROM variant WHERE flag IS NOT NULL").fetchone()[0],
+        # Real composition, so the home page can describe the corpus truthfully: it is
+        # mostly VUS, not mostly P/LP (P/LP + conflicting is ~12%).
+        "pathogenic": conn.execute(
+            "SELECT COUNT(*) FROM variant WHERE classification LIKE 'Pathogenic%' "
+            "OR classification LIKE 'Likely pathogenic%'").fetchone()[0],
+        "vus": conn.execute(
+            "SELECT COUNT(*) FROM variant WHERE classification LIKE '%ncertain significance%'"
+        ).fetchone()[0],
     }
 
 

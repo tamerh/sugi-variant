@@ -78,10 +78,30 @@ def data_provenance():
 
 
 def data_asof():
-    """Freshest dataset build date (YYYY-MM) across sources, or None — the single
-    'data current as of' stamp for the per-page provenance line."""
-    dates = [b for _n, _lic, b in data_provenance() if b]
-    return max(dates)[:7] if dates else None
+    """OLDEST dataset build date (YYYY-MM) across the cited sources, or None.
+
+    "Data current as of X" is only true if EVERY source is at least as fresh as X, so
+    this is a min, not a max. It used to be max(), which reported the freshest source
+    and silently masked the stale ones — the footer claimed 2026-09 (gnomAD) while
+    AlphaMissense was 2026-01 and SpliceAI 2026-02. Per-source dates remain on
+    /about#sources; this is the floor."""
+    dates = [b for _n, _lic, b in data_provenance() if b and not b.startswith("0001")]
+    return min(dates)[:7] if dates else None
+
+
+def source_asof(name_prefix="ClinVar"):
+    """Build date (YYYY-MM) of one named source — ClinVar by default, since "how current
+    is the clinical data" is the question a reader actually has."""
+    for n, _lic, b in data_provenance():
+        if b and n.startswith(name_prefix):
+            return b[:7]
+    return None
+
+
+def data_asof_range():
+    """(oldest, newest) YYYY-MM across cited sources — for showing the real spread."""
+    dates = sorted(b for _n, _lic, b in data_provenance() if b and not b.startswith("0001"))
+    return (dates[0][:7], dates[-1][:7]) if dates else (None, None)
 
 
 def attribution_md():

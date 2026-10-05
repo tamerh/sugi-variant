@@ -1,11 +1,11 @@
 # Sugi Variant
 
-A **free, deterministic reference page for every clinically significant human variant** —
-**463,882** pathogenic, likely-pathogenic and conflicting variants across **6,537** genes
-(protein-coding, ncRNA and mitochondrial). Each page cross-sources ClinVar, gnomAD,
-AlphaMissense, conservation, SpliceAI, ClinGen and more into one place, and — uniquely —
-surfaces the **~109,000 variants where the computational evidence and the clinical call
-disagree**.
+A **free, deterministic reference page for every ClinVar germline variant** —
+**3,961,230** variants across **18,799** genes (protein-coding, ncRNA and mitochondrial),
+from **312,788** pathogenic or likely pathogenic through **2,236,650** of uncertain
+significance. Each page cross-sources ClinVar, gnomAD, AlphaMissense, conservation,
+SpliceAI, ClinGen and more into one place, and flags the variants where the computational
+evidence and the clinical call **disagree** — a review signal, never a reclassification.
 
 Sugi Variant is the clinical-genetics reference member of the [sugi.bio](https://sugi.bio)
 family — alongside **BioBTree** (identifier grounding), **Sugi Atlas** (gene/drug/disease

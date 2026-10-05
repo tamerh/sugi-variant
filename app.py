@@ -67,10 +67,13 @@ env.globals["atlas_gene"] = lambda sym: _links.gene_url(symbol=sym)
 env.globals["atlas_disease"] = lambda name: _links.disease_url(name=name)
 # Data-source attribution (AlphaMissense CC BY 4.0 + REVEL ODbL require it) — single
 # source of truth in render.py so HTML and the markdown twin can't drift.
-from sugivariant.render import data_provenance, source_refs, data_asof   # noqa: E402
+from sugivariant.render import (data_provenance, source_refs, data_asof,  # noqa: E402
+                               data_asof_range, source_asof)
 env.globals["data_provenance"] = data_provenance
 env.globals["source_refs"] = source_refs
 env.globals["data_asof"] = data_asof
+env.globals["data_asof_range"] = data_asof_range
+env.globals["source_asof"] = source_asof
 env.globals["tier_label"] = tier_label
 
 # ClinGen dosage haploinsufficiency: 0–3 is the evidence scale; 30/40 are category codes
@@ -514,12 +517,19 @@ _STATS_CACHE = None
 
 
 def _corpus_stats():
+    """Memoized on the index mtime. Previously a keyless permanent memo: if index.db was
+    absent at the first request (deploy race, volume not yet mounted) it cached zeros
+    FOREVER and the home page advertised "0 variants" until a restart — and it never
+    picked up a reindex. The container HEALTHCHECK curls /, so that first request is
+    guaranteed to be the risky one."""
     global _STATS_CACHE
-    if _STATS_CACHE is None:
+    stamp = _index_lastmod()
+    if _STATS_CACHE is None or _STATS_CACHE[0] != stamp:
         ix = _index()
-        _STATS_CACHE = (IX.corpus_stats(ix) if ix
-                        else {"variants": 0, "genes": 0, "flagged": 0})
-    return _STATS_CACHE
+        if not ix:
+            return {"variants": 0, "genes": 0, "flagged": 0, "pathogenic": 0, "vus": 0}
+        _STATS_CACHE = (stamp, IX.corpus_stats(ix))
+    return _STATS_CACHE[1]
 
 
 _SET_SPLIT = re.compile(r"[\n;,]+")
@@ -537,7 +547,9 @@ def home(q: str = ""):
         return _resolution_response(*resolve_query(q))
     s = _corpus_stats()
     return HTMLResponse(_render("home.html", n_variants=s["variants"],
-                                n_genes=s["genes"], n_flagged=s["flagged"], nav="home"))
+                                n_genes=s["genes"], n_flagged=s["flagged"],
+                                n_pathogenic=s.get("pathogenic"), n_vus=s.get("vus"),
+                                nav="home"))
 
 
 _SET_MAX = 60
@@ -796,8 +808,15 @@ def variant_page(slug: str, view: str = ""):
             s["flag"] = flags.get(s["slug"])
     # One canonical layout (the dashboard). A legacy ?view= param is accepted but ignored
     # so old bookmarks/links still resolve to the same page instead of 404ing.
+    # schema.org structured data: jsonld.py was written and tested but never wired in, so
+    # every page shipped without it. Defensive — a schema error must never break a page.
+    try:
+        from sugivariant.jsonld import as_script_tag
+        jsonld = as_script_tag(rec, {"generated_at": _index_lastmod()})
+    except Exception:
+        jsonld = ""
     html = _render("variant.html", v=rec, canonical=rec["canonical_slug"], nav="variant",
-                   disagreement=disagreement_flag(rec))
+                   jsonld=jsonld, disagreement=disagreement_flag(rec))
     if rec.get("_degraded"):
         # Built while an upstream fetch was failing → incomplete evidence. Serve it,
         # but keep it out of every cache so the next request re-builds it cleanly.

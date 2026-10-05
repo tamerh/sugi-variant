@@ -6,7 +6,9 @@
 {% set has_facts = (d and (d.inheritance or d.onset or d.prevalence)) or (v.condition_links and v.condition_links.trial_count) %}
 {% block title %}{{ label(v) }}{% endblock %}
 {% block description %}{{ v.plain }}{% endblock %}
-{% block head %}<link rel="canonical" href="https://sugi.bio/variant/{{ v.canonical_slug }}">{% endblock %}
+{% block head %}<link rel="canonical" href="https://sugi.bio/variant/{{ v.canonical_slug }}">
+<link rel="alternate" type="text/markdown" href="https://sugi.bio/variant/{{ v.canonical_slug }}.md" title="Markdown (machine-readable)">
+{{ jsonld|default('', true)|safe }}{% endblock %}
 {% block content %}
 {% include "_feedback.html" %}
 <article class="entity-page vd">

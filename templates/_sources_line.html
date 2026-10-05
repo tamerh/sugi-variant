@@ -1,6 +1,6 @@
 {# Compact per-variant sources footer — keeps attribution + traceability reachable
    without the full box grid (which lives on /about#sources and /method). #}
 <p class="src-mini section-sub" id="sources">Built on {{ data_provenance()|length }} open, versioned datasets —
-  ClinVar, gnomAD, AlphaMissense, REVEL, ClinGen &amp; more — plus Sugi Variant's own cross-source analysis.{% if data_asof() %} Data current as of {{ data_asof() }}.{% endif %}
+  ClinVar, gnomAD, AlphaMissense, REVEL, ClinGen &amp; more — plus Sugi Variant's own cross-source analysis.{% set _r = data_asof_range() %}{% if _r[0] %} Source data {{ _r[0] }}–{{ _r[1] }}{% if source_asof() %}, ClinVar {{ source_asof() }}{% endif %}.{% endif %}
   <a href="{{ base }}/about#sources">Full sources &amp; versions →</a></p>
 {% if v is defined and v.gene_symbol and canonical is defined %}{% include "_cite.html" %}{% endif %}
