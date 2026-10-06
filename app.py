@@ -545,7 +545,21 @@ def _anc_name(code):
     return _ANC_NAMES.get((code or "").lower(), (code or "").upper())
 
 
+def _one_in(v):
+    """Allele frequency as "1 in N" — the readable form. A grpmax of 8.56e-07 renders as
+    "8.56e-05%", which no one can compare at a glance; "1 in 1,168,775" they can."""
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return None
+    if v <= 0:
+        return None
+    n = 1.0 / v
+    return f"{round(n):,}" if n < 1e7 else f"{n:.1e}"
+
+
 env.globals["anc_name"] = _anc_name
+env.globals["one_in"] = _one_in
 
 
 if os.environ.get("SUGI_PREVIEW"):
@@ -556,9 +570,17 @@ if os.environ.get("SUGI_PREVIEW"):
         rec = _resolve(v)
         if not rec:
             raise StarletteHTTPException(404, f"no variant “{v}”")
-        g = dict(rec.get("gnomad") or {})
+        # Normalize to a FULL key set. Records on disk predate several of these fields,
+        # and in Jinja a missing key is Undefined where `Undefined is not none` is True —
+        # the exact trap that 500'd production (b598202). Filling them makes the template
+        # safe regardless of which vintage of record it is handed.
+        g = {k: None for k in ("popmax", "ancestry", "af", "ac", "an", "ac_grpmax",
+                               "an_grpmax", "faf", "faf95", "faf99", "faf95_exomes",
+                               "faf99_exomes", "band", "absent", "is_common", "source")}
+        g.update(rec.get("gnomad") or {})
         if g.get("faf95") is None:
             g["faf95"] = g.get("faf")          # records cached before the faf95 key
+        g["band"] = g.get("band") or ""
         pops = sorted(((k, float(x)) for k, x in (g.get("populations") or {}).items() if x),
                       key=lambda kv: -kv[1])
         return _render("_preview_gnomad.html", v=rec, g=g, pops=pops,
