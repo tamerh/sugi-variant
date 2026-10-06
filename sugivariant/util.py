@@ -39,6 +39,17 @@ def table(headers, rows):
     return "" if len(out) == 2 else "\n".join(out)
 
 
+def kv_table(rows, headers=("Field", "Value")):
+    """Two-column key/value table that drops any row whose VALUE is empty.
+
+    table() only drops a row when EVERY cell is empty, so a labelled row with no value
+    still rendered ("| Protein change (HGVS p.) |  |") while the HTML omitted it. Build
+    key/value tables with this rather than table() so the two surfaces cannot drift.
+    Pass headers=("", "") for the headerless variant.
+    """
+    return table(list(headers), [r for r in rows if len(r) >= 2 and r[1] not in (None, "", [])])
+
+
 def _yaml_escape(s):
     return _CTRL.sub("", str(s)).replace("\\", "\\\\").replace('"', '\\"')
 

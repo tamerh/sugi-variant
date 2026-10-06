@@ -4,7 +4,7 @@ gene/drug/disease renderers: every fact verbatim from the collected record.
 import re
 
 from sugivariant import links
-from sugivariant.util import table
+from sugivariant.util import kv_table, table
 
 # A delins/ins/dup can carry a huge inserted sequence (satellite DNA, etc.). For
 # DISPLAY, collapse a long run to a short preview + length so it doesn't blow out
@@ -202,7 +202,7 @@ def _patient_zone(v):
                       f"{v['gene_symbol']} is a diagnostic-grade gene on "
                       f"{n} Genomics England panel" + ("s" if n != 1 else "")))
     if facts:
-        L += ["", table(["", ""], facts)]
+        L += ["", kv_table(facts, headers=("", ""))]
     # top symptoms — of the variant's OWN condition (audit P1), only when present
     if d.get("phenotypes"):
         L += ["", f"**Commonly reported features of {d.get('name','this condition')}** "
@@ -384,11 +384,6 @@ def one_in(v):
     return f"{round(n):,}" if n < 1e7 else f"{n:.1e}"
 
 
-def _kv(rows):
-    """Drop key/value rows whose VALUE is empty — the HTML omits such rows entirely."""
-    return [r for r in rows if len(r) < 2 or r[1] not in (None, "", [])]
-
-
 def render_body(v, jsonld_tag=""):
     L = ["## Summary", "", declarative(v), ""]
     # At a glance
@@ -418,7 +413,7 @@ def render_body(v, jsonld_tag=""):
     # row with a label and no value still rendered — "| Protein change (HGVS p.) |  |".
     # _kv drops those, matching the HTML, which omits such a row entirely.
     L += ["", "## Identity {#identity}", "",
-          table(["Field", "Value"], _kv([
+          kv_table([
               ("Gene", links.maybe_link(v.get("gene_symbol"),
                                         links.gene_url(symbol=v.get("gene_symbol"), hgnc_id=v.get("hgnc_id")))),
               ("Protein change (HGVS p.)", v.get("hgvs_p")),
@@ -434,7 +429,7 @@ def render_body(v, jsonld_tag=""):
               ("Location", (f"chr{v['chromosome']}:{v['start']}-{v['stop']} ({v['assembly']})"
                             if v.get("chromosome") else None)),
               ("ClinVar", f"[VCV{v['variation_id']}](https://www.ncbi.nlm.nih.gov/clinvar/variation/{v['variation_id']}/)"),
-          ]))]
+          ])]
     exprs = v.get("hgvs_expressions") or []
     if exprs:
         L.append("\n**All HGVS expressions:** " + ", ".join(f"`{e}`" for e in exprs))
@@ -444,9 +439,12 @@ def render_body(v, jsonld_tag=""):
     # (non-missense LoF variants often have no coordinate → no verdict, but the
     # consequence/LoF-context is still the key computational signal for them).
     conc = v.get("concordance") or {}
+    _gf = v.get("gnomad") or {}
     if (conc.get("verdict") or v.get("lof_context") or v.get("consequence")
-            or (v.get("gnomad") or {}).get("frequency")
-            or (v.get("gnomad") or {}).get("af")):
+            or _gf.get("frequency") or _gf.get("af") or _gf.get("absent")):
+        # `absent` belongs in the gate: absence from gnomAD is PM2-supporting evidence and
+        # the HTML states it, so omitting it here left the .md silent on a fact the page
+        # reports (caught by tests/test_surface_parity.py, not by hand).
         L += ["", "## Computational & population evidence {#evidence}", ""]
         if conc.get("verdict"):
             L += [f"**Concordance:** {conc['verdict']}.", ""]
