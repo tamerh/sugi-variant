@@ -461,9 +461,26 @@ body > main { padding-bottom: 2.5rem; }
 .pf-head{display:flex;align-items:baseline;gap:.5rem;flex-wrap:wrap;margin:0 0 .15rem}
 .pf-head h4{font-size:.95rem;margin:0;color:var(--fg,#0f172a)}
 .pf-src{font-size:.76rem;color:var(--fg-muted,#5b6472)}
-.pf-lede{margin:.1rem 0 .9rem;font-size:.82rem;line-height:1.45;color:var(--fg-muted,#5b6472);max-width:62ch}
-/* hoverable jargon: dotted underline + native tooltip */
-.ti{border-bottom:1px dotted currentColor;cursor:help}
+/* explanatory note, demoted to the foot of the block */
+.pf-note{margin:.85rem 0 0;font-size:.74rem;line-height:1.5;color:var(--fg-muted,#5b6472);max-width:78ch}
+
+/* Hoverable jargon. A real tooltip, not the native title=: title has a 1-2s delay, is
+   easy to miss, and is clipped by an ancestor with overflow:hidden (which the ancestry
+   table needs for its rounded corners). Shown on hover AND keyboard focus. */
+.ti{position:relative;border-bottom:1px dotted currentColor;cursor:help;outline:none}
+.ti::after{content:attr(data-tip);position:absolute;left:0;bottom:calc(100% + .5rem);z-index:40;
+           width:max-content;max-width:min(22rem,70vw);padding:.5rem .65rem;border-radius:6px;
+           background:var(--fg,#10151d);color:var(--bg,#fff);font-size:.74rem;font-weight:400;
+           line-height:1.45;letter-spacing:0;text-transform:none;text-align:left;
+           box-shadow:0 6px 20px rgba(0,0,0,.22);opacity:0;visibility:hidden;
+           transition:opacity .12s ease,visibility .12s ease;pointer-events:none}
+.ti::before{content:"";position:absolute;left:.9rem;bottom:calc(100% + .22rem);z-index:41;
+            border:5px solid transparent;border-top-color:var(--fg,#10151d);
+            opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s ease}
+.ti:hover::after,.ti:focus-visible::after,.ti:hover::before,.ti:focus-visible::before{opacity:1;visibility:visible}
+/* right-aligned cells: anchor the bubble to the right edge so it cannot overflow */
+.pf-tbl th.n .ti::after{left:auto;right:0}
+.pf-tbl th.n .ti::before{left:auto;right:.9rem}
 .pf-keys{display:grid;gap:.5rem 1.5rem;margin:0 0 1.1rem}
 .pf-key{display:grid;grid-template-columns:11.5rem auto;gap:.1rem .9rem;align-items:baseline}
 .pf-key-l{font-size:.8rem;color:var(--fg-muted,#5b6472)}
@@ -476,7 +493,9 @@ body > main { padding-bottom: 2.5rem; }
 .pf-tbl-h{font-size:.78rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
           color:var(--fg-muted,#5b6472);margin:0 0 .4rem}
 table.pf-tbl{border-collapse:collapse;font-size:.85rem;width:100%;max-width:30rem;
-             border:1px solid var(--border,#e4e7ec);border-radius:6px;overflow:hidden}
+             border:1px solid var(--border,#e4e7ec);border-radius:6px}
+table.pf-tbl thead th:first-child{border-top-left-radius:6px}
+table.pf-tbl thead th:last-child{border-top-right-radius:6px}
 table.pf-tbl th,table.pf-tbl td{padding:.34rem .7rem;border:1px solid var(--border,#eceff3)}
 table.pf-tbl thead th{background:rgba(127,127,127,.055);font-weight:600;font-size:.76rem;
                       text-transform:uppercase;letter-spacing:.04em;color:var(--fg-muted,#5b6472)}
@@ -484,6 +503,5 @@ table.pf-tbl td.n,table.pf-tbl th.n{text-align:right;font-variant-numeric:tabula
 table.pf-tbl tr.is-max td{font-weight:650;color:var(--fg,#0f172a);background:rgba(63,127,212,.07)}
 @supports (background:color-mix(in srgb,red 7%,transparent)){
   table.pf-tbl tr.is-max td{background:color-mix(in srgb, var(--accent,#3f7fd4) 8%, transparent)}}
-.pf-foot{margin:.55rem 0 0;font-size:.76rem;color:var(--fg-muted,#5b6472);max-width:62ch}
 .pf-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:1.1rem 2rem;align-items:start}
 @media (max-width:720px){.pf-split{grid-template-columns:1fr}}

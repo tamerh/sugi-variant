@@ -7,23 +7,24 @@
 {% macro freq_block(g, pops, layout=1) %}
 <div class="pf">
   <div class="pf-head"><h4>Population frequency</h4><span class="pf-src">gnomAD v4.1 · exomes + genomes</span></div>
-  <p class="pf-lede">How often this variant appears in large population cohorts. Rarity supports pathogenicity
-    (ACMG&nbsp;PM2); frequency above a disease-specific threshold argues against it (BA1/BS1).</p>
   {% if layout == 2 %}<div class="pf-split"><div>{{ _pf_keys(g) }}</div><div>{{ _pf_table(g, pops) }}</div></div>
   {% else %}{{ _pf_keys(g) }}{{ _pf_table(g, pops) }}{% endif %}
+  <p class="pf-note">Rarity supports pathogenicity (ACMG&nbsp;PM2); frequency above a disease-specific
+    BA1/BS1 threshold argues against it. A variant frequent in one ancestry group can be near-absent in
+    others, so a single global figure can mislead.</p>
 </div>
 {% endmacro %}
 
 {% macro _pf_keys(g) %}
 <div class="pf-keys">
   <div class="pf-key">
-    <span class="pf-key-l"><span class="ti" title="The genetic ancestry group in which this variant is most frequent. gnomAD reports this (grpmax) rather than a single global maximum, because a global figure hides group-specific signals.">Highest group</span></span>
+    <span class="pf-key-l"><span class="ti" tabindex="0" data-tip="The genetic ancestry group in which this variant is most frequent. gnomAD reports this (grpmax) rather than a single global maximum, because a global figure hides group-specific signals." aria-label="The genetic ancestry group in which this variant is most frequent. gnomAD reports this (grpmax) rather than a single global maximum, because a global figure hides group-specific signals.">Highest group</span></span>
     <span><span class="pf-key-v">{% if g.popmax is not none %}{{ '%.3g'|format(g.popmax*100) }}%{% elif g.af %}{{ '%.3g'|format(g.af*100) }}%{% else %}—{% endif %}</span>
       <span class="pf-key-x">{{ anc_name(g.ancestry) }}{% if g.ac_grpmax and g.an_grpmax %} · {{ "{:,}".format(g.ac_grpmax|int) }}/{{ "{:,}".format(g.an_grpmax|int) }} alleles{% endif %}</span></span>
   </div>
   {% if g.faf95 is not none %}
   <div class="pf-key is-acmg">
-    <span class="pf-key-l"><span class="ti" title="Filtering allele frequency: the lower bound of the 95% confidence interval on the highest group's frequency, computed over exomes and genomes combined. ClinGen's gnomAD v4 guidance designates this as the value to compare against BA1/BS1 thresholds — not the raw frequency.">Filtering AF</span></span>
+    <span class="pf-key-l"><span class="ti" tabindex="0" data-tip="Filtering allele frequency: the lower bound of the 95% confidence interval on the highest group's frequency, computed over exomes and genomes combined. ClinGen's gnomAD v4 guidance designates this as the value to compare against BA1/BS1 thresholds — not the raw frequency." aria-label="Filtering allele frequency: the lower bound of the 95% confidence interval on the highest group's frequency, computed over exomes and genomes combined. ClinGen's gnomAD v4 guidance designates this as the value to compare against BA1/BS1 thresholds — not the raw frequency.">Filtering AF</span></span>
     <span><span class="pf-key-v">{{ '%.3g'|format(g.faf95*100) }}%</span>
       <span class="pf-badge">ClinGen BA1/BS1 input</span>
       <span class="pf-key-x">FAF95, joint{% if g.faf99 is not none %} · FAF99 {{ '%.3g'|format(g.faf99*100) }}%{% endif %}</span></span>
@@ -44,7 +45,7 @@
   <thead><tr>
     <th>Ancestry group</th>
     <th class="n">Frequency</th>
-    <th class="n"><span class="ti" title="Allele frequency written as 1 in N alleles — not 1 in N people. Carrier frequency is roughly twice this for a rare variant.">1 in</span></th>
+    <th class="n"><span class="ti" tabindex="0" data-tip="Allele frequency written as 1 in N alleles — not 1 in N people. Carrier frequency is roughly twice this for a rare variant." aria-label="Allele frequency written as 1 in N alleles — not 1 in N people. Carrier frequency is roughly twice this for a rare variant.">1 in</span></th>
   </tr></thead>
   <tbody>
   {% for code, val in pops %}
@@ -56,7 +57,5 @@
   {% endfor %}
   </tbody>
 </table>
-<p class="pf-foot">A variant can be frequent in one ancestry group and near-absent in others, so a single
-  global figure can mislead. Thresholds for BA1/BS1 are disease-specific.</p>
 {% endif %}
 {% endmacro %}
