@@ -36,7 +36,10 @@ def test_concordance_agree_and_flag():
     ok = concordance("Pathogenic", {"class": "likely_pathogenic", "score": "0.99"},
                      {"absent": True, "is_common": False, "band": "absent from gnomAD v4.1"})
     assert "concordant" in ok["verdict"].lower() and not ok["flags"]
-    assert any("PM2" in ln for ln in ok["lines"])          # rarity framed as PM2-support only
+    # Frequency no longer contributes a prose line here: the dedicated population-frequency
+    # block renders it on BOTH surfaces (with the PM2 framing), and repeating it in the
+    # concordance readout stated the same figure twice in the .md twin.
+    assert not any("gnomAD" in ln for ln in ok["lines"])
     # common in gnomAD → disagreement flagged
     bad = concordance("Pathogenic", None,
                       {"absent": False, "is_common": True, "band": "common (popmax 20%)"})

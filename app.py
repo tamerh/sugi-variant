@@ -68,7 +68,7 @@ env.globals["atlas_disease"] = lambda name: _links.disease_url(name=name)
 # Data-source attribution (AlphaMissense CC BY 4.0 + REVEL ODbL require it) — single
 # source of truth in render.py so HTML and the markdown twin can't drift.
 from sugivariant.render import (data_provenance, source_refs, data_asof,  # noqa: E402
-                               data_asof_range, source_asof)
+                               data_asof_range, source_asof, anc_name, one_in)
 env.globals["data_provenance"] = data_provenance
 env.globals["source_refs"] = source_refs
 env.globals["data_asof"] = data_asof
@@ -532,19 +532,6 @@ def _corpus_stats():
     return _STATS_CACHE[1]
 
 
-# gnomAD v4 genetic-ancestry group codes → readable labels (for the frequency display).
-_ANC_NAMES = {
-    "afr": "African / African-American", "amr": "Admixed American",
-    "asj": "Ashkenazi Jewish", "eas": "East Asian", "fin": "Finnish",
-    "nfe": "European (non-Finnish)", "mid": "Middle Eastern", "sas": "South Asian",
-    "ami": "Amish", "oth": "Other", "remaining": "Remaining individuals",
-}
-
-
-def _anc_name(code):
-    return _ANC_NAMES.get((code or "").lower(), (code or "").upper())
-
-
 def _freq_ctx(rec):
     """(normalized gnomad dict, pops) for the population-frequency block.
 
@@ -571,22 +558,8 @@ def _freq_ctx(rec):
     return g, pops
 
 
-def _one_in(v):
-    """Allele frequency as "1 in N" — the readable form. A grpmax of 8.56e-07 renders as
-    "8.56e-05%", which no one can compare at a glance; "1 in 1,168,775" they can."""
-    try:
-        v = float(v)
-    except (TypeError, ValueError):
-        return None
-    if v <= 0:
-        return None
-    n = 1.0 / v
-    return f"{round(n):,}" if n < 1e7 else f"{n:.1e}"
-
-
-env.globals["anc_name"] = _anc_name
-env.globals["one_in"] = _one_in
-
+env.globals["anc_name"] = anc_name
+env.globals["one_in"] = one_in
 
 
 _SET_SPLIT = re.compile(r"[\n;,]+")

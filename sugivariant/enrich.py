@@ -674,20 +674,13 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
             # missense: conservation is an agreement check on AlphaMissense (not counted)
             lines.append(f"Conservation: {detail} — {'conserved (agrees)' if conserved else 'low conservation'}")
 
-    # Population frequency — shown, but NEVER counted as concordant evidence.
-    if gnomad:
-        if gnomad.get("is_common"):
-            flags.append(gnomad.get("band", "common in gnomAD"))
-            lines.append(f"**{gnomad['band']}** ⚠")
-        elif gnomad.get("absent"):
-            lines.append("Absent from gnomAD v4.1 (very rare — ACMG PM2-supporting only)")
-        else:
-            faf = gnomad.get("faf95") or gnomad.get("faf")
-            faf_note = (f"; grpmax filtering AF (FAF95) {faf * 100:.3g}%" if faf
-                        else "; FAF not published for this variant")
-            lines.append(gnomad["band"][0].upper() + gnomad["band"][1:]
-                         + f" (gnomAD v4.1{faf_note} — BA1/BS1 are disease-specific thresholds, "
-                         "not a blanket 5%)")
+    # Population frequency — it still raises the "common in gnomAD" disagreement FLAG
+    # (which feeds the verdict), but it no longer contributes a prose line here. The
+    # dedicated population-frequency block renders it on both surfaces with the ancestry
+    # breakdown and FAF95; repeating it in the concordance readout stated the same figure
+    # twice in the .md twin, in two different formats.
+    if gnomad and gnomad.get("is_common"):
+        flags.append(gnomad.get("band", "common in gnomAD"))
 
     if flags:
         verdict = "Evidence sources **disagree** — " + "; ".join(flags)

@@ -358,6 +358,37 @@ def _pharmgkb_zone(v):
     return L
 
 
+# gnomAD v4 genetic-ancestry group codes → readable labels (for the frequency display).
+ANCESTRY_NAMES = {
+    "afr": "African / African-American", "amr": "Admixed American",
+    "asj": "Ashkenazi Jewish", "eas": "East Asian", "fin": "Finnish",
+    "nfe": "European (non-Finnish)", "mid": "Middle Eastern", "sas": "South Asian",
+    "ami": "Amish", "oth": "Other", "remaining": "Remaining individuals",
+}
+
+
+def anc_name(code):
+    return ANCESTRY_NAMES.get((code or "").lower(), (code or "").upper())
+
+
+def one_in(v):
+    """Allele frequency as "1 in N" — the readable form. A grpmax of 8.56e-07 renders as
+    "8.56e-05%", which no one can compare at a glance; "1 in 1,168,775" they can."""
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return None
+    if v <= 0:
+        return None
+    n = 1.0 / v
+    return f"{round(n):,}" if n < 1e7 else f"{n:.1e}"
+
+
+def _kv(rows):
+    """Drop key/value rows whose VALUE is empty — the HTML omits such rows entirely."""
+    return [r for r in rows if len(r) < 2 or r[1] not in (None, "", [])]
+
+
 def render_body(v, jsonld_tag=""):
     L = ["## Summary", "", declarative(v), ""]
     # At a glance
@@ -383,9 +414,11 @@ def render_body(v, jsonld_tag=""):
     # Patient zone — high on the page (high human value + citable)
     L += _patient_zone(v)
 
-    # Identity
+    # Identity. util.table() drops a row only when EVERY cell is empty, so a key/value
+    # row with a label and no value still rendered — "| Protein change (HGVS p.) |  |".
+    # _kv drops those, matching the HTML, which omits such a row entirely.
     L += ["", "## Identity {#identity}", "",
-          table(["Field", "Value"], [
+          table(["Field", "Value"], _kv([
               ("Gene", links.maybe_link(v.get("gene_symbol"),
                                         links.gene_url(symbol=v.get("gene_symbol"), hgnc_id=v.get("hgnc_id")))),
               ("Protein change (HGVS p.)", v.get("hgvs_p")),
@@ -401,7 +434,7 @@ def render_body(v, jsonld_tag=""):
               ("Location", (f"chr{v['chromosome']}:{v['start']}-{v['stop']} ({v['assembly']})"
                             if v.get("chromosome") else None)),
               ("ClinVar", f"[VCV{v['variation_id']}](https://www.ncbi.nlm.nih.gov/clinvar/variation/{v['variation_id']}/)"),
-          ])]
+          ]))]
     exprs = v.get("hgvs_expressions") or []
     if exprs:
         L.append("\n**All HGVS expressions:** " + ", ".join(f"`{e}`" for e in exprs))
@@ -417,7 +450,10 @@ def render_body(v, jsonld_tag=""):
         L += ["", "## Computational & population evidence {#evidence}", ""]
         if conc.get("verdict"):
             L += [f"**Concordance:** {conc['verdict']}.", ""]
-            L += [f"- {ln}" for ln in conc.get("lines", [])]
+            # Records pickled before the frequency prose was removed from concordance
+            # still carry it; drop it here so the .md does not state the frequency twice
+            # (once in the old format, once in the population-frequency bullet below).
+            L += [f"- {ln}" for ln in conc.get("lines", []) if "gnomAD" not in ln]
         mm = v.get("am_isoform_mismatch")
         if mm:
             L.append(f"- ⚠ **Isoform check:** AlphaMissense is numbered on a different transcript "
@@ -471,14 +507,26 @@ def render_body(v, jsonld_tag=""):
             if _faf95 is not None:
                 gp.append(f"FAF95 {_faf95 * 100:.3g}%")
             if gf.get("faf99") is not None:
-                gp.append(f"faf99 {gf['faf99'] * 100:.3g}%")
+                gp.append(f"FAF99 {gf['faf99'] * 100:.3g}%")
+            if gf.get("ac_grpmax") and gf.get("an_grpmax"):
+                gp.append(f"{int(gf['ac_grpmax']):,}/{int(gf['an_grpmax']):,} in the highest group")
             if gf.get("ac") is not None and gf.get("an"):
-                gp.append(f"{gf['ac']:,}/{gf['an']:,} alleles")
+                gp.append(f"{gf['ac']:,}/{gf['an']:,} alleles overall")
             if gp:
                 L.append(f"- Population frequency (gnomAD v4.1): " + " · ".join(gp)
                          + (f" — {gf['band']}" if gf.get("band") else "") + ".")
+                # Ancestry breakdown — the HTML renders this as a table and the .md twin
+                # had no equivalent, so the machine surface was strictly poorer than the
+                # page. A variant frequent in one group can be near-absent in others.
+                pops = sorted(((k, float(x)) for k, x in (gf.get("populations") or {}).items() if x),
+                              key=lambda kv: -kv[1])
+                if len(pops) > 1:
+                    L += ["", table(["Ancestry group", "Allele frequency", "1 in"],
+                                    [(anc_name(c) + (" (highest)" if c == gf.get("ancestry") else ""),
+                                      f"{val * 100:.3g}%", one_in(val) or "—") for c, val in pops])]
         elif gf and gf.get("absent"):
-            L.append("- Population frequency: **absent from gnomAD v4.1** (a supporting rarity signal).")
+            L.append("- Population frequency: **absent from gnomAD v4.1** — a rarity signal "
+                     "(ACMG PM2-supporting), not evidence of pathogenicity on its own.")
         L.append("\n*Computational predictors are not independent (ClinGen Variant "
                  "Classification guidance): AlphaMissense (Cheng et al. 2023) carries the ACMG "
                  "weight for missense and conservation (phyloP/GERP/phastCons) for non-missense; "
