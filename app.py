@@ -545,6 +545,24 @@ def _anc_name(code):
     return _ANC_NAMES.get((code or "").lower(), (code or "").upper())
 
 
+def _freq_ctx(rec):
+    """(normalized gnomad dict, pops) for the population-frequency block.
+
+    Every key is present: records on disk predate several fields, and in Jinja a missing
+    key is Undefined where `Undefined is not none` is True — the trap that 500'd
+    production (b598202). `pops` is (ancestry, af) sorted high→low."""
+    g = {k: None for k in ("popmax", "ancestry", "af", "ac", "an", "ac_grpmax", "an_grpmax",
+                           "faf", "faf95", "faf99", "faf95_exomes", "faf99_exomes",
+                           "band", "absent", "is_common", "source", "populations")}
+    g.update(rec.get("gnomad") or {})
+    if g.get("faf95") is None:
+        g["faf95"] = g.get("faf")
+    g["band"] = g.get("band") or ""
+    pops = sorted(((k, float(x)) for k, x in (g.get("populations") or {}).items() if x),
+                  key=lambda kv: -kv[1])
+    return g, pops
+
+
 def _one_in(v):
     """Allele frequency as "1 in N" — the readable form. A grpmax of 8.56e-07 renders as
     "8.56e-05%", which no one can compare at a glance; "1 in 1,168,775" they can."""
@@ -574,15 +592,7 @@ if os.environ.get("SUGI_PREVIEW"):
         # and in Jinja a missing key is Undefined where `Undefined is not none` is True —
         # the exact trap that 500'd production (b598202). Filling them makes the template
         # safe regardless of which vintage of record it is handed.
-        g = {k: None for k in ("popmax", "ancestry", "af", "ac", "an", "ac_grpmax",
-                               "an_grpmax", "faf", "faf95", "faf99", "faf95_exomes",
-                               "faf99_exomes", "band", "absent", "is_common", "source")}
-        g.update(rec.get("gnomad") or {})
-        if g.get("faf95") is None:
-            g["faf95"] = g.get("faf")          # records cached before the faf95 key
-        g["band"] = g.get("band") or ""
-        pops = sorted(((k, float(x)) for k, x in (g.get("populations") or {}).items() if x),
-                      key=lambda kv: -kv[1])
+        g, pops = _freq_ctx(rec)
         return _render("_preview_gnomad.html", v=rec, g=g, pops=pops,
                        canonical=rec["canonical_slug"], nav="variant")
 
@@ -870,8 +880,13 @@ def variant_page(slug: str, view: str = ""):
         jsonld = as_script_tag(rec, {"generated_at": _index_lastmod()})
     except Exception:
         jsonld = ""
+    freq_g, freq_pops = _freq_ctx(rec)
     html = _render("variant.html", v=rec, canonical=rec["canonical_slug"], nav="variant",
-                   jsonld=jsonld, disagreement=disagreement_flag(rec))
+                   jsonld=jsonld, disagreement=disagreement_flag(rec),
+                   freq_g=freq_g, freq_pops=freq_pops,
+                   # review state: show BOTH candidate layouts in place. Dev only —
+                   # unset in production, where the page is unchanged.
+                   freq_preview=bool(os.environ.get("SUGI_PREVIEW")))
     if rec.get("_degraded"):
         # Built while an upstream fetch was failing → incomplete evidence. Serve it,
         # but keep it out of every cache so the next request re-builds it cleanly.

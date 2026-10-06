@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_gnomad_freq.html" import freq_block with context %}
 {% set p = v.alphamissense %}{% set g = v.gnomad %}{% set c = v.concordance %}
 {% set st = stars(v.review_status) %}
 {% set cv_path = v.classification and 'pathogenic' in v.classification|lower and 'conflict' not in v.classification|lower %}
@@ -67,6 +68,20 @@
           {% if (p and p.class) or v.lof_context %}<p class="section-sub vd-preds-note">{% if p and p.class %}AlphaMissense carries the ACMG weight for missense; REVEL and SaProt are independent agreement signals.{% endif %}{% if v.lof_context %} Predicted loss-of-function is descriptive, not an applied PVS1 code.{% endif %}</p>{% endif %}
           {% if v.am_isoform_mismatch %}<p class="section-sub" style="color:var(--flag)">⚠ Isoform check: AlphaMissense numbered on a different transcript (AM {{ v.am_isoform_mismatch.am }} vs ClinVar {{ v.am_isoform_mismatch.clinvar }}) — verify the residue.</p>{% endif %}
         </section>
+
+        {# Population frequency — a distinct evidence class from the predictors above.
+           While freq_preview is set (dev only) BOTH candidate layouts render, labelled,
+           so they can be judged in place. Production renders neither. #}
+        {% if freq_preview and freq_g and not freq_g.absent and (freq_g.popmax is not none or freq_g.af) %}
+        <section class="vd-card">
+          <p class="pf-tbl-h" style="color:var(--accent,#2f6fc4)">Candidate layout 1 — stacked</p>
+          {{ freq_block(freq_g, freq_pops, 1) }}
+        </section>
+        <section class="vd-card">
+          <p class="pf-tbl-h" style="color:var(--accent,#2f6fc4)">Candidate layout 2 — side by side</p>
+          {{ freq_block(freq_g, freq_pops, 2) }}
+        </section>
+        {% endif %}
 
         {% if v.vcep and v.vcep[0].criteria %}{% set cr = v.vcep[0].criteria %}
         <section class="vd-card">
