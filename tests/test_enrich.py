@@ -486,3 +486,70 @@ def test_saprot_agreement_and_consensus():
                     saprot={"llr": -0.1, "damaging": False})
     assert any("differs from AlphaMissense" in ln for ln in d["lines"])
     assert any("consensus" in ln and "1/2" in ln for ln in d["lines"])
+
+
+# ── upstream absence vs upstream failure ──────────────────────────────────────
+# biobtree signals "no record for this identifier in this dataset" by RAISING
+# ("Entry not found identifier ..."), not by returning empty. For gnomAD that is a
+# real negative (the PM2-supporting absence signal), so it must NOT be confused with
+# a fetch failure — and a fetch failure must NOT be reported as absence, because that
+# renders as an affirmative ACMG rarity claim and used to be pickled to disk forever.
+def _rec():
+    # variant_coordinate() needs start + chromosome + a GRCh38 genomic HGVS whose
+    # position equals `start` (that equality is how the GRCh37/38 pair is disambiguated).
+    return {"name": "NM_000410.4(HFE):c.1006+1G>T", "gene_symbol": "HFE",
+            "chromosome": "6", "start": 26093233, "rsid": None,
+            "hgvs_expressions": ["NC_000006.12:g.26093233G>T"]}
+
+
+def test_upstream_not_found_is_absence_not_failure(monkeypatch):
+    import sugibiobtree
+    from sugivariant import enrich
+
+    def not_found(coord, dataset, *a, **k):
+        raise sugibiobtree.client.BiobtreeError(
+            f"entry → HTTP 400: Entry not found identifier {coord} dataset {dataset}")
+
+    monkeypatch.setattr(sugibiobtree, "entry", not_found)
+    enrich.begin_build()
+    g = enrich.gnomad_frequency(_rec())
+    assert g is not None and g.get("absent") is True, g
+    assert "absent from gnomAD" in (g.get("band") or "")
+    assert enrich.build_degraded() is False, "a genuine negative must not mark the build degraded"
+
+
+def test_upstream_failure_is_unknown_not_absence(monkeypatch):
+    import sugibiobtree
+    from sugivariant import enrich
+
+    def blew_up(coord, dataset, *a, **k):
+        raise sugibiobtree.client.BiobtreeError(
+            "entry failed after 4 attempts: Connection refused")
+
+    monkeypatch.setattr(sugibiobtree, "entry", blew_up)
+    enrich.begin_build()
+    g = enrich.gnomad_frequency(_rec())
+    assert g is None, f"a failed fetch must be unknown, not a claim: {g}"
+    assert enrich.build_degraded() is True, "a failed fetch must mark the build degraded"
+
+
+def test_faf95_joint_is_read_from_the_new_field_names(monkeypatch):
+    """biobtree renamed faf/faf99 to faf95_joint/faf99_joint (+_exomes) in Oct 2026.
+    Reading only the old names silently dropped FAF from every newly-built page."""
+    import sugibiobtree
+    from sugivariant import enrich
+
+    payload = {"Attributes": {"GnomadVariant": {
+        "chromosome": "6", "position": "26093233", "ref_allele": "G", "alt_allele": "T",
+        "ac": "7", "an": "1614062", "ac_exomes": "6", "an_exomes": "1461858",
+        "ac_genomes": "1", "an_genomes": "152204", "af_grpmax": "5.93204e-06",
+        "grpmax_ancestry": "nfe",
+        "faf95_joint": "2.47e-06", "faf99_joint": "1.59e-06",
+        "faf95_exomes": "1.94e-06", "faf99_exomes": "1.28e-06"}}}
+    monkeypatch.setattr(sugibiobtree, "entry", lambda *a, **k: payload)
+    enrich.begin_build()
+    g = enrich.gnomad_frequency(_rec())
+    assert g["faf95"] == 2.47e-06, g
+    assert g["faf99"] == 1.59e-06, g
+    assert g["faf95_exomes"] == 1.94e-06, g
+    assert g["faf"] == 2.47e-06, "the `faf` alias must track the joint value"

@@ -121,9 +121,16 @@ def _coord_entry(coord, dataset):
     from sugibiobtree import entry
     try:
         a = (entry(coord, dataset) or {}).get("Attributes") or {}
-    except Exception:
-        # A FAILED fetch, not an absence. Record it so the caller can degrade
-        # honestly and so the record is never persisted as if it were complete.
+    except Exception as e:
+        # biobtree signals "this identifier genuinely has no record in this dataset"
+        # by RAISING ("Entry not found identifier ... dataset gnomad_variant"), not by
+        # returning empty. That is a real negative — for gnomAD it is the PM2-supporting
+        # absence signal — so it must stay None (no data), NOT a fetch failure.
+        # Everything else (connection reset, timeout, 5xx, "failed after N attempts")
+        # is a genuine failure: flag it so the caller degrades honestly and the record
+        # is never persisted as though it were complete.
+        if "not found" in str(e).lower():
+            return None
         note_fetch_failure()
         return FETCH_ERROR
     if not a:
