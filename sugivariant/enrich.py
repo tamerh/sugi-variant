@@ -168,11 +168,16 @@ def gnomad_frequency(rec):
                 ac = int(_f(g.get("ac"))) if _f(g.get("ac")) is not None else None
                 an = int(_f(g.get("an"))) if _f(g.get("an")) is not None else None
             return {"af": af, "popmax": popmax, "ancestry": anc,
-                    # FAF95 is ClinGen's designated BA1/BS1 input (gnomAD v4 guidance
-                    # v3.0, June 2025) — the grpmax filtering allele frequency. Keep `faf`
-                    # as a back-compat alias for records already on disk.
-                    "faf95": _f(g.get("faf")), "faf": _f(g.get("faf")),
-                    "faf99": _f(g.get("faf99")),
+                    # FAF95 (JOINT, i.e. exomes+genomes combined) is ClinGen's designated
+                    # BA1/BS1 input — gnomAD v4 guidance v3.0, June 2025. biobtree renamed
+                    # faf/faf99 to the explicit faf95_joint/faf99_joint + _exomes variants
+                    # (Oct 2026); read the new names first and fall back to the old ones so
+                    # records already on disk keep rendering. `faf` stays as an alias.
+                    "faf95": _f(g.get("faf95_joint") or g.get("faf")),
+                    "faf": _f(g.get("faf95_joint") or g.get("faf")),
+                    "faf99": _f(g.get("faf99_joint") or g.get("faf99")),
+                    "faf95_exomes": _f(g.get("faf95_exomes")),
+                    "faf99_exomes": _f(g.get("faf99_exomes")),
                     "ac": ac, "an": an,
                     "ac_grpmax": _f(g.get("ac_grpmax")), "an_grpmax": _f(g.get("an_grpmax")),
                     "populations": pops,
@@ -519,6 +524,7 @@ def gnomad_for(rsid):
     # (Jinja: a missing key is Undefined, and `Undefined is not none` is True).
     return {"frequency": freq, "af": _f(freq), "absent": absent,
             "popmax": None, "ancestry": None, "faf": None, "faf95": None, "faf99": None,
+            "faf95_exomes": None, "faf99_exomes": None,
             "ac": None, "an": None, "ac_grpmax": None, "an_grpmax": None,
             "populations": {},
             "is_common": (d[0].get("is_common") == "true"),
