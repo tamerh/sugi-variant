@@ -24,8 +24,14 @@ def short_hgvs(s, keep=10):
     n, unit = (len(seq), "bp") if nt else (len(seq) // 3, "aa")
     return s[:m.start(2)] + f"{seq[:keep]}…[{n} {unit}]"
 
-# Data sources + attribution. AlphaMissense (CC BY-NC-SA 4.0) and REVEL (ODbL) legally
-# REQUIRE attribution; the rest are credited as good practice. Everything here is
+# Data sources + attribution. AlphaMissense (CC BY 4.0) and REVEL (ODbL) legally
+# REQUIRE attribution; the rest are credited as good practice.
+#
+# AlphaMissense licence, verified against Zenodo on 2026-10-06 (both records fetched):
+#   zenodo.org/records/8360242  -> cc-by-nc-sa-4.0, version 1, "is_last": FALSE (superseded)
+#   zenodo.org/records/10813168 -> cc-by-4.0,       version 2, "is_last": TRUE  (current)
+# The NC-SA string here previously came from the superseded v1 record. The current
+# release is CC BY 4.0, which is why this product may use it. Everything here is
 # usable in this FREE/non-commercial product (see docs/variant-product-strategy).
 # Single source of truth — the HTML template reads the same list via env.globals.
 # (name, license/credit, biobtree group). The group joins to the live per-dataset
@@ -33,7 +39,7 @@ def short_hgvs(s, keep=10):
 DATA_SOURCES = [
     ("ClinVar", "NCBI — public domain", "clinvar"),
     ("gnomAD v4.1", "Broad Institute", "gnomad_variant"),
-    ("AlphaMissense", "Cheng et al. 2023, © Google DeepMind — CC BY-NC-SA 4.0", "alphamissense"),
+    ("AlphaMissense", "Cheng et al. 2023, © Google DeepMind — CC BY 4.0", "alphamissense"),
     ("REVEL", "Ioannidis et al. 2016 — ODbL", "revel"),
     ("SaProt", "Su et al. 2023 — MIT", "saprot"),
     ("SpliceAI", "Illumina — free for non-commercial use", "spliceai"),
