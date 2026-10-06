@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}gnomAD presentation — options{% endblock %}
+{% block head %}<meta name="robots" content="noindex,nofollow">
+<style>
+  .pv-wrap{max-width:1000px;margin:0 auto;padding:0 16px}
+  .pv-opt{margin:2.5rem 0 3rem}
+  .pv-opt > h2{font-size:1.05rem;margin:0 0 .25rem;color:var(--fg,#0f172a)}
+  .pv-opt > p.pv-why{margin:0 0 1rem;font-size:.85rem;color:var(--fg-muted,#5b6472)}
+  .pv-frame{border:1px solid var(--border,#e4e7ec);border-radius:10px;padding:1rem 1.1rem;background:var(--bg,#fff)}
+  .pv-pick{display:inline-block;font-size:.72rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+           color:#0b6b3a;background:#e7f6ed;border-radius:999px;padding:.15rem .5rem;margin-left:.4rem}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pv-pick{background:#123524;color:#8fd9ae}}
+  :root[data-theme="dark"] .pv-pick{background:#123524;color:#8fd9ae}
+
+  /* ---------- shared ---------- */
+  .gf-acmg{font-weight:600}
+  .gf-note{font-size:.8rem;color:var(--fg-muted,#5b6472)}
+
+  /* ---------- Option B: dedicated card ---------- */
+  .gf-card{border:1px solid var(--border,#e4e7ec);border-radius:10px;padding:.9rem 1rem}
+  .gf-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem 1.25rem;margin-bottom:.15rem}
+  .gf-big{font-size:1.5rem;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.1}
+  .gf-big-sub{font-size:.82rem;color:var(--fg-muted,#5b6472)}
+  .gf-faf{margin-left:auto;text-align:right}
+  .gf-faf-v{font-size:1.05rem;font-weight:600;font-variant-numeric:tabular-nums}
+  .gf-faf-l{font-size:.72rem;color:var(--fg-muted,#5b6472);letter-spacing:.02em}
+  .gf-anc{margin:.7rem 0 0;display:grid;grid-template-columns:auto 1fr auto;gap:.3rem .6rem;align-items:center}
+  .gf-anc-n{font-size:.82rem}
+  .gf-anc-bar{height:6px;border-radius:3px;background:var(--border,#e9ecf1);overflow:hidden}
+  .gf-anc-bar > i{display:block;height:100%;background:#3f7fd4;border-radius:3px}
+  .gf-anc-max > .gf-anc-bar > i{background:#b4541f}
+  .gf-anc-v{font-size:.8rem;font-variant-numeric:tabular-nums;color:var(--fg-muted,#5b6472)}
+  .gf-anc-max .gf-anc-n,.gf-anc-max .gf-anc-v{font-weight:650;color:var(--fg,#0f172a)}
+
+  /* ---------- Option C: nested mini-table ---------- */
+  .gf-mini{width:100%;border-collapse:collapse;margin:.5rem 0 0;font-size:.84rem}
+  .gf-mini th,.gf-mini td{text-align:left;padding:.22rem .5rem .22rem 0;border-bottom:1px solid var(--border,#eef0f3)}
+  .gf-mini td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .gf-mini tr.max{font-weight:650}
+</style>{% endblock %}
+{% block content %}
+<div class="pv-wrap">
+  <h1 style="font-size:1.3rem;margin:0 0 .3rem">gnomAD presentation — three options</h1>
+  <p class="gf-note" style="margin:0 0 .4rem">Real data for <b>{{ v.canonical_slug }}</b> ({{ v.gene_symbol }}).
+     Try another: <code>?v=&lt;slug&gt;</code>. Current production rendering is shown first for comparison.</p>
+
+  <div class="pv-opt">
+    <h2>Today (for comparison)</h2>
+    <p class="pv-why">One dense <code>·</code>-separated line inside the identity table. The ancestry breakdown and the grpmax AC/AN are held but never shown.</p>
+    <div class="pv-frame">
+      <table class="vd-dl"><tbody>
+        <tr><th>gnomAD v4.1</th><td class="vd-num">{{ '%.3g'|format(g.popmax*100) }}%</td>
+            <td class="section-sub">grpmax ({{ g.ancestry }})
+              {%- if g.faf95 is not none %} · FAF95 {{ '%.3g'|format(g.faf95*100) }}%{% endif %}
+              {%- if g.faf99 is not none %} · faf99 {{ '%.3g'|format(g.faf99*100) }}%{% endif %}
+              {%- if g.ac is not none and g.an %} · {{ "{:,}".format(g.ac) }}/{{ "{:,}".format(g.an) }} alleles{% endif %}</td></tr>
+      </tbody></table>
+    </div>
+  </div>
+
+  <div class="pv-opt">
+    <h2>Option A — enriched rows, same table<span class="pv-pick">smallest change</span></h2>
+    <p class="pv-why">Stays in the identity table. FAF95 gets its own row and is labelled as the ACMG input; grpmax carries its AC/AN; the ancestry spread becomes one extra line. No new card, no layout shift.</p>
+    <div class="pv-frame">
+      <table class="vd-dl"><tbody>
+        <tr><th>gnomAD v4.1</th><td class="vd-num">{{ '%.3g'|format(g.popmax*100) }}%</td>
+            <td class="section-sub">grpmax in {{ anc_name(g.ancestry) }}{% if g.ac_grpmax and g.an_grpmax %} · {{ "{:,}".format(g.ac_grpmax|int) }}/{{ "{:,}".format(g.an_grpmax|int) }}{% endif %} · {{ g.band.split(' (')[0] }}</td></tr>
+        {% if g.faf95 is not none %}
+        <tr><th>Filtering AF</th><td class="vd-num gf-acmg">{{ '%.3g'|format(g.faf95*100) }}%</td>
+            <td class="section-sub">FAF95 (joint) — ClinGen's designated BA1/BS1 input{% if g.faf99 is not none %} · FAF99 {{ '%.3g'|format(g.faf99*100) }}%{% endif %}</td></tr>
+        {% endif %}
+        {% if pops %}
+        <tr><th>By ancestry</th><td colspan="2" class="section-sub">{% for code, val in pops %}{{ anc_name(code) }} {{ '%.3g'|format(val*100) }}%{% if not loop.last %} · {% endif %}{% endfor %}</td></tr>
+        {% endif %}
+        <tr><th>Total</th><td class="vd-num">{{ "{:,}".format(g.ac) }}/{{ "{:,}".format(g.an) }}</td><td class="section-sub">alleles observed / sequenced</td></tr>
+      </tbody></table>
+    </div>
+  </div>
+
+  <div class="pv-opt">
+    <h2>Option B — dedicated frequency card<span class="pv-pick">most legible</span></h2>
+    <p class="pv-why">A small card of its own. The grpmax figure reads at a glance, FAF95 is pinned to the right as the ACMG input, and the ancestry spread is a ranked bar list — so a 600× difference between groups is visible instead of buried in a number.</p>
+    <div class="pv-frame">
+      <div class="gf-card">
+        <div class="gf-top">
+          <div>
+            <div class="gf-big">{{ '%.3g'|format(g.popmax*100) }}%</div>
+            <div class="gf-big-sub">grpmax — {{ anc_name(g.ancestry) }}{% if g.ac_grpmax and g.an_grpmax %} ({{ "{:,}".format(g.ac_grpmax|int) }}/{{ "{:,}".format(g.an_grpmax|int) }}){% endif %}</div>
+          </div>
+          {% if g.faf95 is not none %}
+          <div class="gf-faf">
+            <div class="gf-faf-v">{{ '%.3g'|format(g.faf95*100) }}%</div>
+            <div class="gf-faf-l">FAF95 · BA1/BS1 input</div>
+          </div>
+          {% endif %}
+        </div>
+        <p class="gf-note" style="margin:.3rem 0 0">{{ g.band.split(' (')[0] }} · {{ "{:,}".format(g.ac) }}/{{ "{:,}".format(g.an) }} alleles overall{% if g.faf99 is not none %} · FAF99 {{ '%.3g'|format(g.faf99*100) }}%{% endif %}</p>
+        {% if pops %}
+        <div class="gf-anc">
+          {% for code, val in pops %}
+          <span class="gf-anc-n {{ 'gf-anc-max' if code == g.ancestry else '' }}">{{ anc_name(code) }}</span>
+          <span class="gf-anc-bar {{ 'gf-anc-max' if code == g.ancestry else '' }}"><i style="width:{{ (100 * val / pops[0][1])|round(1) }}%"></i></span>
+          <span class="gf-anc-v {{ 'gf-anc-max' if code == g.ancestry else '' }}">{{ '%.3g'|format(val*100) }}%</span>
+          {% endfor %}
+        </div>
+        <p class="gf-note" style="margin:.45rem 0 0">BA1/BS1 thresholds are disease-specific. Ancestry-specific frequency matters: a signal confined to one group is not population-wide.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="pv-opt">
+    <h2>Option C — row plus a compact ancestry table<span class="pv-pick">most data-dense</span></h2>
+    <p class="pv-why">Keeps the identity row, then adds a small sortable-looking table underneath with AC/AN per ancestry. Densest and most reference-like; least visual.</p>
+    <div class="pv-frame">
+      <table class="vd-dl"><tbody>
+        <tr><th>gnomAD v4.1</th><td class="vd-num">{{ '%.3g'|format(g.popmax*100) }}%</td>
+            <td class="section-sub">grpmax in {{ anc_name(g.ancestry) }} · <span class="gf-acmg">FAF95 {{ '%.3g'|format(g.faf95*100) if g.faf95 is not none else '—' }}%</span> (BA1/BS1 input) · {{ g.band.split(' (')[0] }}</td></tr>
+      </tbody></table>
+      {% if pops %}
+      <table class="gf-mini">
+        <thead><tr><th>Ancestry</th><th class="n" style="text-align:right">Allele frequency</th><th class="n" style="text-align:right">vs grpmax</th></tr></thead>
+        <tbody>
+        {% for code, val in pops %}
+          <tr class="{{ 'max' if code == g.ancestry else '' }}">
+            <td>{{ anc_name(code) }}{% if code == g.ancestry %} <span class="gf-note">(grpmax)</span>{% endif %}</td>
+            <td class="n">{{ '%.3g'|format(val*100) }}%</td>
+            <td class="n">{% if code == g.ancestry %}—{% else %}{{ '%.0f'|format(pops[0][1] / val) }}×{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

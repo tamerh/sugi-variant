@@ -532,6 +532,39 @@ def _corpus_stats():
     return _STATS_CACHE[1]
 
 
+# gnomAD v4 genetic-ancestry group codes → readable labels (for the frequency display).
+_ANC_NAMES = {
+    "afr": "African / African-American", "amr": "Admixed American",
+    "asj": "Ashkenazi Jewish", "eas": "East Asian", "fin": "Finnish",
+    "nfe": "European (non-Finnish)", "mid": "Middle Eastern", "sas": "South Asian",
+    "ami": "Amish", "oth": "Other", "remaining": "Remaining individuals",
+}
+
+
+def _anc_name(code):
+    return _ANC_NAMES.get((code or "").lower(), (code or "").upper())
+
+
+env.globals["anc_name"] = _anc_name
+
+
+if os.environ.get("SUGI_PREVIEW"):
+    # Dev-only: side-by-side gnomAD presentation options for review. Never routed in
+    # production (the env var is not set there), and noindex in the template anyway.
+    @app.get("/_preview/gnomad", response_class=HTMLResponse)
+    def _preview_gnomad(v: str = "hfe-c-1006-plus-1g-a"):
+        rec = _resolve(v)
+        if not rec:
+            raise StarletteHTTPException(404, f"no variant “{v}”")
+        g = dict(rec.get("gnomad") or {})
+        if g.get("faf95") is None:
+            g["faf95"] = g.get("faf")          # records cached before the faf95 key
+        pops = sorted(((k, float(x)) for k, x in (g.get("populations") or {}).items() if x),
+                      key=lambda kv: -kv[1])
+        return _render("_preview_gnomad.html", v=rec, g=g, pops=pops,
+                       canonical=rec["canonical_slug"], nav="variant")
+
+
 _SET_SPLIT = re.compile(r"[\n;,]+")
 
 
