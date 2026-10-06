@@ -462,7 +462,10 @@ body > main { padding-bottom: 2.5rem; }
 .pf-head h4{font-size:.95rem;margin:0;color:var(--fg,#0f172a)}
 .pf-src{font-size:.76rem;color:var(--fg-muted,#5b6472)}
 /* explanatory note, demoted to the foot of the block */
-.pf-note{margin:.85rem 0 0;font-size:.74rem;line-height:1.5;color:var(--fg-muted,#5b6472);max-width:78ch}
+/* no max-width: the 78ch cap wrapped it well short of the card edge, leaving the
+   right-hand side empty. The note is two short sentences, so full width is ~2 lines. */
+.pf-note{margin:.85rem 0 0;font-size:.74rem;line-height:1.5;color:var(--fg-muted,#5b6472);
+         text-wrap:pretty}
 
 /* Hoverable jargon. A real tooltip, not the native title=: title has a 1-2s delay, is
    easy to miss, and is clipped by an ancestor with overflow:hidden (which the ancestry
