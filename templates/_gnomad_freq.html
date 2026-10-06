@@ -1,30 +1,59 @@
-{# Population-frequency block (gnomAD v4.1). One macro, two layouts:
-     layout=1  stacked      — heading, explanation, figures, ancestry table
-     layout=2  side-by-side — figures and table in two columns (~half the height)
-   Takes the NORMALIZED gnomad dict (every key present; see _freq_ctx in app.py) and
-   `pops` as a list of (ancestry_code, af) sorted high→low. #}
+{# Population-frequency block (gnomAD v4.1). Takes the NORMALIZED gnomad dict (every
+   key present — see _freq_ctx in app.py) and `pops` as (ancestry, af) sorted high→low.
 
-{% macro freq_block(g, pops, layout=1) %}
+   Four shapes, measured over the corpus:
+     47.0%  coordinate hit, >1 ancestry group  → figures + ancestry table
+     26.7%  coordinate hit, 1 ancestry group   → figures only (a one-row table would
+                                                 just repeat the figure above it)
+     23.1%  absent from gnomAD                 → stated plainly; absence is PM2-supporting
+                                                 evidence, not nothing
+      1.9%  dbSNP fallback (no coordinate)     → a GLOBAL frequency only: no grpmax, no
+                                                 FAF, so neither is implied #}
+
+{% macro freq_block(g, pops) %}
+{% if g %}
+{% set is_fallback = g.source == 'dbSNP/gnomAD' %}
 <div class="pf">
-  <div class="pf-head"><h4>Population frequency</h4><span class="pf-src">gnomAD v4.1 · exomes + genomes</span></div>
-  {% if layout == 2 %}<div class="pf-split"><div>{{ _pf_keys(g) }}</div><div>{{ _pf_table(g, pops) }}</div></div>
-  {% else %}{{ _pf_keys(g) }}{{ _pf_table(g, pops) }}{% endif %}
-  <p class="pf-note">Rarity supports pathogenicity (ACMG&nbsp;PM2); frequency above a disease-specific
-    BA1/BS1 threshold argues against it. A variant frequent in one ancestry group can be near-absent in
-    others, so a single global figure can mislead.</p>
+  <div class="pf-head"><h4>Population frequency</h4>
+    <span class="pf-src">{% if is_fallback %}dbSNP / gnomAD{% else %}gnomAD v4.1 · exomes + genomes{% endif %}</span></div>
+
+  {% if g.absent %}
+    <p class="pf-absent"><b>Absent from gnomAD v4.1.</b>
+      <span class="pf-key-x">Not observed in {{ "{:,}".format(g.an) if g.an else "any" }} sequenced alleles — a rarity signal (ACMG&nbsp;PM2-supporting), not evidence of pathogenicity on its own.</span></p>
+  {% elif is_fallback %}
+    <div class="pf-keys">
+      <div class="pf-key">
+        <span class="pf-key-l"><span class="ti" tabindex="0" data-tip="This variant has no parseable GRCh38 SNV coordinate (typically an indel), so the gnomAD v4.1 per-variant record cannot be keyed. The figure shown is the global frequency carried inline by dbSNP — there is no ancestry breakdown and no filtering allele frequency for it." aria-label="This variant has no parseable GRCh38 SNV coordinate, so the figure shown is the global frequency carried inline by dbSNP, with no ancestry breakdown and no filtering allele frequency.">Global frequency</span></span>
+        <span><span class="pf-key-v">{% if g.af is not none %}{{ '%.3g'|format(g.af*100) }}%{% else %}—{% endif %}</span>
+          <span class="pf-key-x">via dbSNP{% if g.band %} · {{ g.band.split(' (')[0] }}{% endif %}</span></span>
+      </div>
+    </div>
+    <p class="pf-note">No ancestry breakdown or filtering allele frequency is available for this variant,
+      so BA1/BS1 cannot be assessed from this figure alone.</p>
+  {% else %}
+    {% if pops|length > 1 %}
+      <div class="pf-split"><div>{{ _pf_keys(g) }}</div><div>{{ _pf_table(g, pops) }}</div></div>
+    {% else %}
+      {{ _pf_keys(g) }}
+    {% endif %}
+    <p class="pf-note">Rarity supports pathogenicity (ACMG&nbsp;PM2); frequency above a disease-specific
+      BA1/BS1 threshold argues against it. A variant frequent in one ancestry group can be near-absent in
+      others, so a single global figure can mislead.</p>
+  {% endif %}
 </div>
+{% endif %}
 {% endmacro %}
 
 {% macro _pf_keys(g) %}
 <div class="pf-keys">
   <div class="pf-key">
-    <span class="pf-key-l"><span class="ti" tabindex="0" data-tip="The genetic ancestry group in which this variant is most frequent. gnomAD reports this (grpmax) rather than a single global maximum, because a global figure hides group-specific signals." aria-label="The genetic ancestry group in which this variant is most frequent. gnomAD reports this (grpmax) rather than a single global maximum, because a global figure hides group-specific signals.">Highest group</span></span>
+    <span class="pf-key-l"><span class="ti" tabindex="0" data-tip="The genetic ancestry group in which this variant is most frequent. gnomAD reports this (grpmax) rather than a single global maximum, because a global figure hides group-specific signals." aria-label="The genetic ancestry group in which this variant is most frequent. gnomAD reports this rather than a single global maximum, because a global figure hides group-specific signals.">Highest group</span></span>
     <span><span class="pf-key-v">{% if g.popmax is not none %}{{ '%.3g'|format(g.popmax*100) }}%{% elif g.af %}{{ '%.3g'|format(g.af*100) }}%{% else %}—{% endif %}</span>
       <span class="pf-key-x">{{ anc_name(g.ancestry) }}{% if g.ac_grpmax and g.an_grpmax %} · {{ "{:,}".format(g.ac_grpmax|int) }}/{{ "{:,}".format(g.an_grpmax|int) }} alleles{% endif %}</span></span>
   </div>
   {% if g.faf95 is not none %}
   <div class="pf-key is-acmg">
-    <span class="pf-key-l"><span class="ti" tabindex="0" data-tip="Filtering allele frequency: the lower bound of the 95% confidence interval on the highest group's frequency, computed over exomes and genomes combined. ClinGen's gnomAD v4 guidance designates this as the value to compare against BA1/BS1 thresholds — not the raw frequency." aria-label="Filtering allele frequency: the lower bound of the 95% confidence interval on the highest group's frequency, computed over exomes and genomes combined. ClinGen's gnomAD v4 guidance designates this as the value to compare against BA1/BS1 thresholds — not the raw frequency.">Filtering AF</span></span>
+    <span class="pf-key-l"><span class="ti" tabindex="0" data-tip="Filtering allele frequency: the lower bound of the 95% confidence interval on the highest group's frequency, computed over exomes and genomes combined. ClinGen's gnomAD v4 guidance designates this as the value to compare against BA1/BS1 thresholds — not the raw frequency." aria-label="Filtering allele frequency: the lower bound of the 95% confidence interval on the highest group's frequency, over exomes and genomes combined. ClinGen designates this as the value to compare against BA1/BS1 thresholds.">Filtering AF</span></span>
     <span><span class="pf-key-v">{{ '%.3g'|format(g.faf95*100) }}%</span>
       <span class="pf-badge">ClinGen BA1/BS1 input</span>
       <span class="pf-key-x">FAF95, joint{% if g.faf99 is not none %} · FAF99 {{ '%.3g'|format(g.faf99*100) }}%{% endif %}</span></span>
@@ -39,13 +68,12 @@
 {% endmacro %}
 
 {% macro _pf_table(g, pops) %}
-{% if pops %}
 <p class="pf-tbl-h">By genetic ancestry</p>
 <table class="pf-tbl">
   <thead><tr>
     <th>Ancestry group</th>
     <th class="n">Frequency</th>
-    <th class="n"><span class="ti" tabindex="0" data-tip="Allele frequency written as 1 in N alleles — not 1 in N people. Carrier frequency is roughly twice this for a rare variant." aria-label="Allele frequency written as 1 in N alleles — not 1 in N people. Carrier frequency is roughly twice this for a rare variant.">1 in</span></th>
+    <th class="n"><span class="ti" tabindex="0" data-tip="Allele frequency written as 1 in N alleles — not 1 in N people. Carrier frequency is roughly twice this for a rare variant." aria-label="Allele frequency written as 1 in N alleles, not 1 in N people. Carrier frequency is roughly twice this for a rare variant.">1 in</span></th>
   </tr></thead>
   <tbody>
   {% for code, val in pops %}
@@ -57,5 +85,4 @@
   {% endfor %}
   </tbody>
 </table>
-{% endif %}
 {% endmacro %}

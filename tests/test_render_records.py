@@ -125,3 +125,67 @@ def test_faf95_is_surfaced_and_is_the_named_ba1_bs1_input():
             break
     if not checked:
         pytest.skip("no records with a published FAF in the sampled genes")
+
+
+# ── population-frequency block ────────────────────────────────────────────────
+def _freq_render(rec):
+    import app
+    from sugivariant.enrich import disagreement_flag
+    g, pops = app._freq_ctx(rec)
+    return app._render("variant.html", v=rec, canonical=rec.get("canonical_slug"),
+                       nav="variant", jsonld="", disagreement=disagreement_flag(rec),
+                       freq_g=g, freq_pops=pops), g, pops
+
+
+def _mk(gnomad):
+    return {"canonical_slug": "x-p-y", "gene_symbol": "X", "classification": "VUS",
+            "review_status": "criteria provided, single submitter", "conditions": [],
+            "gnomad": gnomad}
+
+
+def test_freq_block_hides_the_table_for_a_single_ancestry_group():
+    """A one-row ancestry table only repeats the "Highest group" figure above it, and a
+    third of variants report exactly one group."""
+    os.environ.setdefault("BASE_PATH", "/variant")
+    html, _, pops = _freq_render(_mk({
+        "popmax": 5.93e-06, "ancestry": "nfe", "af": 4.34e-06, "ac": 7, "an": 1614062,
+        "faf95": 2.47e-06, "faf99": 1.59e-06, "band": "very rare", "absent": False,
+        "source": "gnomAD v4.1", "populations": {"nfe": 5.93e-06}}))
+    assert len(pops) == 1
+    assert 'class="pf"' in html and "Highest group" in html
+    assert "pf-tbl" not in html, "single-ancestry variants must not render a one-row table"
+
+
+def test_freq_block_shows_the_table_for_multiple_groups():
+    os.environ.setdefault("BASE_PATH", "/variant")
+    html, _, pops = _freq_render(_mk({
+        "popmax": 5.36e-04, "ancestry": "eas", "af": 1.69e-05, "ac": 27, "an": 1601778,
+        "ac_grpmax": 24, "an_grpmax": 44812, "faf95": 3.69e-04, "faf99": 3.14e-04,
+        "band": "ultra-rare", "absent": False, "source": "gnomAD v4.1",
+        "populations": {"eas": 5.36e-04, "amr": 1.67e-05, "nfe": 8.56e-07}}))
+    assert len(pops) == 3
+    assert "pf-tbl" in html and "East Asian" in html and "European (non-Finnish)" in html
+    assert "24/44,812" in html, "grpmax must carry its AC/AN"
+    assert "ClinGen BA1/BS1 input" in html
+
+
+def test_freq_block_states_absence_rather_than_omitting_it():
+    """Absence from gnomAD is PM2-supporting evidence, so it must be stated, not blank."""
+    os.environ.setdefault("BASE_PATH", "/variant")
+    html, _, _ = _freq_render(_mk({"absent": True, "is_common": False, "popmax": None,
+                                   "band": "absent from gnomAD v4.1", "source": "gnomAD v4.1"}))
+    assert "pf-absent" in html and "Absent from gnomAD v4.1" in html
+    assert "pf-tbl" not in html
+
+
+def test_freq_block_handles_the_legacy_dbsnp_fallback_shape():
+    """Records cached before gnomad_for() emitted `af` carry only the raw `frequency`
+    string. Without deriving af from it the whole block silently disappears."""
+    os.environ.setdefault("BASE_PATH", "/variant")
+    html, g, _ = _freq_render(_mk({"frequency": "0.00537", "absent": False,
+                                   "is_common": False, "band": "low-frequency (gnomAD MAF 0.00537)",
+                                   "source": "dbSNP/gnomAD"}))
+    assert g["af"] == 0.00537, "af must be derived from the legacy frequency key"
+    assert "Global frequency" in html and "via dbSNP" in html
+    assert "ClinGen BA1/BS1 input" not in html, "no FAF exists on the fallback path"
+    assert "pf-tbl" not in html, "no ancestry breakdown exists on the fallback path"

@@ -60,8 +60,6 @@
             {% if v.saprot %}<tr><th>SaProt</th><td class="vd-num">LLR {{ '%.2f'|format(v.saprot.llr) }}</td><td class="section-sub">{{ 'damaging' if v.saprot.damaging else 'tolerated' }}</td></tr>{% endif %}
             {% if v.spliceai %}<tr><th>SpliceAI</th><td class="vd-num">Δ{{ v.spliceai.score }}</td><td class="section-sub">{{ v.spliceai.effect|replace('_',' ') }}</td></tr>{% endif %}
             {% if v.conservation and v.conservation.phylop is not none %}<tr><th>Conservation</th><td class="vd-num">phyloP {{ '%.2g'|format(v.conservation.phylop) }}</td><td class="section-sub">{% if v.conservation.gerp is not none %}GERP {{ '%.2g'|format(v.conservation.gerp) }}{% endif %}{% if v.conservation.phastcons is not none %}{% if v.conservation.gerp is not none %}, {% endif %}phastCons {{ '%.2g'|format(v.conservation.phastcons) }}{% endif %}</td></tr>{% endif %}
-            {% if g and not g.absent %}{% set _fb = g.get('source') == 'dbSNP/gnomAD' %}<tr><th>gnomAD v4.1</th><td class="vd-num">{% if g.get('popmax') is not none %}{{ '%.3g'|format(g.get('popmax')*100) }}%{% elif g.get('af') %}{{ '%.3g'|format(g.get('af')|float*100) }}%{% elif g.get('frequency') %}{{ '%.3g'|format(g.get('frequency')|float*100) }}%{% else %}—{% endif %}</td><td class="section-sub">{% if _fb %}global (via dbSNP){% else %}grpmax{% if g.get('ancestry') %} ({{ g.get('ancestry') }}){% endif %}{% endif %}{% set _faf95 = g.get('faf95') if g.get('faf95') is not none else g.get('faf') %}{% if _faf95 is not none %} · FAF95 {{ '%.3g'|format(_faf95*100) }}%{% endif %}{% if g.get('faf99') is not none %} · faf99 {{ '%.3g'|format(g.get('faf99')*100) }}%{% endif %}{% if g.get('ac') is not none and g.get('an') %} · {{ "{:,}".format(g.get('ac')) }}/{{ "{:,}".format(g.get('an')) }} alleles{% endif %}</td></tr>
-            {% elif g and g.absent %}<tr><th>gnomAD v4.1</th><td colspan="2" class="section-sub">absent from gnomAD v4.1</td></tr>{% endif %}
           </tbody></table>
           {% if c and c.consensus %}<p class="vd-consensus {{ 'is-agree' if c.consensus.unanimous }}">⇒ In-silico consensus: {{ c.consensus.summary }}.</p>{% endif %}
           {% if c and c.verdict and 'triage' in c.verdict %}<p class="vd-consensus is-flag">{{ c.verdict|mdbold }}</p>{% endif %}
@@ -70,17 +68,10 @@
         </section>
 
         {# Population frequency — a distinct evidence class from the predictors above.
-           While freq_preview is set (dev only) BOTH candidate layouts render, labelled,
-           so they can be judged in place. Production renders neither. #}
-        {% if freq_preview and freq_g and not freq_g.absent and (freq_g.popmax is not none or freq_g.af) %}
-        <section class="vd-card">
-          <p class="pf-tbl-h" style="color:var(--accent,#2f6fc4)">Candidate layout 1 — stacked</p>
-          {{ freq_block(freq_g, freq_pops, 1) }}
-        </section>
-        <section class="vd-card">
-          <p class="pf-tbl-h" style="color:var(--accent,#2f6fc4)">Candidate layout 2 — side by side</p>
-          {{ freq_block(freq_g, freq_pops, 2) }}
-        </section>
+           Handles all four shapes internally (multi-ancestry, single-ancestry, absent,
+           dbSNP fallback); renders nothing when there is no gnomAD data at all. #}
+        {% if freq_g and (freq_g.absent or freq_g.popmax is not none or freq_g.af) %}
+        <section class="vd-card">{{ freq_block(freq_g, freq_pops) }}</section>
         {% endif %}
 
         {% if v.vcep and v.vcep[0].criteria %}{% set cr = v.vcep[0].criteria %}

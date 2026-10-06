@@ -553,10 +553,18 @@ def _freq_ctx(rec):
     production (b598202). `pops` is (ancestry, af) sorted high→low."""
     g = {k: None for k in ("popmax", "ancestry", "af", "ac", "an", "ac_grpmax", "an_grpmax",
                            "faf", "faf95", "faf99", "faf95_exomes", "faf99_exomes",
-                           "band", "absent", "is_common", "source", "populations")}
+                           "frequency", "band", "absent", "is_common", "source", "populations")}
     g.update(rec.get("gnomad") or {})
     if g.get("faf95") is None:
         g["faf95"] = g.get("faf")
+    if g.get("af") is None and g.get("frequency") not in (None, ""):
+        # dbSNP-fallback records cached before gnomad_for() started emitting `af` carry only
+        # the raw `frequency` string. Without this they fail the "has a frequency" gate and
+        # the whole block disappears — 942 of 56,544 sampled records.
+        try:
+            g["af"] = float(g["frequency"])
+        except (TypeError, ValueError):
+            pass
     g["band"] = g.get("band") or ""
     pops = sorted(((k, float(x)) for k, x in (g.get("populations") or {}).items() if x),
                   key=lambda kv: -kv[1])
@@ -579,22 +587,6 @@ def _one_in(v):
 env.globals["anc_name"] = _anc_name
 env.globals["one_in"] = _one_in
 
-
-if os.environ.get("SUGI_PREVIEW"):
-    # Dev-only: side-by-side gnomAD presentation options for review. Never routed in
-    # production (the env var is not set there), and noindex in the template anyway.
-    @app.get("/_preview/gnomad", response_class=HTMLResponse)
-    def _preview_gnomad(v: str = "hfe-c-1006-plus-1g-a"):
-        rec = _resolve(v)
-        if not rec:
-            raise StarletteHTTPException(404, f"no variant “{v}”")
-        # Normalize to a FULL key set. Records on disk predate several of these fields,
-        # and in Jinja a missing key is Undefined where `Undefined is not none` is True —
-        # the exact trap that 500'd production (b598202). Filling them makes the template
-        # safe regardless of which vintage of record it is handed.
-        g, pops = _freq_ctx(rec)
-        return _render("_preview_gnomad.html", v=rec, g=g, pops=pops,
-                       canonical=rec["canonical_slug"], nav="variant")
 
 
 _SET_SPLIT = re.compile(r"[\n;,]+")
@@ -883,10 +875,7 @@ def variant_page(slug: str, view: str = ""):
     freq_g, freq_pops = _freq_ctx(rec)
     html = _render("variant.html", v=rec, canonical=rec["canonical_slug"], nav="variant",
                    jsonld=jsonld, disagreement=disagreement_flag(rec),
-                   freq_g=freq_g, freq_pops=freq_pops,
-                   # review state: show BOTH candidate layouts in place. Dev only —
-                   # unset in production, where the page is unchanged.
-                   freq_preview=bool(os.environ.get("SUGI_PREVIEW")))
+                   freq_g=freq_g, freq_pops=freq_pops)
     if rec.get("_degraded"):
         # Built while an upstream fetch was failing → incomplete evidence. Serve it,
         # but keep it out of every cache so the next request re-builds it cleanly.

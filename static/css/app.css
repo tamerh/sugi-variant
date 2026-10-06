@@ -508,3 +508,5 @@ table.pf-tbl tr.is-max td{font-weight:650;color:var(--fg,#0f172a);background:rgb
   table.pf-tbl tr.is-max td{background:color-mix(in srgb, var(--accent,#3f7fd4) 8%, transparent)}}
 .pf-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:1.1rem 2rem;align-items:start}
 @media (max-width:720px){.pf-split{grid-template-columns:1fr}}
+.pf-absent{margin:.15rem 0 0;font-size:.88rem;color:var(--fg,#0f172a)}
+.pf-absent .pf-key-x{display:block;margin-top:.15rem}
