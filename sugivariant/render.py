@@ -373,6 +373,15 @@ ANCESTRY_NAMES = {
 }
 
 
+# gnomAD excludes bottlenecked genetic-ancestry groups from grpmax: founder effects make
+# their frequencies unrepresentative for filtering. Verified empirically over 31,737 cached
+# variants — these four are NEVER reported as grpmax_ancestry, while mid IS (1,922 times),
+# so mid is not excluded in v4. Consequence: a bottlenecked group can show a HIGHER raw
+# frequency than the grpmax group, which is why the ancestry table (sorted by frequency)
+# can show the grpmax row second. That is correct data, and it needs saying on the page.
+GRPMAX_EXCLUDED = {"fin", "asj", "ami", "remaining"}
+
+
 def anc_name(code):
     return ANCESTRY_NAMES.get((code or "").lower(), (code or "").upper())
 
@@ -525,9 +534,21 @@ def render_body(v, jsonld_tag=""):
                 pops = sorted(((k, float(x)) for k, x in (gf.get("populations") or {}).items() if x),
                               key=lambda kv: -kv[1])
                 if len(pops) > 1:
+                    def _lbl(c):
+                        if c == gf.get("ancestry"):
+                            return anc_name(c) + " (grpmax)"
+                        if c in GRPMAX_EXCLUDED:
+                            return anc_name(c) + " (not grpmax-eligible)"
+                        return anc_name(c)
                     L += ["", table(["Ancestry group", "Allele frequency", "1 in"],
-                                    [(anc_name(c) + (" (highest)" if c == gf.get("ancestry") else ""),
-                                      f"{val * 100:.3g}%", one_in(val) or "—") for c, val in pops])]
+                                    [(_lbl(c), f"{val * 100:.3g}%", one_in(val) or "—")
+                                     for c, val in pops])]
+                    if pops[0][0] != gf.get("ancestry") and pops[0][0] in GRPMAX_EXCLUDED:
+                        L += ["", f"{anc_name(pops[0][0])} shows a higher raw frequency than the grpmax "
+                                  "group. gnomAD excludes bottlenecked groups — Finnish, Ashkenazi Jewish, "
+                                  "Amish and \"Remaining individuals\" — from grpmax, because founder effects "
+                                  "make their frequencies unrepresentative for filtering. The table is sorted "
+                                  "by frequency, so an excluded group can sit above the grpmax row."]
         elif gf and gf.get("absent"):
             L.append("- Population frequency: **absent from gnomAD v4.1** — a rarity signal "
                      "(ACMG PM2-supporting), not evidence of pathogenicity on its own.")

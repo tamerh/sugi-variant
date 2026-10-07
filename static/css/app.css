@@ -509,3 +509,4 @@ table.pf-tbl tr.is-max td{color:var(--fg,#0f172a);background:rgba(63,127,212,.07
 @media (max-width:720px){.pf-split{grid-template-columns:1fr}}
 .pf-absent{margin:.15rem 0 0;font-size:.88rem;color:var(--fg,#0f172a)}
 .pf-absent .pf-key-x{display:block;margin-top:.15rem}
+.pf-badge-mute{opacity:.72;font-weight:500;text-transform:none;letter-spacing:0}

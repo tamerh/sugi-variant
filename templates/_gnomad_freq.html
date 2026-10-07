@@ -47,7 +47,7 @@
 {% macro _pf_keys(g) %}
 <div class="pf-keys">
   <div class="pf-key">
-    <span class="pf-key-l"><span class="ti" tabindex="0" data-tip="The genetic ancestry group in which this variant is most frequent. gnomAD reports this (grpmax) rather than a single global maximum, because a global figure hides group-specific signals." aria-label="The genetic ancestry group in which this variant is most frequent. gnomAD reports this rather than a single global maximum, because a global figure hides group-specific signals.">Highest group</span></span>
+    <span class="pf-key-l"><span class="ti" tabindex="0" data-tip="gnomAD's grpmax: the highest frequency across genetic ancestry groups, EXCLUDING bottlenecked groups (Finnish, Ashkenazi Jewish, Amish, and Remaining individuals), whose founder effects make them unrepresentative for filtering. Because of that exclusion an excluded group can show a higher raw frequency than this figure." aria-label="gnomAD grpmax: the highest frequency across genetic ancestry groups, excluding bottlenecked groups (Finnish, Ashkenazi Jewish, Amish, Remaining individuals) whose founder effects make them unrepresentative for filtering. An excluded group can therefore show a higher raw frequency.">Grpmax group</span></span>
     <span><span class="pf-key-v">{% if g.popmax is not none %}{{ '%.3g'|format(g.popmax*100) }}%{% elif g.af %}{{ '%.3g'|format(g.af*100) }}%{% else %}—{% endif %}</span>
       <span class="pf-key-x">{{ anc_name(g.ancestry) }}{% if g.ac_grpmax and g.an_grpmax %} · {{ "{:,}".format(g.ac_grpmax|int) }}/{{ "{:,}".format(g.an_grpmax|int) }} alleles{% endif %}</span></span>
   </div>
@@ -78,11 +78,18 @@
   <tbody>
   {% for code, val in pops %}
     <tr class="{{ 'is-max' if code == g.ancestry else '' }}">
-      <td>{{ anc_name(code) }}{% if code == g.ancestry %}<span class="pf-badge">highest</span>{% endif %}</td>
+      <td>{{ anc_name(code) }}{% if code == g.ancestry %}<span class="pf-badge">grpmax</span>
+        {%- elif code in grpmax_excluded %}<span class="pf-badge pf-badge-mute">not grpmax-eligible</span>{% endif %}</td>
       <td class="n">{{ '%.3g'|format(val*100) }}%</td>
       <td class="n">{{ one_in(val) or '—' }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
+{% if pops and pops[0][0] != g.ancestry and pops[0][0] in grpmax_excluded %}
+<p class="pf-foot">{{ anc_name(pops[0][0]) }} shows a higher raw frequency than the grpmax group above it.
+  gnomAD excludes bottlenecked groups — Finnish, Ashkenazi Jewish, Amish and “Remaining individuals” —
+  from grpmax, because founder effects make their frequencies unrepresentative for filtering. The table is
+  sorted by frequency, so an excluded group can sit above the grpmax row.</p>
+{% endif %}
 {% endmacro %}

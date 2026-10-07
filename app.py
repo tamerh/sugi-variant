@@ -68,7 +68,8 @@ env.globals["atlas_disease"] = lambda name: _links.disease_url(name=name)
 # Data-source attribution (AlphaMissense CC BY 4.0 + REVEL ODbL require it) — single
 # source of truth in render.py so HTML and the markdown twin can't drift.
 from sugivariant.render import (data_provenance, source_refs, data_asof,  # noqa: E402
-                               data_asof_range, source_asof, anc_name, one_in)
+                               data_asof_range, source_asof, anc_name, one_in,
+                               GRPMAX_EXCLUDED)
 env.globals["data_provenance"] = data_provenance
 env.globals["source_refs"] = source_refs
 env.globals["data_asof"] = data_asof
@@ -560,6 +561,7 @@ def _freq_ctx(rec):
 
 env.globals["anc_name"] = anc_name
 env.globals["one_in"] = one_in
+env.globals["grpmax_excluded"] = GRPMAX_EXCLUDED
 
 
 _SET_SPLIT = re.compile(r"[\n;,]+")

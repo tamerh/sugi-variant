@@ -152,7 +152,9 @@ def test_freq_block_hides_the_table_for_a_single_ancestry_group():
         "faf95": 2.47e-06, "faf99": 1.59e-06, "band": "very rare", "absent": False,
         "source": "gnomAD v4.1", "populations": {"nfe": 5.93e-06}}))
     assert len(pops) == 1
-    assert 'class="pf"' in html and "Highest group" in html
+    # "Grpmax group", not "Highest group": gnomAD excludes bottlenecked groups from
+    # grpmax, so it is not always the highest raw frequency (12.6% of variants).
+    assert 'class="pf"' in html and "Grpmax group" in html
     assert "pf-tbl" not in html, "single-ancestry variants must not render a one-row table"
 
 

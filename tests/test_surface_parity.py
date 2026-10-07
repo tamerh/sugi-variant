@@ -151,3 +151,50 @@ def test_md_never_states_the_frequency_twice():
             break
     if not checked:
         pytest.skip("no suitable records in the sample")
+
+
+# ── grpmax vs raw maximum ─────────────────────────────────────────────────────
+# gnomAD excludes bottlenecked groups (fin/asj/ami/remaining) from grpmax, so a group
+# with a HIGHER raw frequency can sit above the grpmax row in a frequency-sorted table.
+# Measured: that happens for 12.6% of variants. The badge used to read "highest", which
+# made correct data look like a sorting bug (reported on kdm6a-p-arg571gln).
+def test_excluded_groups_are_never_reported_as_grpmax():
+    """The exclusion set is empirical — if gnomAD ever starts reporting one of these as
+    grpmax, this fails and the labelling needs revisiting."""
+    from sugivariant.render import GRPMAX_EXCLUDED
+    seen = 0
+    for rec in _records(limit_genes=40):
+        g = rec.get("gnomad") or {}
+        if not g.get("ancestry"):
+            continue
+        assert g["ancestry"] not in GRPMAX_EXCLUDED, \
+            f"{rec.get('canonical_slug')}: {g['ancestry']} reported as grpmax but is in GRPMAX_EXCLUDED"
+        seen += 1
+    assert seen, "no records with a grpmax ancestry examined"
+
+
+def test_grpmax_row_is_labelled_grpmax_not_highest():
+    """A bottlenecked group outranking grpmax must read as data, not as a bug."""
+    checked = 0
+    for rec in _records(limit_genes=60):
+        g = rec.get("gnomad") or {}
+        pops = sorted(((k, float(v)) for k, v in (g.get("populations") or {}).items() if v),
+                      key=lambda kv: -kv[1])
+        if len(pops) < 2 or not g.get("ancestry") or pops[0][0] == g["ancestry"]:
+            continue
+        from sugivariant.render import GRPMAX_EXCLUDED
+        if pops[0][0] not in GRPMAX_EXCLUDED:
+            continue
+        html, md, _, _ = _both(rec)
+        for surface, name in ((html, "HTML"), (md, ".md")):
+            assert "grpmax" in surface, f"{rec.get('canonical_slug')}: {name} never names grpmax"
+            assert "not grpmax-eligible" in surface, \
+                f"{rec.get('canonical_slug')}: {name} does not mark the excluded group"
+            assert "bottlenecked" in surface, \
+                f"{rec.get('canonical_slug')}: {name} does not explain why it outranks grpmax"
+        assert ">highest<" not in html, "the misleading 'highest' badge is back"
+        checked += 1
+        if checked >= 8:
+            break
+    if not checked:
+        pytest.skip("no variant where an excluded group outranks grpmax in the sample")
