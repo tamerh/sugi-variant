@@ -636,10 +636,13 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
         lines.append("**Missense predictors (AlphaMissense/REVEL/SaProt) do not apply** to this "
                      "variant type — they score amino-acid substitutions only. For non-missense "
                      "variants the computational signal comes from conservation"
-                     + (" and, for splice-region changes, SpliceAI" if spliceai else "")
+                     + (" and, for splice-region changes, SpliceAI"
+                        if spliceai_scored(spliceai) else "")
                      + " (below), not from a missing predictor score.")
 
-    if spliceai:
+    if spliceai_scored(spliceai):
+        # spliceai is now always a dict carrying a status; only a real score belongs here,
+        # and legacy records (score, no status) must keep working until they are rebuilt.
         # SpliceAI is a descriptive AGREEMENT signal for splice-region variants, NOT an additive
         # vote. For a non-missense variant the single calibrated tool is conservation (below), so
         # SpliceAI does not increment the concordance counter. (It is only surfaced at delta >= 0.2,
@@ -871,32 +874,87 @@ def mavedb_for(hgvs_p, cache):
 
 
 def gene_spliceai(hgnc_id):
-    """{coordinate: {effect, score}} of the gene's SpliceAI splice-impact
-    predictions (chr:pos:ref:alt keys), fetched once per gene."""
-    out = {}
+    """The gene's SpliceAI predictions, indexed two ways:
+        by_allele: {"chr:pos:ref:alt": {effect, score}}
+        by_pos:    {"chr:pos": [{ref, alt, effect, score}, ...]}
+
+    The by-position index exists because our upstream release carries only ONE of the
+    three possible alternate alleles at most scored positions. Without it, a variant
+    whose own allele is missing is indistinguishable from one SpliceAI never scored —
+    and we rendered nothing in both cases, which reads as "no splice signal". The index
+    is free: it is built from keys we already fetch."""
+    by_allele, by_pos = {}, {}
     # uncapped: every variant's coordinate must resolve its SpliceAI score — a
     # 60-page cap would drop splice annotations on big genes. Once per gene (cached).
     for r in map_all(hgnc_id, ">>hgnc>>spliceai", cap=None):
         cid = r.get("id")
         if cid and r.get("score"):
-            out[cid] = {"effect": r.get("effect"), "score": r.get("score")}
-    return out
+            hit = {"effect": r.get("effect"), "score": r.get("score")}
+            by_allele[cid] = hit
+            parts = cid.split(":")
+            if len(parts) == 4:
+                by_pos.setdefault(":".join(parts[:2]), []).append(
+                    {"ref": parts[2], "alt": parts[3], **hit})
+    return {"by_allele": by_allele, "by_pos": by_pos}
+
+
+# ClinGen SVI calibration of SpliceAI (Walker et al., AJHG 2023;110:1046, PMID 37352859).
+# Our release is pre-filtered at >=0.2, so in practice only the first band is reachable —
+# the others are implemented so the readout is correct if that ever changes.
+def spliceai_band(score):
+    try:
+        d = float(score)
+    except (TypeError, ValueError):
+        return None
+    if d >= 0.2:
+        return "ClinGen SVI PP3-supporting band (raw \u0394 \u2265 0.2)"
+    if d > 0.1:
+        return "ClinGen SVI designates 0.1-0.2 uninformative \u2014 neither PP3 nor BP4"
+    return "ClinGen SVI BP4 band (raw \u0394 \u2264 0.1)"
+
+
+def spliceai_scored(sa):
+    """True when this SpliceAI readout carries an actual score.
+
+    Records pickled before spliceai_for() gained a status carry {effect, score} with no
+    status at all, so a bare `status == "scored"` test silently dropped the SpliceAI line
+    for every already-cached variant. Treat "has a score and no status" as scored."""
+    if not isinstance(sa, dict):
+        return False
+    st = sa.get("status")
+    return st == "scored" or (st is None and sa.get("score") is not None)
 
 
 def spliceai_for(coord, cache):
-    """SpliceAI prediction for a variant's coordinate, if it has a meaningful
-    (>=0.2) delta score — SpliceAI only annotates splice-relevant positions."""
-    if not coord or not cache:
+    """SpliceAI readout with an explicit STATUS, never a bare None.
+
+    Absence of a score is not evidence of no splicing effect, and we used to render
+    nothing for it — which reads as "no splice signal". Three states:
+      scored        this exact allele is in the release
+      other_allele  this position is scored, but under a DIFFERENT alternate allele.
+                    Our release holds ~1 of 3 alts per position, so this is the common
+                    case at canonical splice sites; worth disclosing rather than hiding.
+      absent        the position is not in the release at all
+    Returns None only when the variant has no coordinate to look up with."""
+    if not coord:
         return None
-    hit = cache.get(coord)
-    if not hit:
-        return None
-    try:
-        if float(hit["score"]) < 0.2:
-            return None
-    except (TypeError, ValueError):
-        return None
-    return hit
+    by_allele = (cache or {}).get("by_allele")
+    by_pos = (cache or {}).get("by_pos")
+    if by_allele is None:                       # legacy flat {coord: hit} shape
+        by_allele, by_pos = (cache or {}), None
+    hit = by_allele.get(coord)
+    if hit:
+        out = dict(hit)
+        out["status"] = "scored"
+        out["band"] = spliceai_band(out.get("score"))
+        return out
+    pos = ":".join(str(coord).split(":")[:2])
+    others = (by_pos or {}).get(pos) or []
+    if others:
+        best = max(others, key=lambda d: (_f(d.get("score")) or 0))
+        return {"status": "other_allele", "effect": best.get("effect"),
+                "score": best.get("score"), "ref": best.get("ref"), "alt": best.get("alt")}
+    return {"status": "absent"}
 
 
 # GO experimental-evidence ECO set (mirrors gene §7 s07_pathways).

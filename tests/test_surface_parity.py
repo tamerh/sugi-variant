@@ -198,3 +198,55 @@ def test_grpmax_row_is_labelled_grpmax_not_highest():
             break
     if not checked:
         pytest.skip("no variant where an excluded group outranks grpmax in the sample")
+
+
+# ── SpliceAI status is stated, never implied by silence ───────────────────────
+# Rendering nothing when SpliceAI has no score read as "no splice signal" — a positive
+# claim made from an absence. Our release also holds only ~1 of 3 alternate alleles per
+# scored position, so a canonical splice variant could sit next to a Δ0.99 donor-loss
+# score for a different substitution and show nothing at all.
+def test_spliceai_absence_is_stated_on_both_surfaces():
+    os.environ.setdefault("BASE_PATH", "/variant")
+    rec = {"canonical_slug": "x-c-1-plus-1g-c", "gene_symbol": "X", "classification": "VUS",
+           "variation_id": 1, "name": "X:c.1+1G>C", "hgvs_c": "c.1+1G>C",
+           "review_status": "criteria provided, single submitter", "conditions": [],
+           "consequence": {"label": "canonical splice-site (±1/±2)", "type": "splice"},
+           "spliceai": {"status": "other_allele", "effect": "donor_loss",
+                        "score": "0.99", "ref": "C", "alt": "A"}}
+    html, md, _, _ = _both(rec)
+    for surface, name in ((html, "HTML"), (md, ".md")):
+        assert "not scored for this allele" in surface, f"{name} hides the missing allele"
+        assert "0.99" in surface, f"{name} omits the same-position score"
+        assert "not evidence against" in surface, f"{name} omits the absence caveat"
+
+    rec["spliceai"] = {"status": "absent"}
+    html, md, _, _ = _both(rec)
+    for surface, name in ((html, "HTML"), (md, ".md")):
+        assert "not assessed" in surface, f"{name} renders silence instead of 'not assessed'"
+
+
+def test_legacy_spliceai_records_keep_their_readout():
+    """Records pickled before the status field existed carry {effect, score} only. They
+    must still render and still contribute their concordance line."""
+    os.environ.setdefault("BASE_PATH", "/variant")
+    from sugivariant.enrich import concordance, spliceai_scored
+    legacy = {"effect": "donor_loss", "score": "0.92"}
+    assert spliceai_scored(legacy) is True
+    c = concordance("Pathogenic", None, None, legacy, {"phylop": 7.4})
+    assert any("SpliceAI" in ln for ln in c["lines"])
+    assert spliceai_scored({"status": "absent"}) is False
+    assert spliceai_scored(None) is False
+
+
+def test_canonical_splice_gain_label_is_flagged_incomplete():
+    """Our release stores one of SpliceAI's four deltas, so ~60% of canonical ±1/±2
+    variants that get a row are labelled a GAIN — which cannot be the mechanism at a
+    ±1/±2 position. Say so rather than publishing it bare."""
+    os.environ.setdefault("BASE_PATH", "/variant")
+    rec = {"canonical_slug": "x-c-1-plus-2t-g", "gene_symbol": "X", "classification": "VUS",
+           "variation_id": 2, "name": "X:c.1+2T>G", "hgvs_c": "c.1+2T>G",
+           "review_status": "criteria provided, single submitter", "conditions": [],
+           "consequence": {"label": "canonical splice-site (±1/±2)", "type": "splice"},
+           "spliceai": {"status": "scored", "effect": "donor_gain", "score": "0.87"}}
+    html, _, _, _ = _both(rec)
+    assert "effect label incomplete" in html

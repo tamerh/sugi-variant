@@ -502,6 +502,19 @@ def render_body(v, jsonld_tag=""):
             L.append(f"- AlphaMissense ranks this among the **top {pctl['top_pct']}%** "
                      f"most-pathogenic-predicted substitutions in {v.get('gene_symbol')} "
                      f"(of {pctl['n']:,} modeled).")
+        # SpliceAI with its explicit status — the page states "not assessed" / "scored
+        # only under a different allele at this position", and the .md must say the same
+        # rather than falling silent, which would read as "no splice signal".
+        sa = v.get("spliceai") or {}
+        sa_st = sa.get("status")
+        if sa_st == "other_allele":
+            L.append(f"- SpliceAI: **not scored for this allele**. A different substitution at this "
+                     f"position ({sa.get('ref')}>{sa.get('alt')}) scores \u0394{sa.get('score')} "
+                     f"({(sa.get('effect') or '').replace('_', ' ')}). Absence here is not evidence "
+                     f"against a splicing effect.")
+        elif sa_st == "absent":
+            L.append("- SpliceAI: **not assessed** — this position is not in our SpliceAI release. "
+                     "Absence is not evidence against a splicing effect.")
         gf = v.get("gnomad")
         if gf and not gf.get("absent"):
             gp = []

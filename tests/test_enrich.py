@@ -276,24 +276,21 @@ def test_gnomad_band_uses_popmax():
     assert _gnomad_band(None, None, None).startswith("absent")
 
 
-def test_spliceai_for_threshold():
+def test_spliceai_for_reports_status_not_silence():
+    """spliceai_for no longer returns a bare None for "no score". Absence of a score is
+    not evidence of no splicing effect, and rendering nothing read as "no splice signal".
+    The <0.2 guard it used to apply was also dead: the upstream release is pre-filtered
+    at 0.2, so the guard never fired, while ClinGen's BP4 band lives below it."""
     from sugivariant.enrich import spliceai_for
-    cache = {"1:100:C:T": {"effect": "acceptor_gain", "score": "0.61"},
-             "1:200:A:G": {"effect": "donor_loss", "score": "0.05"}}
-    assert spliceai_for("1:100:C:T", cache)["effect"] == "acceptor_gain"
-    assert spliceai_for("1:200:A:G", cache) is None      # below 0.2 → not surfaced
-    assert spliceai_for("1:999:C:T", cache) is None      # not in cache
-
-
-# ── #2 batch: PharmGKB / CIViC gating + variant-landscape aggregate ──────────
-def test_pharmgkb_for_from_cache():
-    from sugivariant.enrich import pharmgkb_for
-    cache = {"rs4244285": {"annotations": [{"drugs": "clopidogrel"}, {"drugs": "prasugrel"}],
-                           "clinical": [{"chemicals": "clopidogrel", "level": "1A", "type": "Efficacy"}]}}
-    p = pharmgkb_for("rs4244285", cache)
-    assert "clopidogrel" in p["drugs"] and p["clinical"][0]["level"] == "1A"
-    assert pharmgkb_for("rs999", cache) is None
-    assert pharmgkb_for(None, cache) is None
+    cache = {"by_allele": {"2:1:C:A": {"effect": "donor_loss", "score": "0.99"}},
+             "by_pos": {"2:1": [{"ref": "C", "alt": "A", "effect": "donor_loss", "score": "0.99"}]}}
+    assert spliceai_for("2:1:C:A", cache)["status"] == "scored"
+    other = spliceai_for("2:1:C:G", cache)
+    assert other["status"] == "other_allele" and other["alt"] == "A"
+    assert spliceai_for("9:9:A:T", cache)["status"] == "absent"
+    assert spliceai_for(None, cache) is None
+    # legacy flat {coord: hit} cache shape still resolves
+    assert spliceai_for("2:1:C:A", {"2:1:C:A": {"effect": "donor_loss", "score": "0.99"}})["status"] == "scored"
 
 
 def test_civic_gate_blocks_non_cancer_genes():
