@@ -198,12 +198,18 @@ BUILDABLE NOW — derived analyses / features (mostly zero new calls, aggregate 
 - Variant→gene-drug actionability bridge (gene-level, honestly framed; reuse gene page drug data via manifest).
 - Evidence/submission timeline (from submission dates). Per-gene index stats header.
 
-BIOBTREE-TEAM ASKS (ingestion): (1) dbNSFP LICENSE-CLEAN subset ONLY — phyloP,
-GERP, SIFT, MetaRNN, PrimateAI, ESM1b (NOT REVEL/CADD/PolyPhen — academic-only /
-non-redistributable) → adds conservation (biggest gap) + orthogonal predictors to
-harden concordance beyond AM-alone. (2) gnomAD v4 per-variant detail (per-ancestry
-AF, AC/AN, popmax, flags, regional constraint — dbsnp has only single global freq).
-(3) MaveDB (now CC0) functional-assay scores, variant-keyed (PS3/BS3-grade; sparse).
+BIOBTREE-TEAM ASKS (ingestion): see docs/internal/biobtree-asks-2026-10.md for the
+current list. The three asks that used to live here are closed:
+(1) ~~dbNSFP licence-clean subset~~ — RETIRED 2026-10. There is no such subset to ask
+for. The dbNSFP academic branch is CC BY-NC-**ND**; the ND clause means reformatting it
+into our tables is arguably a derivative and not permitted even non-commercially, and
+"obtaining the academic branch data from any source does not grant commercial use
+rights". Its scope is also wrong for the gap it was meant to fill: ~86.7M nonsynonymous
++ 2.6M splice-site SNVs, i.e. no genome-wide non-coding coverage at all.
+(2) gnomAD v4 per-variant detail — DELIVERED (per-ancestry AF, AC/AN, grpmax, and the
+explicit faf95_joint/faf99_joint/_exomes fields, Oct 2026).
+(3) MaveDB — DELIVERED, though indexed by hgvs_pro only, so nucleotide-level and splice
+score sets are not reachable; carried forward in the 2026-10 list.
 
 EXTERNAL-ONLY (outbound link, not computed): MaveDB/ProtVar (until ingested),
 per-residue pLDDT/conservation, ACMG SF actionable-gene list (bundle a static

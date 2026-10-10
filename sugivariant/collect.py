@@ -165,7 +165,12 @@ def attach_enrichment(rec, ctx=None):
     # All three are coordinate-keyed (entry-by-coordinate, not map — audit Tier 1/2)
     am = EN.alphamissense_for(coord)              # by genomic key → fixes isoform-mismatch misses
     gnomad = EN.gnomad_frequency(rec)             # by coordinate via entry() → fixes false-Absent
-    conservation = EN.conservation_for(coord)     # phyloP / GERP / phastCons
+    # Conservation is ref/alt-AGNOSTIC — it only needs chr:pos. Deriving it from the
+    # SNV-only `coord` meant every indel/dup/delins silently got none, even though the
+    # record carries chromosome+start and the upstream position resolves fine. ~15% of
+    # non-missense variants have no SNV coordinate, so this was the difference between
+    # 86% and ~99% coverage on the class that has the least evidence to begin with.
+    conservation = EN.conservation_for(coord or EN.position_key(rec))
     revel = EN.revel_for(coord)                   # ensemble missense predictor (agreement signal)
     # SaProt — protein-LM predictor, keyed by the uniprot:protein_variant AM gives us
     saprot = EN.saprot_for(am.get("uniprot"), am.get("short")) if am else None
@@ -173,6 +178,10 @@ def attach_enrichment(rec, ctx=None):
     rec["am_isoform_mismatch"] = EN.am_isoform_mismatch(am, rec.get("hgvs_p"))
     rec["gnomad"] = gnomad
     rec["conservation"] = conservation
+    # Deterministic splice-region placement from HGVS. Needs no predictor and no
+    # transcript model, so it covers the variants SpliceAI never scores (~98% of
+    # non-coding) and the indels that have no usable coordinate at all.
+    rec["splice_region"] = EN.splice_region(rec.get("hgvs_c"))
     rec["revel"] = revel
     rec["saprot"] = saprot
     rec["spliceai"] = EN.spliceai_for(coord, ctx.get("spliceai") or {})

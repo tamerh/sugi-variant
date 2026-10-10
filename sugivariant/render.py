@@ -505,6 +505,12 @@ def render_body(v, jsonld_tag=""):
         # SpliceAI with its explicit status — the page states "not assessed" / "scored
         # only under a different allele at this position", and the .md must say the same
         # rather than falling silent, which would read as "no splice signal".
+        sr = v.get("splice_region")
+        if sr:
+            L.append(f"- Splice region: **{sr['label']}**"
+                     + (" — inside the zone ClinGen GN167 excludes from BP7, so this variant "
+                        "must not be called benign merely for being synonymous or intronic."
+                        if sr.get("bp7_excluded") else "."))
         sa = v.get("spliceai") or {}
         sa_st = sa.get("status")
         if sa_st == "other_allele":

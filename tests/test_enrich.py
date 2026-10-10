@@ -553,3 +553,41 @@ def test_faf95_joint_is_read_from_the_new_field_names(monkeypatch):
     assert g["faf99"] == 1.59e-06, g
     assert g["faf95_exomes"] == 1.94e-06, g
     assert g["faf"] == 2.47e-06, "the `faf` alias must track the joint value"
+
+
+# ── splice-region placement from HGVS alone ───────────────────────────────────
+# Deterministic, needs no predictor and no transcript model, so it reaches the intronic
+# variants SpliceAI never scores. Zones per ClinGen SVI (Walker 2023, PMID 37352859) and
+# the GUCY2D spec GN167.
+def test_splice_region_zones():
+    from sugivariant.enrich import splice_region
+    assert splice_region("c.1054+1G>C")["zone"] == "canonical"
+    assert splice_region("c.210-2A>G")["zone"] == "canonical"
+    assert splice_region("c.616+5G>A")["zone"] == "donor_region"
+    assert splice_region("c.5-18A>G")["zone"] == "acceptor_region"
+    assert splice_region("c.1202+7T>C")["zone"] == "near_intronic"
+    assert splice_region("c.56+227")["zone"] == "deep_intronic"
+    assert splice_region("c.56+227")["offset"] == 227
+    # purely exonic / UTR-exonic HGVS has no intronic offset
+    assert splice_region("c.389G>A") is None
+    assert splice_region("c.*198C>T") is None
+    assert splice_region(None) is None
+
+
+def test_splice_region_bp7_exclusion_follows_gn167():
+    """GN167 excludes donor +1..+7 and acceptor -1..-21 from BP7, so a synonymous or
+    intronic variant in that zone must not be called benign on those grounds."""
+    from sugivariant.enrich import splice_region
+    assert splice_region("c.1202+7T>C")["bp7_excluded"] is True      # donor +7, still excluded
+    assert splice_region("c.1202+8T>C")["bp7_excluded"] is False     # donor +8, outside
+    assert splice_region("c.5-21A>G")["bp7_excluded"] is True        # acceptor -21, excluded
+    assert splice_region("c.5-22A>G")["bp7_excluded"] is False       # acceptor -22, outside
+
+
+def test_conservation_uses_a_position_key_not_the_snv_coordinate():
+    """Conservation is ref/alt-agnostic. Deriving it from the SNV-only coordinate silently
+    dropped it for every indel, which is ~15% of non-missense variants."""
+    from sugivariant.enrich import position_key
+    assert position_key({"chromosome": "11", "start": 89490963}) == "11:89490963"
+    assert position_key({"chromosome": "11"}) is None
+    assert position_key({"start": 1}) is None

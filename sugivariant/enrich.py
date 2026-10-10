@@ -292,7 +292,11 @@ def lof_context(rec):
 
     haploinsufficient = _int(haplo) == 3          # ClinGen: sufficient evidence
     try:
-        constrained = ((loeuf is not None and float(loeuf) < 0.35)
+        # LOEUF < 0.45, not 0.35: gnomAD v4.1.1 (2026-03) recomputed LOEUF under a Bayesian
+        # Gamma posterior and moved the recommended cutpoint to 0.45, which sits at the same
+        # ~15th percentile the old v2 0.35 did. Keeping 0.35 under v4 silently narrowed what
+        # we call constrained. https://gnomad.broadinstitute.org/news/2026-03-gnomad-v4-1-1/
+        constrained = ((loeuf is not None and float(loeuf) < 0.45)
                        or (pli is not None and float(pli) >= 0.9))
     except (TypeError, ValueError):
         constrained = False
@@ -428,6 +432,58 @@ def saprot_for(uniprot, protein_variant):
     if llr is None:
         return None
     return {"llr": llr, "damaging": llr <= _SAPROT_DAMAGING}
+
+
+# Splice-region zones, per ClinGen SVI (Walker et al., AJHG 2023;110:1046, PMID 37352859)
+# and the GUCY2D spec GN167. Donor region = last 3 exonic bases + 6 intronic nt; acceptor
+# region = first exonic base + 20 intronic nt. GN167 additionally excludes donor +1..+7 and
+# acceptor -1..-21 from BP7.
+_HGVS_INTRONIC = re.compile(r"c\.[-*]?\d+([+-])(\d+)")
+
+
+def splice_region(hgvs_c):
+    """Where a variant sits relative to the nearest splice site, from HGVS alone.
+
+    Deterministic, needs no predictor and no transcript model, and therefore covers every
+    variant that has a `c.` HGVS — including the indels that have no usable coordinate and
+    the ~98% of non-coding variants SpliceAI never scores. This is the readout that carries
+    the splicing section when SpliceAI is dark.
+
+    Returns {offset, side, zone, label} or None for a purely exonic/unparseable HGVS."""
+    if not hgvs_c:
+        return None
+    m = _HGVS_INTRONIC.search(str(hgvs_c))
+    if not m:
+        return None
+    side = "donor" if m.group(1) == "+" else "acceptor"
+    try:
+        offset = int(m.group(2))
+    except ValueError:
+        return None
+    if offset <= 2:
+        zone, label = "canonical", f"canonical splice dinucleotide ({side} {m.group(1)}{offset})"
+    elif side == "donor" and offset <= 6:
+        zone, label = "donor_region", f"donor splice region (+{offset}, within the first 6 intronic nt)"
+    elif side == "acceptor" and offset <= 20:
+        zone, label = "acceptor_region", f"acceptor splice region (-{offset}, within the last 20 intronic nt)"
+    elif offset <= 50:
+        zone, label = "near_intronic", f"near-intronic ({m.group(1)}{offset} nt from the splice site)"
+    else:
+        zone, label = "deep_intronic", f"deep intronic ({m.group(1)}{offset} nt into the intron)"
+    return {"offset": offset, "side": side, "zone": zone, "label": label,
+            # GN167: BP7 must not be applied inside a designated splice region.
+            "bp7_excluded": (side == "donor" and offset <= 7) or (side == "acceptor" and offset <= 21)}
+
+
+def position_key(rec):
+    """'chr:pos' from the record's own chromosome+start — no ref/alt needed.
+
+    variant_coordinate() is SNV-only by design (it must disambiguate GRCh37/38 via the
+    ref/alt-bearing genomic HGVS). Position-keyed datasets like conservation need none of
+    that, so they should not inherit the SNV restriction."""
+    chrom = str(rec.get("chromosome") or "").strip()
+    start = rec.get("start")
+    return f"{chrom}:{start}" if chrom and start else None
 
 
 def conservation_for(coord):
