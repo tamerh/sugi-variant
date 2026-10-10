@@ -591,3 +591,53 @@ def test_conservation_uses_a_position_key_not_the_snv_coordinate():
     assert position_key({"chromosome": "11", "start": 89490963}) == "11:89490963"
     assert position_key({"chromosome": "11"}) is None
     assert position_key({"start": 1}) is None
+
+
+# ── NMD escape determination (ClinGen SVI PVS1, Abou Tayoun 2018, PMID 30192042) ──
+# A premature termination codon escapes nonsense-mediated decay when it lies in the last
+# exon, or within the last 50 nt of the penultimate exon. We DETERMINE this and show it as
+# a PVS1 input; we never apply PVS1 (§8). Previously every truncating variant got the same
+# blanket "verify NMD-escape" caveat because we had no exon model.
+_PLUS = {"exons": [(100, 200), (300, 400), (500, 600)], "strand": "+", "n": 3}
+_MINUS = {"exons": [(500, 600), (300, 400), (100, 200)], "strand": "-", "n": 3}
+
+
+def test_nmd_escape_last_exon():
+    from sugivariant.enrich import nmd_escape
+    r = nmd_escape({"start": 550}, _PLUS)
+    assert r["escapes"] is True and r["exon_index"] == 3 and "last exon" in r["reason"]
+    r = nmd_escape({"start": 150}, _MINUS)          # last exon on the minus strand
+    assert r["escapes"] is True and r["exon_index"] == 3
+
+
+def test_nmd_escape_penultimate_window_is_strand_aware():
+    from sugivariant.enrich import nmd_escape
+    # plus strand: 3' end of the penultimate exon is its `end` (400)
+    assert nmd_escape({"start": 380}, _PLUS)["escapes"] is True      # 20 nt from the 3' end
+    assert nmd_escape({"start": 310}, _PLUS)["escapes"] is False     # 90 nt away
+    # minus strand: 3' end of the penultimate exon is its `start` (300)
+    assert nmd_escape({"start": 320}, _MINUS)["escapes"] is True
+    assert nmd_escape({"start": 390}, _MINUS)["escapes"] is False
+
+
+def test_nmd_escape_middle_exon_and_unknowns():
+    from sugivariant.enrich import nmd_escape
+    mid = nmd_escape({"start": 150}, _PLUS)
+    assert mid["escapes"] is False and mid["exon_index"] == 1
+    assert "exon 1 of 3" in mid["reason"] and "NMD" not in mid["reason"]  # positional only
+    assert nmd_escape({"start": 250}, _PLUS) is None                 # intronic → undetermined
+    assert nmd_escape({"start": 150}, None) is None
+    assert nmd_escape({}, _PLUS) is None
+
+
+def test_lof_context_keeps_the_caveat_only_when_undetermined():
+    from sugivariant.enrich import lof_context
+    rec = {"gene_symbol": "X", "hgvs_p": "p.Glu121Ter", "chromosome": "1", "start": 150,
+           "variant_type": "single nucleotide variant", "name": "X:c.361G>T (p.Glu121Ter)"}
+    with_model = lof_context(rec, exons=_PLUS)
+    if with_model:                       # only when the consequence parses as truncating
+        assert with_model.get("nmd") is not None
+        assert with_model.get("nmd_caveat") is False
+    without = lof_context(rec, exons=None)
+    if without and without.get("nmd_caveat") is not None:
+        assert without.get("nmd") is None

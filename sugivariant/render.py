@@ -495,6 +495,14 @@ def render_body(v, jsonld_tag=""):
                          "C-terminal / last-exon truncations may escape nonsense-mediated decay.")
             L.append(f"- Molecular consequence: **{lof['label']}** — a predicted loss-of-function "
                      f"variant.{tail} *Descriptive; not an applied PVS1 code.*")
+            if lof.get("nmd"):
+                _n = lof["nmd"]
+                L.append(f"- Nonsense-mediated decay: the premature termination codon is "
+                         f"**{_n['reason']}**"
+                         + (" — predicted to **escape NMD**, so the truncated protein is likely "
+                            "expressed. An input to PVS1, not an applied code."
+                            if _n["escapes"] else
+                            ", so the transcript is predicted to undergo NMD."))
         elif v.get("consequence"):
             L.append(f"- Molecular consequence: **{v['consequence']['label']}**.")
         pctl = v.get("am_percentile")

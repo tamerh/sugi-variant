@@ -228,7 +228,7 @@ def attach_enrichment(rec, ctx=None):
     # molecular-consequence typing + LoF-intolerance mechanism (the non-missense
     # ~51% where AlphaMissense/REVEL/SaProt are dark). Needs gene_context above.
     rec["consequence"] = EN.molecular_consequence(rec)
-    rec["lof_context"] = EN.lof_context(rec)
+    rec["lof_context"] = EN.lof_context(rec, exons=ctx.get("exons"))
     # patient condition links (GARD + trials), routed via the variant's condition
     conds = rec.get("conditions") or []
     rec["condition_links"] = (EN.condition_links(conds[0].get("mondo_id"), ctx.setdefault("trials_cache", {}))

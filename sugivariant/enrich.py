@@ -269,7 +269,7 @@ def molecular_consequence(rec):
 _SOMATIC_COND_RE = re.compile(r"leukemi|myelodysplas|myeloproliferat|myeloid|clonal h", re.I)
 
 
-def lof_context(rec):
+def lof_context(rec, exons=None):
     """Descriptive loss-of-function mechanism read: a predicted-LoF consequence
     paired with the evidence that LoF causes disease for this gene. The PRIMARY
     signal is ClinGen dosage haploinsufficiency (curated: score 3 = sufficient
@@ -310,10 +310,15 @@ def lof_context(rec):
     # NMD: for a truncating change, LoF impact is position-dependent (C-terminal /
     # last-exon truncations may escape nonsense-mediated decay). We have no exon model,
     # so flag the caveat rather than assert clean LoF.
-    nmd_caveat = cons["type"] in ("nonsense", "frameshift")
+    truncating = cons["type"] in ("nonsense", "frameshift")
+    # Determine NMD escape where we can, instead of caveating every truncating variant.
+    # Descriptive only: this is the INPUT a curator feeds to PVS1, never an applied code.
+    nmd = nmd_escape(rec, exons) if truncating else None
+    # Keep the blanket caveat ONLY where the determination was not possible.
+    nmd_caveat = truncating and nmd is None
     return {"label": cons["label"], "loeuf": loeuf, "pli": pli, "haplo": haplo,
             "haploinsufficient": haploinsufficient, "constrained": constrained,
-            "germline": germline, "nmd_caveat": nmd_caveat,
+            "germline": germline, "nmd_caveat": nmd_caveat, "nmd": nmd,
             "lof_disease_gene": germline and (haploinsufficient or constrained)}
 
 
@@ -404,7 +409,79 @@ def mane_select(hgnc_id):
     if not mrna:
         return None
     prot = next((t["id"] for t in rows if t.get("type") == "protein"), None)
-    return {"mrna": mrna, "protein": prot}
+    # The Ensembl transcript for that MANE accession. The is_mane_select flag lives only
+    # on the RefSeq relation and `transcript` rows carry no MANE flag, so the ENST has to
+    # be reached by hopping back through RefSeq — the same chain sugi-atlas uses
+    # (src/atlas/gene/anchors.py). Without it there is no way to pick the MANE transcript
+    # out of a gene's dozens (BRCA1 has 44 protein-coding ones).
+    enst = None
+    try:
+        ct = map_all(mrna, ">>refseq>>transcript") or []
+        enst = next((t.get("id") for t in ct if t.get("id")), None)
+    except Exception:
+        pass
+    return {"mrna": mrna, "protein": prot, "enst": enst}
+
+
+def exon_model(enst):
+    """MANE transcript exon model in TRANSCRIPT order: {"exons": [(start, end), ...],
+    "strand": "+|-", "n": int}. Exons come back unordered and without rank, so order is
+    re-derived from coordinates and strand."""
+    if not enst:
+        return None
+    try:
+        rows = map_all(enst, ">>transcript>>exon") or []
+    except Exception:
+        return None
+    spans, strand = [], None
+    for r in rows:
+        try:
+            spans.append((int(r["start"]), int(r["end"])))
+        except (KeyError, TypeError, ValueError):
+            continue
+        strand = strand or r.get("strand")
+    if not spans:
+        return None
+    rev = (strand == "-")
+    spans.sort(key=lambda x: x[0], reverse=rev)
+    return {"exons": spans, "strand": strand or "+", "n": len(spans)}
+
+
+# ClinGen SVI PVS1 (Abou Tayoun et al., Hum Mutat 2018;39:1517, PMID 30192042): a premature
+# termination codon is predicted to ESCAPE nonsense-mediated decay when it lies in the last
+# exon, or in the last 50 nucleotides of the penultimate exon.
+_NMD_PENULTIMATE_WINDOW = 50
+
+
+def nmd_escape(rec, model):
+    """Does a truncating variant's position escape NMD? Descriptive only — this reports
+    the INPUT a curator would use for PVS1, it does not apply PVS1 (§8).
+
+    Returns {escapes, reason, exon_index, n_exons} or None when it cannot be determined."""
+    if not model or not model.get("exons"):
+        return None
+    try:
+        pos = int(rec.get("start"))
+    except (TypeError, ValueError):
+        return None
+    exons, n = model["exons"], model["n"]
+    idx = next((i for i, (a, b) in enumerate(exons, 1) if a <= pos <= b), None)
+    if idx is None:
+        return None
+    if idx == n:
+        return {"escapes": True, "exon_index": idx, "n_exons": n,
+                "reason": f"in the last exon ({idx} of {n})"}
+    if idx == n - 1:
+        a, b = exons[idx - 1]
+        # distance to the 3' end of this exon, in transcript orientation
+        d = (b - pos) if model["strand"] != "-" else (pos - a)
+        if 0 <= d <= _NMD_PENULTIMATE_WINDOW:
+            return {"escapes": True, "exon_index": idx, "n_exons": n,
+                    "reason": f"within the last {_NMD_PENULTIMATE_WINDOW} nt of the "
+                              f"penultimate exon ({idx} of {n}, {d} nt from its 3' end)"}
+    # reason stays purely positional; the surrounding sentence carries the verdict
+    return {"escapes": False, "exon_index": idx, "n_exons": n,
+            "reason": f"in exon {idx} of {n}"}
 
 
 # ClinVar-calibrated SaProt damaging divider (Youden-optimal; tools/eval/saprot_calibration.py,

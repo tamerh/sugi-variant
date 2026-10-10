@@ -97,6 +97,10 @@ def enriched_records(symbol, hgnc=None):
         "am": EN.gene_alphamissense(hgnc), "spliceai": EN.gene_spliceai(hgnc),
         "pharmgkb": EN.gene_pharmgkb(hgnc), "has_civic": EN.gene_has_civic(hgnc),
         "mavedb": EN.gene_mavedb(hgnc), "positions": VC.build_position_index(recs),
+        # MANE exon model — lets us DETERMINE NMD escape for truncating variants instead
+        # of printing a blanket "verify NMD-escape" caveat on all of them. One fetch per
+        # gene; the MANE ENST is reached via >>refseq>>transcript (the same hop Atlas uses).
+        "exons": EN.exon_model((EN.mane_select(hgnc) or {}).get("enst")),
         "recs": recs, "gene_context": EN.gene_context(hgnc, symbol),
         "structure": EN.gene_structure(hgnc), "pathways": EN.gene_pathways(hgnc),
         "panels": EN.gene_panelapp(hgnc),
