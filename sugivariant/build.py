@@ -93,14 +93,23 @@ def enriched_records(symbol, hgnc=None):
         deduped.append(rec)
     recs = deduped
     # Per-gene enrichment context, fetched once and shared across the gene's variants.
+    _mane = EN.mane_select(hgnc)
     ctx = {
         "am": EN.gene_alphamissense(hgnc), "spliceai": EN.gene_spliceai(hgnc),
         "pharmgkb": EN.gene_pharmgkb(hgnc), "has_civic": EN.gene_has_civic(hgnc),
         "mavedb": EN.gene_mavedb(hgnc), "positions": VC.build_position_index(recs),
-        # MANE exon model — lets us DETERMINE NMD escape for truncating variants instead
-        # of printing a blanket "verify NMD-escape" caveat on all of them. One fetch per
-        # gene; the MANE ENST is reached via >>refseq>>transcript (the same hop Atlas uses).
-        "exons": EN.exon_model((EN.mane_select(hgnc) or {}).get("enst")),
+        # MANE Select, fetched once and shared: the exon model needs its ENST to
+        # DETERMINE NMD escape for truncating variants instead of printing a blanket
+        # "verify NMD-escape" caveat on all of them, and regional missense constraint
+        # needs it to pick the right transcript's region. Reached via >>refseq>>transcript
+        # (the same hop Atlas uses). attach_enrichment reuses ctx["mane"] rather than
+        # re-fetching it per variant.
+        "mane": _mane,
+        "exons": EN.exon_model((_mane or {}).get("enst")),
+        # interval-id -> full attributes, for the two interval-indexed constraint
+        # datasets. A 1kb Gnocchi window covers every variant in it and a transcript has
+        # few RMC regions, so this is ~one fetch per region instead of per variant.
+        "gnocchi_cache": {}, "rmc_cache": {},
         "recs": recs, "gene_context": EN.gene_context(hgnc, symbol),
         "structure": EN.gene_structure(hgnc), "pathways": EN.gene_pathways(hgnc),
         "panels": EN.gene_panelapp(hgnc),

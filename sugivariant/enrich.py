@@ -636,6 +636,166 @@ def cadd_for(coord):
     return {"phred": phred}
 
 
+# ── interval-indexed datasets (regional constraint) ──────────────────────────
+#
+# gnomad_gnocchi (1kb non-coding windows) and gnomad_rmc (sub-transcript missense
+# regions) are INTERVAL datasets. Their own keys are the interval ids —
+# "CHR17-43094000-43095000", "ENST00000357654:43045681" — so entry(chr:pos) raises
+# "Entry not found" for every position; verified against biobtree 603-dataset build
+# 2026-10-11. The covering interval is reached only through the map chain, which does
+# the overlap lookup upstream. This is why they need their own accessor rather than
+# _coord_entry: a coordinate lookup would report "no data" for every variant forever.
+
+
+def _interval_map(pos, dataset, cache=None):
+    """Overlapping rows for an interval-indexed dataset at a chr:pos, via the map
+    chain. Mirrors _coord_entry's failure contract: [] is a genuine empty (the
+    position is in no interval), FETCH_ERROR is a transport failure that must
+    degrade the build rather than be cached as an absence.
+
+    Cached per position because ClinVar routinely files several alternate alleles at
+    one position, and the lookup is ref/alt-agnostic — they all resolve to the same
+    interval. A failure is deliberately NOT cached: it must stay retryable."""
+    if not pos:
+        return None
+    # Interval lookup is POSITIONAL: normalise chr:pos:ref:alt down to chr:pos the way
+    # conservation_for does. biobtree currently tolerates the 4-part key and returns the
+    # same region, but that leniency is undocumented and these datasets are ref/alt-
+    # agnostic by construction, so the accessor should not depend on it.
+    pos = ":".join(str(pos).split(":")[:2])
+    ck = "map:" + pos
+    if cache is not None and ck in cache:
+        return cache[ck]
+    try:
+        rows = map_all(pos, ">>" + dataset, cap=None) or []
+    except Exception as e:
+        if "not found" in str(e).lower():
+            rows = []
+        else:
+            note_fetch_failure()
+            return FETCH_ERROR          # never cached — a transport blip must stay retryable
+    if cache is not None:
+        cache[ck] = rows
+    return rows
+
+
+def _interval_attrs(interval_id, dataset, cache):
+    """Full attributes for one interval id. The map chain returns only a partial
+    projection (gnocchi: z + oe; rmc: transcript + oe + constrained), so the region
+    bounds and the chi-square p-value need a second entry() hop. Interval ids repeat
+    heavily across a gene's variants — a 1kb window covers every variant in it — so
+    this is cached per build and costs roughly one fetch per region, not per variant."""
+    if not interval_id:
+        return {}
+    ck = "attrs:" + str(interval_id)
+    if cache is not None and ck in cache:
+        return cache[ck]
+    a = _coord_entry(interval_id, dataset)
+    out = {} if (a is FETCH_ERROR or not a) else a
+    if cache is not None:
+        cache[ck] = out
+    return out
+
+
+def gnocchi_for(pos, cache=None):
+    """gnomAD non-coding genomic constraint (Gnocchi) for the 1kb window covering a
+    position — Chen 2024, gnomAD v3.1 secondary analyses, CC0.
+
+    Descriptive only, and deliberately unbanded: Gnocchi has NO ACMG-calibrated
+    threshold, and no ClinGen expert panel references it (the non-coding scorers as a
+    class have zero uptake across the 186 published specifications). So we report the
+    window's depletion and say plainly that it carries no calibrated threshold, rather
+    than inventing a cut-point (§8).
+
+    REGIONAL, not allele-specific: every variant in the same 1kb window gets the same
+    figure, and it describes the window, never this allele. That is still the only
+    constraint signal we carry for non-coding variants — LOEUF is a coding metric and
+    says nothing about an intronic or UTR position, and the missense predictors are
+    dark there. Returns {z, oe, start, end, obs, exp} or None."""
+    rows = _interval_map(pos, "gnomad_gnocchi", cache)
+    if rows is FETCH_ERROR:
+        return None
+    if not rows:
+        # The gnomAD genomic-constraint release covers the AUTOSOMES only: every chrX,
+        # chrY and chrM position returns no window (verified against the 2026-10-11 build;
+        # the biobtree loader applies no chromosome filter, so the gap is upstream). For an
+        # X-linked gene that is a systematic absence, not a finding, and staying silent
+        # would make it indistinguishable from an unconstrained window. We say so only
+        # where we can explain it — sporadic autosomal gaps stay silent rather than
+        # emitting a bare "not assessed".
+        chrom = str(pos).split(":")[0].upper().replace("CHR", "")
+        if chrom in ("X", "Y", "M", "MT"):
+            return {"z": None, "not_covered": chrom}
+        return None
+    r = rows[0]                                   # 1kb windows do not overlap
+    z, oe = _f(r.get("z")), _f(r.get("oe"))
+    if z is None and oe is None:
+        return None
+    full = _interval_attrs(r.get("id"), "gnomad_gnocchi", cache)
+    return {"z": z, "oe": oe,
+            "start": full.get("start"), "end": full.get("end"),
+            "obs": _f(full.get("obs")), "exp": _f(full.get("exp"))}
+
+
+def rmc_for(pos, enst=None, cache=None):
+    """gnomAD v4.1.1 regional missense constraint for the region covering a position,
+    restricted to the MANE Select transcript.
+
+    RMC is PER-TRANSCRIPT: a position falls in a different region in each of a gene's
+    transcripts (BRCA1 has 44 protein-coding ones), with its own observed/expected. An
+    arbitrary pick would attach a figure from a transcript the variant was never
+    reported on, so with no MANE match we return None rather than guess — unless the
+    position resolves to exactly one region, which is unambiguous.
+
+    Descriptive only (§8): we report the region's observed/expected ratio and the
+    source's own `constrained` determination. We assign no ACMG code and apply no
+    threshold of our own. Returns {transcript, oe, constrained, start, end, p, on_mane}
+    or None."""
+    rows = _interval_map(pos, "gnomad_rmc", cache)
+    if rows is FETCH_ERROR or not rows:
+        return None
+    hit, on_mane = None, False
+    if enst:
+        hit = next((r for r in rows if (r.get("transcript") or "") == enst), None)
+        on_mane = hit is not None
+    if hit is None:
+        if len(rows) != 1:
+            return None                           # ambiguous across transcripts — say nothing
+        hit = rows[0]
+    oe = _f(hit.get("oe"))
+    if oe is None:
+        return None
+    # biobtree projects the boolean as the STRING "false"/"true" through the map chain;
+    # bool("false") is True, so it has to be compared, not truth-tested.
+    c = hit.get("constrained")
+    constrained = (c is True) or (str(c).strip().lower() == "true")
+    full = _interval_attrs(hit.get("id"), "gnomad_rmc", cache)
+    st, en = full.get("start"), full.get("end")
+    # The region SIZE is what makes the o/e interpretable: an o/e of 0.11 across 886 bp is a
+    # focal constrained domain, the same o/e across a whole transcript is a gene-level
+    # statement. The raw coordinates are the less useful half, so the row leads with span.
+    span = (en - st) if (isinstance(st, int) and isinstance(en, int) and en > st) else None
+    return {"transcript": hit.get("transcript"), "oe": oe, "constrained": constrained,
+            "start": st, "end": en, "span": span,
+            "p": _f(full.get("oe_chisq_p")), "on_mane": on_mane}
+
+
+def is_missense(rec):
+    """True for a plain single-residue substitution — the class RMC describes. Excludes
+    anything molecular_consequence already types (nonsense/frameshift/splice/indel),
+    so p.Ter* and extensions do not slip through missense_short's 3-letter match."""
+    if molecular_consequence(rec):
+        return False
+    return missense_short(rec.get("hgvs_p")) is not None
+
+
+def is_noncoding(rec):
+    """True when the variant changes no amino acid at all — intronic, UTR, upstream,
+    downstream. The class Gnocchi describes, and the class with the least other
+    evidence. Synonymous variants (p.Xxx123=) are coding positions and are excluded:
+    Gnocchi's own release restricts the metric to non-coding sequence."""
+    return not (rec.get("hgvs_p") or "").strip()
+
 def revel_for(coord):
     """REVEL ensemble missense pathogenicity (0–1) by chr:pos:ref:alt, with a
     descriptive strength band (Pejaver-2022 thresholds) + direction. Presented as

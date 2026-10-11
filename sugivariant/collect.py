@@ -184,6 +184,23 @@ def attach_enrichment(rec, ctx=None):
     rec["splice_region"] = EN.splice_region(rec.get("hgvs_c"))
     rec["revel"] = revel
     rec["cadd"] = EN.cadd_for(coord)              # non-missense coverage; descriptive, no band
+    # MANE Select transcript — the clinical-reporting reference transcript. Gene-level,
+    # so cache once per gene in ctx (works on the empty-ctx fast path too, just one call).
+    # Resolved HERE, ahead of regional missense constraint, which needs its ENST to pick
+    # the right transcript's region; on the fast path ctx starts empty.
+    if "mane" not in ctx:
+        ctx["mane"] = EN.mane_select(rec.get("hgnc_id"))
+    # Regional constraint — interval-indexed, so reached by map chain, not by coordinate
+    # (entry(chr:pos) raises for both datasets). Each is gated to the variant class it
+    # was built for: regional MISSENSE constraint only for missense, and Gnocchi's
+    # NON-CODING windows only where no amino acid changes. Showing either outside its
+    # class would attach a figure that does not describe the variant.
+    pos = coord or EN.position_key(rec)
+    rec["gnocchi"] = (EN.gnocchi_for(pos, ctx.setdefault("gnocchi_cache", {}))
+                      if EN.is_noncoding(rec) else None)
+    rec["rmc"] = (EN.rmc_for(pos, (ctx.get("mane") or {}).get("enst"),
+                             ctx.setdefault("rmc_cache", {}))
+                  if EN.is_missense(rec) else None)
     rec["saprot"] = saprot
     rec["spliceai"] = EN.spliceai_for(coord, ctx.get("spliceai") or {})
     rec["consensus"] = EN.submitter_consensus(rec.get("submissions") or [])
@@ -215,10 +232,6 @@ def attach_enrichment(rec, ctx=None):
     rec["gene_context"] = ctx.get("gene_context")
     rec["structure"] = ctx.get("structure")
     rec["panels"] = ctx.get("panels")
-    # MANE Select transcript — the clinical-reporting reference transcript. Gene-level,
-    # so cache once per gene in ctx (works on the empty-ctx fast path too, just one call).
-    if "mane" not in ctx:
-        ctx["mane"] = EN.mane_select(rec.get("hgnc_id"))
     mane = ctx["mane"]
     if mane:
         cvt = EN.clinvar_transcript(rec.get("name"))

@@ -283,3 +283,152 @@ def test_cadd_absent_renders_nothing_rather_than_a_zero():
     html, md, _, _ = _both(rec)
     assert "<th>CADD</th>" not in html
     assert "- CADD:" not in md
+
+
+# ── regional constraint (gnomAD RMC + Gnocchi) ────────────────────────────────
+#
+# Both are REGIONAL: they describe the interval the variant falls in, and every variant
+# in that interval shares the figure. Sitting in a table of allele-specific scores, a
+# bare o/e or Z would read as a property of this variant, so both surfaces must say
+# otherwise — that is the claim these tests pin.
+
+_RMC_REC = {"canonical_slug": "x-p-pro9ala", "gene_symbol": "X", "classification": "VUS",
+            "variation_id": 5, "name": "X:c.25C>G", "hgvs_c": "c.25C>G",
+            "hgvs_p": "p.Pro9Ala", "review_status": "criteria provided, single submitter",
+            "conditions": [],
+            "rmc": {"transcript": "ENST00000357654", "oe": 0.23, "constrained": True,
+                    "start": 43045681, "end": 43124096, "p": 4.8083e-05, "on_mane": True}}
+
+_GNO_REC = {"canonical_slug": "x-c-100-plus-55a-g", "gene_symbol": "X", "classification": "VUS",
+            "variation_id": 6, "name": "X:c.100+55A>G", "hgvs_c": "c.100+55A>G",
+            "review_status": "criteria provided, single submitter", "conditions": [],
+            "gnocchi": {"z": 4.39, "oe": 0.41, "start": 786000, "end": 787000,
+                        "obs": 40.0, "exp": 97.0}}
+
+
+def test_regional_constraint_is_framed_as_regional_on_both_surfaces():
+    os.environ.setdefault("BASE_PATH", "/variant")
+    html, md, _, _ = _both(_RMC_REC)
+    for surface, name in ((html, "HTML"), (md, ".md")):
+        assert "0.23" in surface, f"{name} omits the RMC observed/expected"
+        assert "region" in surface.lower(), f"{name} fails to say the figure is regional"
+        assert "MANE" in surface, f"{name} omits which transcript the region came from"
+    # never an applied code, and never presented as a property of this allele
+    for bad in ("meets PM1", "meets PP3", "this variant is constrained"):
+        assert bad not in html and bad not in md, f"RMC presented as a verdict: {bad!r}"
+
+
+def test_gnocchi_is_shown_without_any_calibrated_threshold():
+    os.environ.setdefault("BASE_PATH", "/variant")
+    html, md, _, _ = _both(_GNO_REC)
+    for surface, name in ((html, "HTML"), (md, ".md")):
+        assert "4.39" in surface, f"{name} omits the Gnocchi Z score"
+        assert "calibrat" in surface.lower(), \
+            f"{name} shows Gnocchi without stating that it has no ACMG calibration"
+        assert "1 kb" in surface, f"{name} does not say the score describes a 1 kb window"
+
+
+def test_regional_constraint_absent_renders_nothing_rather_than_a_zero():
+    """The recurring Jinja trap: a missing key is Undefined, and `Undefined is not none`
+    is True. Legacy records predate both datasets, so both must render nothing."""
+    os.environ.setdefault("BASE_PATH", "/variant")
+    rec = {"canonical_slug": "x-p-z", "gene_symbol": "X", "classification": "VUS",
+           "variation_id": 7, "name": "X:c.2A>G", "hgvs_c": "c.2A>G",
+           "review_status": "criteria provided, single submitter", "conditions": []}
+    html, md, _, _ = _both(rec)                      # keys entirely ABSENT, not None
+    assert "<th>Regional constraint</th>" not in html
+    assert "<th>Non-coding constraint</th>" not in html
+    assert "Regional missense constraint:" not in md
+    assert "Non-coding constraint" not in md
+
+
+def test_each_regional_dataset_is_gated_to_its_own_variant_class():
+    """RMC models missense; Gnocchi models non-coding sequence. Showing either outside
+    its class attaches a figure that does not describe the variant."""
+    from sugivariant.enrich import is_missense, is_noncoding
+    cases = [({"hgvs_p": "p.Pro309Ala"}, True, False),
+             ({"hgvs_p": "p.Arg1443Ter"}, False, False),
+             ({"hgvs_p": "p.Lys23fs"}, False, False),
+             ({"hgvs_p": "p.Val12del"}, False, False),
+             ({"hgvs_p": "p.Met1?"}, False, False),
+             ({"hgvs_c": "c.100+55A>G"}, False, True),
+             ({"hgvs_c": "c.-23G>A"}, False, True)]
+    for rec, mis, non in cases:
+        assert is_missense(rec) is mis, f"is_missense wrong for {rec}"
+        assert is_noncoding(rec) is non, f"is_noncoding wrong for {rec}"
+
+
+def test_rmc_declines_to_guess_when_transcripts_are_ambiguous(monkeypatch):
+    """RMC regions are per-transcript and a gene has dozens. With no MANE match and more
+    than one candidate, showing one would attach a region from a transcript the variant
+    was never reported on."""
+    from sugivariant import enrich as EN
+    rows = [{"id": "ENST1:100", "transcript": "ENST1", "oe": "0.2", "constrained": "true"},
+            {"id": "ENST2:100", "transcript": "ENST2", "oe": "0.9", "constrained": "false"}]
+    monkeypatch.setattr(EN, "_interval_map", lambda pos, ds, c=None: rows)
+    monkeypatch.setattr(EN, "_interval_attrs", lambda i, ds, c: {})
+    assert EN.rmc_for("1:100", None, {}) is None            # ambiguous → nothing
+    got = EN.rmc_for("1:100", "ENST2", {})                  # MANE picks the right one
+    assert got["transcript"] == "ENST2" and got["on_mane"] is True
+    assert got["oe"] == 0.9
+
+
+def test_rmc_constrained_false_string_is_not_read_as_true(monkeypatch):
+    """biobtree projects the boolean through the map chain as the STRING "false", and
+    bool("false") is True. Truth-testing it would mark every unconstrained region as
+    depleted of missense variation — a clinical claim, inverted."""
+    from sugivariant import enrich as EN
+    monkeypatch.setattr(EN, "_interval_attrs", lambda i, ds, c: {})
+    for raw, expected in (("false", False), ("true", True), (False, False), (True, True)):
+        monkeypatch.setattr(EN, "_interval_map", lambda pos, ds, c=None, _r=raw: [
+            {"id": "E:1", "transcript": "E", "oe": "0.5", "constrained": _r}])
+        got = EN.rmc_for("1:100", "E", {})
+        assert got["constrained"] is expected, f"constrained={raw!r} read as {got['constrained']}"
+
+
+def test_gnocchi_autosome_only_gap_is_disclosed_not_silent():
+    """Gnocchi is computed on the autosomes only, so every X-linked gene's non-coding
+    variants have no window. Silence there is indistinguishable from an unconstrained
+    window — the same misreading we fixed for SpliceAI."""
+    os.environ.setdefault("BASE_PATH", "/variant")
+    rec = {"canonical_slug": "x-c-9-plus-5a-g", "gene_symbol": "MECP2", "classification": "VUS",
+           "variation_id": 8, "name": "MECP2:c.9+5A>G", "hgvs_c": "c.9+5A>G",
+           "review_status": "criteria provided, single submitter", "conditions": [],
+           "gnocchi": {"z": None, "not_covered": "X"}}
+    html, md, _, _ = _both(rec)
+    for surface, name in ((html, "HTML"), (md, ".md")):
+        assert "not assessed" in surface, f"{name} falls silent instead of disclosing the gap"
+        assert "autosome" in surface, f"{name} does not explain why there is no window"
+        assert "not evidence" in surface, f"{name} omits that absence is not evidence"
+    # and it must not print a Z of None/0
+    assert "Z None" not in html and "Z 0.00" not in html
+
+
+def test_interval_fetch_failure_degrades_the_build_and_is_not_cached(monkeypatch):
+    """A network blip must not become a permanent "no constraint here" claim. On failure
+    the accessor flags the build (so the record is never persisted) and caches nothing,
+    so the next attempt retries. A genuine empty result IS cached — it is real data."""
+    from sugivariant import enrich as EN
+
+    calls = {"n": 0}
+
+    def boom(ident, chain, cap=None):
+        calls["n"] += 1
+        raise RuntimeError("connection reset by peer")
+
+    monkeypatch.setattr(EN, "map_all", boom)
+    EN.begin_build()
+    cache = {}
+    assert EN.gnocchi_for("1:786500", cache) is None
+    assert EN.rmc_for("1:786500", "ENST1", cache) is None
+    assert EN.build_degraded(), "a transport failure did not degrade the build"
+    assert cache == {}, "a failure was cached — the retry would be skipped"
+    assert calls["n"] == 2, "the second call reused a cached failure"
+
+    # a genuine empty (position in no interval) is real data and SHOULD be cached
+    monkeypatch.setattr(EN, "map_all", lambda i, c, cap=None: [])
+    EN.begin_build()
+    cache = {}
+    assert EN.gnocchi_for("1:786500", cache) is None
+    assert cache.get("map:1:786500") == [], "a genuine empty was not cached"
+    assert not EN.build_degraded(), "an empty result wrongly degraded the build"

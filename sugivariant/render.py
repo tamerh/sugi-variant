@@ -43,7 +43,17 @@ DATA_SOURCES = [
     ("REVEL", "Ioannidis et al. 2016 — ODbL", "revel"),
     ("SaProt", "Su et al. 2023 — MIT", "saprot"),
     ("SpliceAI", "Illumina — free for non-commercial use", "spliceai"),
+    # CADD is shown on the variant page but was never declared here (shipped in 1a98550) —
+    # a provenance gap on a source with a RESTRICTIVE licence: free for academic/non-commercial
+    # use, commercial use needs a University of Washington licence. This product is free, so
+    # the terms are met; they still have to be stated.
+    ("CADD", "Rentzsch et al. 2019, University of Washington \u2014 free for non-commercial use", "cadd"),
     ("Conservation (phyloP/phastCons/GERP)", "UCSC", "conservation"),
+    # Regional constraint — both CC0, per the gnomAD release terms carried in the biobtree
+    # dataset metadata. Separate entries, not folded into gnomAD v4.1: they are distinct
+    # datasets with their own build dates, and the provenance table joins on the group.
+    ("gnomAD Non-coding Constraint (Gnocchi)", "Chen et al. 2024, Broad Institute \u2014 CC0", "gnomad_gnocchi"),
+    ("gnomAD Regional Missense Constraint", "Broad Institute \u2014 CC0", "gnomad_rmc"),
     ("ClinGen", "ClinGen", "clingen"),
     ("UniProt", "CC BY 4.0", "uniprot"),
     ("Reactome / GO", "CC BY 4.0", "reactome"),
@@ -60,7 +70,12 @@ SOURCE_REFS = {
     "REVEL":                                ("Ioannidis et al., AJHG 2016",         "https://sites.google.com/site/revelgenomics/"),
     "SaProt":                               ("Su et al., ICLR 2024",                "https://github.com/westlake-repl/SaProt"),
     "SpliceAI":                             ("Jaganathan et al., Cell 2019",        "https://github.com/Illumina/SpliceAI"),
+    "CADD":                                 ("Rentzsch et al., NAR 2019",           "https://cadd.gs.washington.edu/"),
     "Conservation (phyloP/phastCons/GERP)": ("Pollard et al. 2010; Davydov et al. 2010", "https://genome.ucsc.edu/"),
+    "gnomAD Non-coding Constraint (Gnocchi)": ("Chen et al., Nature 2024",          "https://gnomad.broadinstitute.org/downloads"),
+    # The dataset is gnomAD's v4.1.1 MCR release (Wang et al. 2024, bioRxiv
+    # 10.1101/2024.04.11.588920 — "all_mcrs"); Samocha et al. 2017 is the original method.
+    "gnomAD Regional Missense Constraint":  ("Wang et al. 2024; method Samocha et al. 2017", "https://gnomad.broadinstitute.org/downloads"),
     "ClinGen":                              ("Rehm et al., NEJM 2015",              "https://clinicalgenome.org/"),
     "UniProt":                              ("UniProt Consortium, NAR 2025",        "https://www.uniprot.org/"),
     "Reactome / GO":                        ("Milacic et al. 2024; Ashburner et al. 2000", "https://reactome.org/"),
@@ -457,7 +472,8 @@ def render_body(v, jsonld_tag=""):
     _gf = v.get("gnomad") or {}
     if (conc.get("verdict") or v.get("lof_context") or v.get("consequence")
             or _gf.get("frequency") or _gf.get("af") or _gf.get("absent")
-            or v.get("cadd") or v.get("splice_region") or v.get("conservation")):
+            or v.get("cadd") or v.get("splice_region") or v.get("conservation")
+            or v.get("rmc") or v.get("gnocchi")):
         # CADD, splice-region placement and conservation each open this section on their
         # own. They are precisely the signals that reach variants with nothing else, so
         # gating them behind a concordance verdict hid them exactly where they mattered.
@@ -532,6 +548,39 @@ def render_body(v, jsonld_tag=""):
                      + (" — inside the zone ClinGen GN167 excludes from BP7, so this variant "
                         "must not be called benign merely for being synonymous or intronic."
                         if sr.get("bp7_excluded") else "."))
+        # Regional constraint. Both are REGIONAL, not allele-specific, and the .md has to
+        # say so as plainly as the page does — a bare o/e or Z next to allele-specific
+        # scores would read as a property of this variant.
+        rm = v.get("rmc")
+        if rm and rm.get("oe") is not None:
+            _span = (f" ({rm['start']:,}\u2013{rm['end']:,})"
+                     if rm.get("start") and rm.get("end") else "")
+            L.append(f"- Regional missense constraint: **o/e {rm['oe']:.2f}**"
+                     + (" across the covering region of the MANE Select transcript"
+                        if rm.get("on_mane") else " across the covering region")
+                     + _span
+                     + (f", spanning {rm['span']:,} bp" if rm.get("span") else "")
+                     + (" \u2014 the region is depleted of missense variation."
+                        if rm.get("constrained") else ".")
+                     + (f" Chi-square p {rm['p']:.2g}." if rm.get("p") is not None else "")
+                     + " Describes the region, not this allele; gnomAD v4.1.1's own "
+                       "constrained determination. *Descriptive; no ACMG code applied.*")
+        gn = v.get("gnocchi")
+        if gn and gn.get("z") is None and gn.get("not_covered"):
+            L.append(f"- Non-coding constraint (Gnocchi): **not assessed** \u2014 the gnomAD "
+                     f"non-coding genomic-constraint release is computed on the autosomes only, so "
+                     f"chr{gn['not_covered']} has no window. That is a property of the dataset, not of "
+                     f"the variant: it is not evidence that the region is unconstrained.")
+        elif gn and gn.get("z") is not None:
+            _gw = (f" (1 kb window {gn['start']:,}\u2013{gn['end']:,})"
+                   if gn.get("start") and gn.get("end") else "")
+            L.append(f"- Non-coding constraint (Gnocchi): **Z {gn['z']:.2f}**"
+                     + (f", o/e {gn['oe']:.2f}" if gn.get("oe") is not None else "")
+                     + _gw
+                     + ". A higher Z means the window carries less variation than expected. "
+                       "Describes the 1 kb window, not this allele. No ClinGen expert panel "
+                       "references Gnocchi and no ACMG-calibrated threshold exists for it. "
+                       "*Descriptive; no cut-point applied.*")
         sa = v.get("spliceai") or {}
         sa_st = sa.get("status")
         if sa_st == "other_allele":
