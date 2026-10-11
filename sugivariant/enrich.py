@@ -257,13 +257,28 @@ def alphamissense_for(coord):
 _DATASET_VERSIONS = None
 
 
-def dataset_versions():
-    """{biobtree group → last_built date YYYY-MM-DD} from the live meta — the HONEST
-    per-dataset build date. HANDOVER §7: the single biobtree 'dev' version stamp lies,
-    so pin per-dataset last_built instead. Cached; {} if meta is unreachable."""
-    global _DATASET_VERSIONS
-    if _DATASET_VERSIONS:                      # cache only a SUCCESSFUL (non-empty) fetch —
-        return _DATASET_VERSIONS               # a transient failure must not permanently disable this
+_DATASET_META = None
+_DATASET_META_FAILED_AT = 0.0
+_DATASET_META_RETRY_AFTER = 60.0
+
+
+def _dataset_meta():
+    """{biobtree group → its /ws/meta record}, fetched once. {} if unreachable.
+
+    One fetch backs both the per-dataset build date and the reporting thresholds, so
+    a page costs at most one meta call however many of those it reads.
+
+    A FAILURE is cached too, but only briefly. It must stay retryable — a transient
+    outage must not blank the version stamps for the life of the process — yet it
+    cannot be free to retry either: the fetch carries a 5s timeout and
+    dataset_threshold() is called per variant, so an uncached failure would have cost
+    5s on every variant of a build. Hence a short negative window rather than none."""
+    global _DATASET_META, _DATASET_META_FAILED_AT
+    if _DATASET_META:                          # cache only a SUCCESSFUL (non-empty) fetch
+        return _DATASET_META
+    import time as _time
+    if _time.monotonic() - _DATASET_META_FAILED_AT < _DATASET_META_RETRY_AFTER:
+        return {}                              # recently failed — don't pay the timeout again
     out = {}
     try:
         import urllib.request
@@ -277,13 +292,54 @@ def dataset_versions():
         with urllib.request.urlopen(base + "/ws/meta", timeout=5) as r:
             meta = _json.load(r)
         for v in (meta.get("datasets") or {}).values():
-            g, lb = v.get("group"), v.get("last_built")
-            if g and lb and g not in out:
-                out[g] = lb[:10]
+            g = v.get("group")
+            if g and g not in out:
+                out[g] = v
     except Exception:
-        return {}                              # leave the cache empty → retried on the next call
-    _DATASET_VERSIONS = out
+        _DATASET_META_FAILED_AT = _time.monotonic()
+        return {}                              # retried once the negative window lapses
+    _DATASET_META = out
     return out
+
+
+def dataset_versions():
+    """{biobtree group → last_built date YYYY-MM-DD} from the live meta — the HONEST
+    per-dataset build date. HANDOVER §7: the single biobtree 'dev' version stamp lies,
+    so pin per-dataset last_built instead. Cached; {} if meta is unreachable."""
+    global _DATASET_VERSIONS
+    if _DATASET_VERSIONS:
+        return _DATASET_VERSIONS
+    out = {}
+    for g, v in (_dataset_meta() or {}).items():
+        lb = v.get("last_built")
+        if lb:
+            out[g] = lb[:10]
+    if out:
+        _DATASET_VERSIONS = out
+    return out
+
+
+_THRESHOLD_RE = re.compile(r">=\s*([0-9]*\.?[0-9]+)")
+
+
+def dataset_threshold(group, default):
+    """The reporting threshold a dataset is filtered at, from its own metadata.
+
+    biobtree publishes this as prose ("reported only if max SpliceAI delta ... >= 0.2;
+    a variant absent from this dataset is below threshold ..."), so the number is
+    parsed out of it. Prose is not a machine-readable field, which is why `default`
+    is always honoured on any doubt — a wrong threshold here would mis-state what an
+    absent score MEANS, and that is a claim about the variant. Reading it rather than
+    pinning it means the statement follows upstream if they ever retune the filter."""
+    raw = ((_dataset_meta().get(group) or {}).get("threshold") or "")
+    m = _THRESHOLD_RE.search(raw)
+    if not m:
+        return default
+    try:
+        v = float(m.group(1))
+    except ValueError:
+        return default
+    return v if 0 < v < 1 else default
 
 
 def molecular_consequence(rec):
@@ -683,7 +739,8 @@ def cadd_for(coord):
     return {"phred": phred}
 
 
-# Pangolin's release is filtered the same way SpliceAI's is (largest delta >= 0.2).
+# Pangolin's release is filtered the same way SpliceAI's is; read from the dataset
+# metadata, with this as the fallback.
 _PANGOLIN_THRESHOLD = 0.2
 
 
@@ -714,7 +771,8 @@ def pangolin_for(coord):
     return {"status": "scored", "score": score,
             "effect": ((a.get("effect") or "").strip() or None),
             "gain": _f(a.get("gain_score")), "loss": _f(a.get("loss_score")),
-            "gene": (a.get("gene") or None), "threshold": _PANGOLIN_THRESHOLD}
+            "gene": (a.get("gene") or None),
+            "threshold": dataset_threshold("pangolin", _PANGOLIN_THRESHOLD)}
 
 
 # ── interval-indexed datasets (regional constraint) ──────────────────────────
@@ -1424,8 +1482,11 @@ def spliceai_scored(sa):
 
 # The upstream release keeps only variants whose largest delta clears this, so an
 # allele's ABSENCE from it is a statement about the allele, not a gap in our data.
-# Mirrors spliceaiScoreThreshold in the biobtree loader; it is not exposed in the
-# dataset metadata, so it is pinned here and must be revisited if upstream changes.
+# biobtree publishes the filter in each dataset's metadata (Oct 2026), so it is read
+# from there; this value is only the fallback for when meta is unreachable. NOTE this
+# is the RELEASE's reporting filter, which is a different thing from ClinGen SVI's
+# calibrated 0.2 band boundary in spliceai_band() — they coincide numerically today
+# and must not be driven from one constant.
 _SPLICEAI_THRESHOLD = 0.2
 
 _SPLICEAI_DELTA_LABEL = {"ds_ag": "acceptor gain", "ds_al": "acceptor loss",
@@ -1504,7 +1565,7 @@ def spliceai_for(coord, cache):
         best = max(others, key=lambda d: (_f(d.get("score")) or 0))
         return {"status": "other_allele", "effect": best.get("effect"),
                 "score": best.get("score"), "ref": best.get("ref"), "alt": best.get("alt"),
-                "threshold": _SPLICEAI_THRESHOLD}
+                "threshold": dataset_threshold("spliceai", _SPLICEAI_THRESHOLD)}
     return {"status": "absent"}
 
 

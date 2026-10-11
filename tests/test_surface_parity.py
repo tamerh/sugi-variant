@@ -650,3 +650,123 @@ def test_splice_agreement_compares_the_right_thing():
     # A legacy record carries a score with no status field at all.
     assert splice_agreement({"effect": "donor_loss", "score": "0.92"},
                             pg)["state"] == "agree"
+
+
+# ── reading the reporting threshold from biobtree's metadata (their Oct 2026 ask) ──
+
+def test_threshold_is_parsed_from_the_published_prose():
+    """biobtree publishes the filter as PROSE, not a number, so it is parsed out.
+    The exact strings below are what the live /ws/meta returns."""
+    from sugivariant import enrich
+    enrich._DATASET_META = {
+        "spliceai": {"threshold": "reported only if max SpliceAI delta (DS_AG/AL/DG/DL)"
+                                  " >= 0.2; a variant absent from this dataset is below"
+                                  " threshold (no predicted splice effect), not 'not assessed'"},
+        "pangolin": {"threshold": "reported only if the largest Pangolin delta-score >= 0.2;"
+                                  " absence = below threshold, not 'not assessed'"},
+    }
+    try:
+        assert enrich.dataset_threshold("spliceai", 0.99) == 0.2
+        assert enrich.dataset_threshold("pangolin", 0.99) == 0.2
+    finally:
+        enrich._DATASET_META = None
+
+
+def test_threshold_falls_back_rather_than_guessing():
+    """A wrong threshold would mis-state what an ABSENT score means, which is a claim
+    about the variant. Prose is not a machine-readable field, so every doubtful parse
+    must yield the pinned default instead of a guess."""
+    from sugivariant import enrich
+    cases = [
+        {},                                             # dataset absent from meta
+        {"threshold": ""},                              # present but empty
+        {"threshold": "filtered to a meaningful signal"},   # no number at all
+        {"threshold": ">= 7"},                          # not a delta in (0,1)
+        {"threshold": ">= 0"},                          # degenerate
+        {"threshold": ">= abc"},                        # unparseable
+    ]
+    for rec in cases:
+        enrich._DATASET_META = {"spliceai": rec}
+        try:
+            assert enrich.dataset_threshold("spliceai", 0.2) == 0.2, rec
+        finally:
+            enrich._DATASET_META = None
+
+
+def test_a_failed_meta_fetch_is_bounded_but_still_retryable(monkeypatch):
+    """dataset_threshold() runs per variant and the fetch carries a 5s timeout, so an
+    uncached failure would cost 5s on every variant of a build. It must be cached —
+    but only briefly, or one transient outage blanks every version stamp for the life
+    of the process."""
+    from sugivariant import enrich
+    calls = {"n": 0}
+
+    def boom(*a, **k):
+        calls["n"] += 1
+        raise OSError("connection refused")
+
+    monkeypatch.setattr("urllib.request.urlopen", boom)
+    enrich._DATASET_META = None
+    enrich._DATASET_META_FAILED_AT = 0.0
+    try:
+        assert enrich._dataset_meta() == {}
+        assert calls["n"] == 1
+        for _ in range(25):
+            assert enrich._dataset_meta() == {}
+        assert calls["n"] == 1, (
+            f"the 5s timeout was paid {calls['n']} times; a build would stall")
+        # ...but the window must lapse, so the stamps come back after an outage.
+        enrich._DATASET_META_FAILED_AT -= (enrich._DATASET_META_RETRY_AFTER + 1)
+        enrich._dataset_meta()
+        assert calls["n"] == 2, "a failure was cached permanently"
+    finally:
+        enrich._DATASET_META = None
+        enrich._DATASET_META_FAILED_AT = 0.0
+
+
+# How each dataset is keyed is an assumption baked into every lookup in enrich.py.
+# It used to be invisible — which is how two datasets got reported as empty when they
+# were fully populated, having simply been queried the wrong way. biobtree now
+# publishes it, so the assumption can be checked instead of believed.
+_KEY_ASSUMPTIONS = {
+    # looked up with entry() on a full chr:pos:ref:alt key
+    "cadd": "chr:pos:ref:alt", "spliceai": "chr:pos:ref:alt",
+    "pangolin": "chr:pos:ref:alt", "gnomad_variant": "chr:pos:ref:alt",
+    "alphamissense": "chr:pos:ref:alt", "revel": "chr:pos:ref:alt",
+    # ref/alt-agnostic: enrich truncates the key to chr:pos for these
+    "conservation": "chr:pos",
+    # interval-indexed: unreachable by entry(), so reached via the map chain
+    "gnomad_gnocchi": "interval", "gnomad_rmc": "interval", "repeat": "interval",
+}
+
+
+def test_our_keying_assumptions_match_what_biobtree_publishes():
+    """If upstream re-keys a dataset, every lookup against it starts returning
+    nothing — silently, and indistinguishably from "this variant has no data". That
+    is the most expensive failure mode in this codebase, so it gets a tripwire."""
+    from sugivariant import enrich
+    enrich._DATASET_META = None
+    enrich._DATASET_META_FAILED_AT = 0.0
+    meta = enrich._dataset_meta()
+    if not meta:
+        pytest.skip("biobtree /ws/meta unreachable")
+    missing, wrong = [], []
+    for group, assumed in _KEY_ASSUMPTIONS.items():
+        rec = meta.get(group)
+        if rec is None:
+            continue                      # dataset not in this deployment; not our concern
+        scheme = rec.get("keyScheme")
+        if not scheme:
+            missing.append(group)         # can't verify — reported, not failed
+            continue
+        if assumed == "interval":
+            ok = "interval" in scheme.lower()
+        elif assumed == "chr:pos":
+            ok = scheme.startswith("chr:pos") and "ref:alt" not in scheme
+        else:
+            ok = scheme.strip().startswith("chr:pos:ref:alt")
+        if not ok:
+            wrong.append(f"{group}: we key it as {assumed!r}, biobtree says {scheme!r}")
+    assert not wrong, "keying assumptions now disagree with upstream:\n  " + "\n  ".join(wrong)
+    if missing:
+        print(f"note: no keyScheme published for {missing} — assumption unverified")
