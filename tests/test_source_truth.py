@@ -154,40 +154,94 @@ def test_repeat_annotation_matches_ucsc(chrom, pos, track, name):
     assert name in names, f"UCSC {track} at {chrom}:{pos} now reports {names}"
 
 
+# Checked against the Ensembl VCF that biobtree actually ingests, via a remote tabix
+# query. That is strictly better than going through Ensembl VEP: VEP serves the MASKED
+# release and we serve the RAW one, so a VEP comparison tests two conventions at once
+# and cannot distinguish our bug from their convention.
+#
+# Measured 2026-10-11 over the 318 scored variants in the MECP2+PTEN caches: raw and
+# masked differ on at least one delta for 65.7% of them, and for 19.8% the masked
+# scores all fall under 0.2 — so for about one in five variants where we show a score
+# and a PP3-supporting band, a masked lookup shows no splice signal at all. Masking
+# zeroes a LOSS scored against a position that is not an annotated site AND a GAIN that
+# would merely strengthen an existing one, so neither direction is safe to assume.
+SPLICEAI_SRC = ("https://ftp.ensembl.org/pub/current_variation/SpliceAI/"
+                "spliceai_scores.{kind}.snv.ensembl_mane_v1.4.grch38.vcf.gz")
+
+# (chrom, pos, ref, alt, our four deltas AG/AL/DG/DL as we display them)
 SPLICEAI_CASES = [
-    # (chrom, pos, alt, our four deltas AG/AL/DG/DL, whether VEP's masked AL/DL agree)
-    ("X", 154032202, "T", (0.0, 0.0, 0.78, 0.52), True),
-    ("X", 154032491, "T", (0.0, 0.0, 0.37, 0.0), True),
-    ("10", 87894058, "T", (0.47, 0.0, 0.0, 0.0), True),
-    # PTEN c.83T>G: we carry RAW acceptor-loss 0.21 with dp_al -10; VEP serves MASKED
-    # and reports 0, because 87894018 is not an annotated acceptor (exon 2 starts at
-    # 87894025). Every other field of the two records is identical. Documented, not
-    # asserted away — the gain deltas must still agree exactly.
-    ("10", 87894028, "G", (0.01, 0.21, 0.0, 0.0), False),
+    ("X", 154032202, "C", "T", (0.0, 0.0, 0.78, 0.52)),
+    ("X", 154032491, "C", "T", (0.0, 0.0, 0.37, 0.0)),
+    # the other allele at pten-p-pro38his, whose score the below-threshold row quotes.
+    # Note AL is 0.34 in the RAW release; the 0.0 a VEP lookup shows there is masking.
+    ("10", 87894058, "C", "T", (0.47, 0.34, 0.0, 0.0)),
+    ("10", 87894028, "T", "G", (0.01, 0.21, 0.0, 0.0)),
 ]
 
 
-@pytest.mark.parametrize("ch,pos,alt,ours,loss_agrees", SPLICEAI_CASES)
-def test_spliceai_deltas_match_ensembl_vep(ch, pos, alt, ours, loss_agrees):
-    d = json.loads(_get(f"https://rest.ensembl.org/vep/human/region/{ch}:{pos}-{pos}:1/{alt}"
-                        "?content-type=application/json&SpliceAI=1"))
-    r0 = d[0] if isinstance(d, list) else d
-    sp = next((tc["spliceai"] for tc in (r0.get("transcript_consequences") or [])
-               if tc.get("spliceai")), None)
-    assert sp, f"VEP returned no spliceai field for {ch}:{pos}>{alt}"
-    ag, al, dg, dl = ours
-    # Gains are a NEW site by definition, so masking never suppresses them: these must
-    # always agree, and they are the check that we are reading the same computation.
-    assert float(sp["DS_AG"]) == pytest.approx(ag, abs=0.005), "acceptor gain diverged"
-    assert float(sp["DS_DG"]) == pytest.approx(dg, abs=0.005), "donor gain diverged"
-    if loss_agrees:
-        assert float(sp["DS_AL"]) == pytest.approx(al, abs=0.005), "acceptor loss diverged"
-        assert float(sp["DS_DL"]) == pytest.approx(dl, abs=0.005), "donor loss diverged"
-    else:
-        assert float(sp["DS_AL"]) == 0.0 and al > 0.0, (
-            "the known raw-vs-masked case changed shape: VEP now reports "
-            f"AL={sp['DS_AL']} where we carry {al}. Re-verify which convention each "
-            "side serves before trusting the rendered text.")
+def _tabix(kind, region):
+    """Remote tabix against the published VCF. Skips unless tabix is installed."""
+    import shutil
+    import subprocess
+    exe = shutil.which("tabix") or "/data/miniconda3/envs/biobtree/bin/tabix"
+    if not os.path.exists(exe):
+        pytest.skip("tabix not available for a remote VCF query")
+    try:
+        out = subprocess.run([exe, SPLICEAI_SRC.format(kind=kind), region],
+                             capture_output=True, text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        pytest.skip("remote tabix query timed out")
+    if out.returncode != 0:
+        pytest.skip(f"remote tabix failed: {out.stderr[:160]}")
+    return out.stdout
+
+
+def _deltas(vcf_text, ref, alt):
+    """DS_AG/AL/DG/DL for one allele from SpliceAI's INFO field.
+    Format: ALLELE|SYMBOL|DS_AG|DS_AL|DS_DG|DS_DL|DP_AG|DP_AL|DP_DG|DP_DL"""
+    for line in vcf_text.splitlines():
+        f = line.split("\t")
+        if len(f) < 8 or f[3] != ref or f[4] != alt or "SpliceAI=" not in f[7]:
+            continue
+        parts = f[7].split("SpliceAI=")[1].split(",")[0].split("|")
+        if len(parts) >= 10:
+            return tuple(float(x) for x in parts[2:6])
+    return None
+
+
+@pytest.mark.parametrize("ch,pos,ref,alt,ours", SPLICEAI_CASES)
+def test_spliceai_deltas_match_the_raw_release_we_ingest(ch, pos, ref, alt, ours):
+    got = _deltas(_tabix("raw", f"{ch}:{pos}-{pos}"), ref, alt)
+    assert got is not None, f"raw release has no {ref}>{alt} at {ch}:{pos}"
+    for name, g, o in zip(("DS_AG", "DS_AL", "DS_DG", "DS_DL"), got, ours):
+        assert g == pytest.approx(o, abs=0.005), (
+            f"{ch}:{pos}{ref}>{alt} {name}: raw release has {g}, we display {o}")
+
+
+def test_the_below_threshold_claim_holds_in_the_raw_release():
+    """pten-p-pro38his (C>A) renders "all four deltas below 0.2". Check that against
+    the release itself: if any delta ever reaches 0.2 the sentence becomes false, and
+    it is the sentence that turns an absent score into negative evidence."""
+    got = _deltas(_tabix("raw", "10:87894058-87894058"), "C", "A")
+    assert got is not None, "raw release has no C>A at 10:87894058"
+    assert max(got) < 0.2, f"a delta now reaches the threshold: {got}"
+    # and the allele we quote as the scored one must still be the larger
+    other = _deltas(_tabix("raw", "10:87894058-87894058"), "C", "T")
+    assert max(other) == pytest.approx(0.47, abs=0.005), other
+
+
+def test_the_raw_masked_gap_is_real_and_tracked():
+    """PTEN c.83T>G is the case that exposed the convention difference: we show raw
+    acceptor-loss 0.21, Ensembl VEP shows 0. Neither is wrong — biobtree serves raw
+    faithfully. This pins the gap so that if upstream ever switches which release it
+    publishes, the page copy about it stops being true and a test says so."""
+    raw = _deltas(_tabix("raw", "10:87894028-87894028"), "T", "G")
+    msk = _deltas(_tabix("masked", "10:87894028-87894028"), "T", "G")
+    assert raw and msk, "could not read both releases"
+    assert raw[1] == pytest.approx(0.21, abs=0.005), f"raw DS_AL moved: {raw}"
+    assert msk[1] == 0.0, f"masked DS_AL is no longer zeroed: {msk}"
+    # Only the loss differs here; everything else is identical between the releases.
+    assert raw[0] == msk[0] and raw[2] == msk[2] and raw[3] == msk[3], (raw, msk)
 
 
 PANGOLIN_CASES = [("ENSG00000169057", "154032491", "C", "T", 0.23, -0.0),

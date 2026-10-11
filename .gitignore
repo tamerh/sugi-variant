@@ -9,3 +9,6 @@ scripts/
 tools/
 deploy/
 *.log
+
+# tabix downloads its remote index into the CWD
+*.tbi
