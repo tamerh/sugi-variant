@@ -109,7 +109,7 @@ def enriched_records(symbol, hgnc=None):
         # interval-id -> full attributes, for the two interval-indexed constraint
         # datasets. A 1kb Gnocchi window covers every variant in it and a transcript has
         # few RMC regions, so this is ~one fetch per region instead of per variant.
-        "gnocchi_cache": {}, "rmc_cache": {},
+        "gnocchi_cache": {}, "rmc_cache": {}, "repeat_cache": {},
         "recs": recs, "gene_context": EN.gene_context(hgnc, symbol),
         "structure": EN.gene_structure(hgnc), "pathways": EN.gene_pathways(hgnc),
         "panels": EN.gene_panelapp(hgnc),

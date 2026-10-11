@@ -54,6 +54,10 @@ DATA_SOURCES = [
     # datasets with their own build dates, and the provenance table joins on the group.
     ("gnomAD Non-coding Constraint (Gnocchi)", "Chen et al. 2024, Broad Institute \u2014 CC0", "gnomad_gnocchi"),
     ("gnomAD Regional Missense Constraint", "Broad Institute \u2014 CC0", "gnomad_rmc"),
+    # Pangolin — CC BY 4.0 (Zenodo 15649338), so attribution is the only condition.
+    ("Pangolin", "Zeng & Li 2022 \u2014 CC BY 4.0", "pangolin"),
+    # Repeat tracks are UCSC/Dfam derived and carry no redistribution restriction.
+    ("Repeat regions (RepeatMasker/TRF/segmental dups)", "UCSC Genome Browser", "repeat"),
     ("ClinGen", "ClinGen", "clingen"),
     ("UniProt", "CC BY 4.0", "uniprot"),
     ("Reactome / GO", "CC BY 4.0", "reactome"),
@@ -71,6 +75,8 @@ SOURCE_REFS = {
     "SaProt":                               ("Su et al., ICLR 2024",                "https://github.com/westlake-repl/SaProt"),
     "SpliceAI":                             ("Jaganathan et al., Cell 2019",        "https://github.com/Illumina/SpliceAI"),
     "CADD":                                 ("Rentzsch et al., NAR 2019",           "https://cadd.gs.washington.edu/"),
+    "Pangolin":                             ("Zeng & Li, Genome Biol 2022",         "https://github.com/tkzeng/Pangolin"),
+    "Repeat regions (RepeatMasker/TRF/segmental dups)": ("Smit et al.; Benson, NAR 1999", "https://genome.ucsc.edu/"),
     "Conservation (phyloP/phastCons/GERP)": ("Pollard et al. 2010; Davydov et al. 2010", "https://genome.ucsc.edu/"),
     "gnomAD Non-coding Constraint (Gnocchi)": ("Chen et al., Nature 2024",          "https://gnomad.broadinstitute.org/downloads"),
     # The dataset is gnomAD's v4.1.1 MCR release (Wang et al. 2024, bioRxiv
@@ -414,6 +420,19 @@ def one_in(v):
     return f"{round(n):,}" if n < 1e7 else f"{n:.1e}"
 
 
+def _ucfirst(t):
+    """Capitalise the first character only — str.capitalize() lowercases the rest."""
+    return f"{t[:1].upper()}{t[1:]}" if t else t
+
+
+def _fmt2(v):
+    """Two decimals for a score that arrives as a raw source string ("0.4700")."""
+    try:
+        return f"{float(v):.2f}"
+    except (TypeError, ValueError):
+        return v
+
+
 def render_body(v, jsonld_tag=""):
     L = ["## Summary", "", declarative(v), ""]
     # At a glance
@@ -473,7 +492,10 @@ def render_body(v, jsonld_tag=""):
     if (conc.get("verdict") or v.get("lof_context") or v.get("consequence")
             or _gf.get("frequency") or _gf.get("af") or _gf.get("absent")
             or v.get("cadd") or v.get("splice_region") or v.get("conservation")
-            or v.get("rmc") or v.get("gnocchi")):
+            or v.get("rmc") or v.get("gnocchi") or v.get("pangolin") or v.get("repeat")
+            # spliceai alone can be the whole readout: its snv_only/below-threshold
+            # states are disclosures that must not depend on other evidence existing.
+            or v.get("spliceai")):
         # CADD, splice-region placement and conservation each open this section on their
         # own. They are precisely the signals that reach variants with nothing else, so
         # gating them behind a concordance verdict hid them exactly where they mattered.
@@ -583,14 +605,56 @@ def render_body(v, jsonld_tag=""):
                        "*Descriptive; no cut-point applied.*")
         sa = v.get("spliceai") or {}
         sa_st = sa.get("status")
-        if sa_st == "other_allele":
-            L.append(f"- SpliceAI: **not scored for this allele**. A different substitution at this "
-                     f"position ({sa.get('ref')}>{sa.get('alt')}) scores \u0394{sa.get('score')} "
-                     f"({(sa.get('effect') or '').replace('_', ' ')}). Absence here is not evidence "
-                     f"against a splicing effect.")
+        if sa_st == "scored" and sa.get("ds_dl") is not None:
+            # All four deltas, so the reader can see the mechanism rather than take
+            # our single dominant label on trust.
+            L.append("- SpliceAI deltas: acceptor loss **{:.2f}**, donor loss **{:.2f}**, "
+                     "acceptor gain **{:.2f}**, donor gain **{:.2f}**.".format(
+                         sa.get("ds_al") or 0, sa.get("ds_dl") or 0,
+                         sa.get("ds_ag") or 0, sa.get("ds_dg") or 0))
+        elif sa_st == "other_allele":
+            L.append(f"- SpliceAI: **below the reporting threshold**. This position is scored for a "
+                     f"different substitution ({sa.get('ref')}>{sa.get('alt')}, \u0394{_fmt2(sa.get('score'))} "
+                     f"{(sa.get('effect') or '').replace('_', ' ')}), so this allele was evaluated and "
+                     f"its deltas all fell under \u03940.2 \u2014 a prediction of no splicing effect for "
+                     f"this allele, not a gap in our data. *No ACMG code assigned.*")
+        elif sa_st == "snv_only":
+            L.append("- SpliceAI: **not assessed** — the release is built from a substitutions-only "
+                     "source, so it holds no "
+                     f"{(v.get('variant_type') or 'non-substitution').lower()} variants. That is a "
+                     "property of the dataset, not of the variant, and is not evidence against a "
+                     "splicing effect.")
         elif sa_st == "absent":
-            L.append("- SpliceAI: **not assessed** — this position is not in our SpliceAI release. "
-                     "Absence is not evidence against a splicing effect.")
+            L.append("- SpliceAI: **not assessed** — no allele at this position is in our SpliceAI "
+                     "release, either because it lies outside the scored MANE transcript scope or "
+                     "because every allele is below \u03940.2. We cannot tell which, so this claims "
+                     "neither; absence is not evidence against a splicing effect.")
+        pg = v.get("pangolin") or {}
+        if pg.get("status") == "scored" and pg.get("score") is not None:
+            _sag = v.get("splice_agreement") or {}
+            _t = _sag.get("text") or ""
+            _ag = f" {_ucfirst(_t)}." if _t else ""
+            L.append(f"- Pangolin: \u0394**{pg['score']:.2f}** ({pg.get('effect') or 'splice change'})"
+                     + (f", gain {abs(pg['gain']):.2f} / loss {abs(pg['loss']):.2f}"
+                        if (pg.get("gain") is not None and pg.get("loss") is not None) else "")
+                     + f".{_ag} An independent predictor to SpliceAI \u2014 a different model trained on "
+                       "different data. *Descriptive; ClinGen's SVI calibration covers SpliceAI, not "
+                       "Pangolin, so no ACMG code is assigned.*")
+        rp = v.get("repeat") or {}
+        if rp and (rp.get("tandem") or rp.get("segdup")):
+            _rb = []
+            if rp.get("tandem") and (v.get("variant_type") or "").lower() != "single nucleotide variant":
+                _rb.append(f"the alignment of this {(v.get('variant_type') or 'variant').lower()} is "
+                           "ambiguous inside a repeating unit, so the same change can be written several "
+                           "ways and a frequency lookup keyed on one representation can miss another")
+            if rp.get("segdup"):
+                _rb.append("short reads may not map uniquely here, so both the call and its population "
+                           "frequency are less reliable")
+            L.append(f"- Repeat context: **{', '.join(rp.get('classes') or []).lower()}**"
+                     + (f" ({', '.join(rp['names'])})" if rp.get("names") else "")
+                     + ("." if not _rb else ". " + _ucfirst("; ".join(_rb)) + ".")
+                     + " *A qualifier on how reliably this variant can be called and counted \u2014 not a "
+                       "pathogenicity signal.*")
         gf = v.get("gnomad")
         if gf and not gf.get("absent"):
             gp = []

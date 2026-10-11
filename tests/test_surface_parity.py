@@ -215,14 +215,24 @@ def test_spliceai_absence_is_stated_on_both_surfaces():
                         "score": "0.99", "ref": "C", "alt": "A"}}
     html, md, _, _ = _both(rec)
     for surface, name in ((html, "HTML"), (md, ".md")):
-        assert "not scored for this allele" in surface, f"{name} hides the missing allele"
+        # A scored position with this allele missing is NOT a gap in our data: the
+        # release keeps every allele reaching delta 0.2, so this allele was evaluated
+        # and fell under it. That is a prediction of no effect, and saying only
+        # "not scored" threw the information away.
+        assert "below the reporting threshold" in surface, f"{name} hides the missing allele"
+        assert "0.2" in surface, f"{name} omits the threshold that makes absence meaningful"
         assert "0.99" in surface, f"{name} omits the same-position score"
-        assert "not evidence against" in surface, f"{name} omits the absence caveat"
+        assert "evaluated" in surface, f"{name} does not say the allele was evaluated"
+        assert "not scored for this allele" not in surface, (
+            f"{name} still frames a below-threshold allele as missing data")
 
     rec["spliceai"] = {"status": "absent"}
     html, md, _, _ = _both(rec)
     for surface, name in ((html, "HTML"), (md, ".md")):
         assert "not assessed" in surface, f"{name} renders silence instead of 'not assessed'"
+        # Position absent has TWO readings (out of MANE scope, or every allele below
+        # threshold) and we cannot tell them apart, so neither may be asserted.
+        assert "not evidence against" in surface, f"{name} omits the absence caveat"
 
 
 def test_legacy_spliceai_records_keep_their_readout():
@@ -432,3 +442,211 @@ def test_interval_fetch_failure_degrades_the_build_and_is_not_cached(monkeypatch
     assert EN.gnocchi_for("1:786500", cache) is None
     assert cache.get("map:1:786500") == [], "a genuine empty was not cached"
     assert not EN.build_degraded(), "an empty result wrongly degraded the build"
+
+
+# ── the ClinVar ref/alt unlock (BioBTree release, Oct 2026) ──────────────────
+#
+# Giving indels a chr:pos:ref:alt key is the change with the widest blast radius in
+# this file's history: it routes ~12% of variants into every coordinate-keyed lookup
+# for the first time, including the one that asserts absence from gnomAD.
+
+def test_indel_coordinate_is_built_from_position_vcf_not_start():
+    """On an indel position_vcf and start DIFFER — the VCF form carries the anchor
+    base. Keying off `start` would look up a neighbouring position and read as a
+    false absence, so this pins which field is used."""
+    from sugivariant.enrich import variant_coordinate
+    rec = {"chromosome": "17", "start": 43093803, "position_vcf": 43093802,
+           "ref_allele": "CT", "alt_allele": "C", "assembly": "GRCh38",
+           "variant_type": "Deletion"}
+    assert variant_coordinate(rec) == "17:43093802:CT:C"
+
+
+def test_non_grch38_record_gets_no_coordinate():
+    """ClinVar files some variants on GRCh37 only. Those coordinates would key every
+    GRCh38 dataset at the wrong locus, which is worse than having no key at all."""
+    from sugivariant.enrich import variant_coordinate
+    rec = {"chromosome": "17", "position_vcf": 41223222, "ref_allele": "A",
+           "alt_allele": "G", "assembly": "GRCh37"}
+    assert variant_coordinate(rec) is None
+
+
+def test_legacy_records_without_ref_alt_still_resolve_unchanged():
+    """The ~4.1M records already on disk predate ClinVar's ref/alt and have no
+    position_vcf. They must keep resolving through the genomic-HGVS route."""
+    from sugivariant.enrich import variant_coordinate
+    legacy = {"chromosome": "6", "start": 26093233,
+              "hgvs_expressions": ["NC_000006.12:g.26093233G>T"]}
+    assert variant_coordinate(legacy) == "6:26093233:G:T"
+
+
+def test_a_missing_indel_is_never_claimed_absent_from_gnomad(monkeypatch):
+    """THE safety case for the ref/alt unlock.
+
+    "absent from gnomAD v4.1" renders as an ACMG PM2-supporting rarity claim. For an
+    indel a coordinate miss is not reliable evidence of absence: ClinVar and gnomAD
+    can left-align the same change differently inside a tandem repeat. Measured on
+    benign BRCA1/BRCA2/CFTR/ATM/NF1 indels the VCF triplet resolves 67% of the time —
+    enough to REPORT a hit, not enough to assert a miss. An SNV miss is unchanged."""
+    import sugibiobtree
+    from sugivariant import enrich
+
+    def not_found(coord, dataset, *a, **k):
+        raise sugibiobtree.client.BiobtreeError(
+            f"entry → HTTP 400: Entry not found identifier {coord} dataset {dataset}")
+
+    monkeypatch.setattr(sugibiobtree, "entry", not_found)
+    enrich.begin_build()
+    indel = {"chromosome": "17", "start": 43093803, "position_vcf": 43093802,
+             "ref_allele": "CT", "alt_allele": "C", "assembly": "GRCh38", "rsid": None}
+    g = enrich.gnomad_frequency(indel)
+    assert not (g or {}).get("absent"), (
+        "an indel that merely failed to match gnomAD's representation was reported "
+        f"as absent, which reads as an ACMG rarity claim: {g}")
+
+    snv = {"chromosome": "17", "start": 43071205, "position_vcf": 43071205,
+           "ref_allele": "A", "alt_allele": "G", "assembly": "GRCh38", "rsid": None}
+    assert enrich.gnomad_frequency(snv).get("absent") is True, (
+        "an SNV miss IS a reliable absence and must still be stated")
+
+
+def test_coord_is_snv_reads_the_alleles_not_the_type():
+    from sugivariant.enrich import coord_is_snv
+    assert coord_is_snv("17:43071205:A:G") is True
+    assert coord_is_snv("17:43093802:CT:C") is False
+    assert coord_is_snv("17:43090936:C:CT") is False
+    assert coord_is_snv("17:43071205") is None      # positional key, not a verdict
+    assert coord_is_snv(None) is None
+
+
+def test_spliceai_declares_its_snv_only_scope_for_an_indel():
+    """Indels reach spliceai_for for the first time now that they have a coordinate.
+    The release is built from a substitutions-only source, so the honest answer is
+    out-of-scope — NOT the 'absent' state, which a reader may take as no signal."""
+    from sugivariant.enrich import spliceai_for
+    sa = spliceai_for("17:43093802:CT:C", {"by_allele": {}, "by_pos": {}})
+    assert sa["status"] == "snv_only", sa
+    os.environ.setdefault("BASE_PATH", "/variant")
+    rec = {"canonical_slug": "x-c-1del", "gene_symbol": "X", "classification": "VUS",
+           "variation_id": 2, "name": "X:c.1del", "hgvs_c": "c.1del",
+           "variant_type": "Deletion", "conditions": [],
+           "review_status": "criteria provided, single submitter", "spliceai": sa}
+    html, md, _, _ = _both(rec)
+    for surface, name in ((html, "HTML"), (md, ".md")):
+        assert "substitutions-only" in surface, f"{name} hides the SNV-only scope"
+        assert "not evidence" in surface, f"{name} omits the absence caveat"
+
+
+def test_repeat_context_is_framed_as_confidence_not_pathogenicity():
+    """A repeat overlap says the call and its frequency are less reliable. It says
+    NOTHING about whether the variant is damaging, and must never read that way."""
+    os.environ.setdefault("BASE_PATH", "/variant")
+    rec = {"canonical_slug": "x-c-1del", "gene_symbol": "X", "classification": "VUS",
+           "variation_id": 3, "name": "X:c.1del", "hgvs_c": "c.1del",
+           "variant_type": "Deletion", "conditions": [],
+           "review_status": "criteria provided, single submitter",
+           "repeat": {"n": 2, "types": ["tandem_repeat"], "classes": ["Simple_repeat"],
+                      "names": ["(TAACCC)n"], "tandem": True, "segdup": False}}
+    html, md, _, _ = _both(rec)
+    for surface, name in ((html, "HTML"), (md, ".md")):
+        assert "simple_repeat" in surface.lower(), f"{name} omits the repeat class"
+        assert "ambiguous" in surface, f"{name} omits the alignment ambiguity"
+        assert "not a pathogenicity signal" in surface, (
+            f"{name} fails to disclaim repeat context as a pathogenicity signal")
+
+
+def test_repeat_flags_tandem_and_segdup_separately():
+    """They have different consequences — ambiguous alignment vs unreliable mapping —
+    so collapsing them into one 'repetitive' flag would lose the distinction. An
+    interspersed SINE/LINE is neither and must set no flag."""
+    from sugivariant import enrich
+    rows = [{"repeat_type": "tandem_repeat", "repeat_class": "Simple_repeat",
+             "repeat_name": "(TAACCC)n"}]
+    enrich._interval_map = lambda pos, ds, c=None: rows
+    r = enrich.repeat_for("1:10200", {})
+    assert r["tandem"] is True and r["segdup"] is False
+
+    enrich._interval_map = lambda pos, ds, c=None: [
+        {"repeat_type": "segmental_dup", "repeat_class": "Segmental_duplication",
+         "repeat_name": "chr17:43153705"}]
+    r = enrich.repeat_for("17:43125364", {})
+    assert r["segdup"] is True and r["tandem"] is False
+
+    enrich._interval_map = lambda pos, ds, c=None: [
+        {"repeat_type": "repeatmasker", "repeat_class": "SINE", "repeat_name": "AluSx"}]
+    r = enrich.repeat_for("1:1000", {})
+    assert r["tandem"] is False and r["segdup"] is False, (
+        "an interspersed element is not a tandem repeat and implies no alignment "
+        f"ambiguity: {r}")
+
+
+def test_pangolin_is_shown_as_independent_and_uncalibrated():
+    """Pangolin's value is being a SECOND opinion to SpliceAI. ClinGen's SVI
+    calibration covers SpliceAI only, so Pangolin must carry no band and no code."""
+    os.environ.setdefault("BASE_PATH", "/variant")
+    rec = {"canonical_slug": "x-c-1-plus-1g-c", "gene_symbol": "X", "classification": "VUS",
+           "variation_id": 4, "name": "X:c.1+1G>C", "hgvs_c": "c.1+1G>C",
+           "variant_type": "single nucleotide variant", "conditions": [],
+           "review_status": "criteria provided, single submitter",
+           "consequence": {"label": "canonical splice-site (±1/±2)", "type": "splice"},
+           "pangolin": {"status": "scored", "score": 0.87, "effect": "loss",
+                        "gain": 0.02, "loss": -0.87, "gene": "ENSG00000012048"}}
+    html, md, _, _ = _both(rec)
+    for surface, name in ((html, "HTML"), (md, ".md")):
+        assert "0.87" in surface, f"{name} omits the Pangolin score"
+        assert "independent" in surface.lower(), f"{name} omits the independence framing"
+        assert "Pangolin" in surface, f"{name} does not name the predictor"
+
+
+def test_new_keys_absent_entirely_render_clean():
+    """The Jinja Undefined trap, which has caused three outages here: a MISSING dict
+    key is Undefined, and `Undefined is not none` evaluates True. Every record on disk
+    today lacks both new keys, so this is the live path, not an edge case."""
+    os.environ.setdefault("BASE_PATH", "/variant")
+    rec = {"canonical_slug": "x-c-1a-g", "gene_symbol": "X", "classification": "VUS",
+           "variation_id": 5, "name": "X:c.1A>G", "hgvs_c": "c.1A>G", "conditions": [],
+           "review_status": "criteria provided, single submitter"}
+    assert "pangolin" not in rec and "repeat" not in rec
+    html, md, _, _ = _both(rec)
+    # Both names appear in every page's provenance footer, so target the ROW itself.
+    assert "<th>Pangolin</th>" not in html, "HTML invented a Pangolin row from Undefined"
+    assert "<th>Repeat context</th>" not in html, "HTML invented a repeat row"
+    assert "- Pangolin:" not in md, ".md invented a Pangolin row from Undefined"
+    assert "- Repeat context:" not in md, ".md invented a repeat row"
+    for surface, name in ((html, "HTML"), (md, ".md")):
+        assert "None" not in surface, f"{name} leaked a None into the page"
+
+
+def test_splice_agreement_compares_the_right_thing():
+    """The first version of this compared SpliceAI's score to 0.2 — but a SpliceAI
+    'scored' state already means >= 0.2, because the release is filtered there, so
+    that branch always said "agrees" and the disagreement case was unreachable.
+
+    The informative comparison is whether the two predictors agree a signal EXISTS:
+    Pangolin scoring a variant SpliceAI leaves under its own threshold is a real
+    disagreement between independent models, and it must be visible."""
+    from sugivariant.enrich import splice_agreement
+    pg = {"status": "scored", "score": 0.87, "effect": "loss"}
+
+    both = splice_agreement({"status": "scored", "effect": "donor_loss",
+                             "score": "0.99"}, pg)
+    assert both["state"] == "agree", both
+
+    disagree = splice_agreement({"status": "other_allele", "score": "0.9"}, pg)
+    assert disagree["state"] == "spliceai_below", disagree
+    assert "0.2" in disagree["text"]
+    assert splice_agreement({"status": "absent"}, pg)["state"] == "spliceai_below"
+
+    # Agree that there is a signal, disagree on its direction — worth surfacing.
+    opposed = splice_agreement({"status": "scored", "effect": "acceptor_gain",
+                                "score": "0.6"}, pg)
+    assert opposed["state"] == "direction_differs", opposed
+    assert "loss" in opposed["text"] and "gain" in opposed["text"]
+
+    # Nothing to compare: no Pangolin score, or an indel neither release covers.
+    assert splice_agreement({"status": "scored", "score": "0.9"},
+                            {"status": "absent"}) is None
+    assert splice_agreement({"status": "snv_only"}, pg) is None
+    assert splice_agreement(None, pg) is None
+    # A legacy record carries a score with no status field at all.
+    assert splice_agreement({"effect": "donor_loss", "score": "0.92"},
+                            pg)["state"] == "agree"

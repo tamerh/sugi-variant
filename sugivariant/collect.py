@@ -115,6 +115,12 @@ def collect(variation_id):
         "chromosome": v.get("chromosome"),
         "start": v.get("start"),
         "stop": v.get("stop"),
+        # ClinVar's VCF triplet (added upstream Oct 2026). position_vcf is NOT start:
+        # on an indel the VCF form carries the anchor base. These three are what give
+        # deletions/dups/delins a chr:pos:ref:alt key at all — see variant_coordinate.
+        "position_vcf": v.get("position_vcf"),
+        "ref_allele": v.get("reference_allele"),
+        "alt_allele": v.get("alternate_allele"),
         "assembly": v.get("assembly"),
         "variant_type": v.get("type"),
         "classification": cls,
@@ -203,6 +209,27 @@ def attach_enrichment(rec, ctx=None):
                   if EN.is_missense(rec) else None)
     rec["saprot"] = saprot
     rec["spliceai"] = EN.spliceai_for(coord, ctx.get("spliceai") or {})
+    # Pangolin — a second, independent splice predictor. Both it and SpliceAI decide
+    # SNV-only scope from the coordinate itself: now that indels HAVE a coordinate they
+    # reach both functions, and each release is built from a substitutions-only source,
+    # so the miss has to be reported as out-of-scope rather than as a quiet absence
+    # that reads like "no splice signal".
+    rec["pangolin"] = EN.pangolin_for(coord)
+    # Repeat context — a confidence qualifier on the call and its frequency, not a
+    # pathogenicity signal. Gated to NON-substitutions, for both cost and meaning.
+    # Meaning: the consequence that is actually actionable is ambiguous left/right
+    # alignment inside a repeating unit, and only an indel has an alignment to be
+    # ambiguous about. Cost: positions within a gene rarely repeat, so the cache
+    # seldom hits and this was ~1 extra map call per variant — over half the total
+    # added build cost — to annotate a class where it says little. (Revisit if we
+    # ever act on segmental-duplication mapping reliability for substitutions too.)
+    rec["repeat"] = (EN.repeat_for(pos, ctx.setdefault("repeat_cache", {}))
+                     if EN.coord_is_snv(coord) is not True else None)
+    # Where both splice predictors spoke, say how they stand. Computed here rather
+    # than in the templates because the comparison is not the obvious one: SpliceAI's
+    # "scored" already means >= 0.2, so the interesting disagreement is Pangolin
+    # scoring a variant that SpliceAI leaves under its own threshold.
+    rec["splice_agreement"] = EN.splice_agreement(rec.get("spliceai"), rec.get("pangolin"))
     rec["consensus"] = EN.submitter_consensus(rec.get("submissions") or [])
     rec["concordance"] = EN.concordance(rec.get("classification"), am, gnomad,
                                         rec.get("spliceai"), conservation, revel, saprot)

@@ -56,17 +56,53 @@ def gene_alphamissense(hgnc_id):
 _GENOMIC_SNV = re.compile(r"NC_0*\d+\.\d+:g\.(\d+)([ACGT]+)>([ACGT]+)$")
 
 
-def variant_coordinate(rec):
-    """GRCh38 gnomAD-style key 'chr:pos:ref:alt' (no chr prefix). SNVs only.
+def coord_is_snv(coord):
+    """True when a 'chr:pos:ref:alt' key describes a single-nucleotide substitution.
 
-    The variant carries genomic HGVS in BOTH assemblies (NC_..10 = GRCh37,
-    NC_..11 = GRCh38); to pick the GRCh38 one unambiguously we require the HGVS
-    position to equal the ClinVar `start` (which ClinVar reports on GRCh38).
-    Using the wrong assembly would key gnomAD wrong and read as a false absence.
-    """
-    start = rec.get("start")
+    Read off the coordinate rather than the record's `type` string, because the
+    coordinate is what the upstream releases are actually keyed on, and because it
+    works identically for a key built from ClinVar's VCF triplet, one built from
+    genomic HGVS, and one unpickled from a record predating either. None when there
+    is no 4-part key to judge — callers that disclose a release's SNV-only scope
+    must not state it on a guess."""
+    parts = str(coord or "").split(":")
+    if len(parts) != 4 or not (parts[2] and parts[3]):
+        return None
+    return len(parts[2]) == 1 and len(parts[3]) == 1
+
+
+def variant_coordinate(rec):
+    """GRCh38 gnomAD-style key 'chr:pos:ref:alt' (no chr prefix) — ALL variant types.
+
+    Two routes, tried in order:
+
+      1. ClinVar's own VCF triplet (`position_vcf` + reference/alternate allele).
+         Covers deletions, duplications, insertions, delins and microsatellites —
+         the ~12% of variants that route 2 can never key. Note it must be
+         position_vcf, NOT `start`: on an indel they differ, because the VCF form
+         carries the anchor base while `start` is the first affected base. Keying a
+         deletion off `start` would look up the wrong position and read as absence.
+
+      2. the genomic-HGVS route, SNV-only. Kept because the ~4.1M records already
+         on disk were built before ClinVar carried ref/alt and have no
+         position_vcf; they must keep resolving exactly as they did.
+
+    Route 1 is gated on GRCh38: ClinVar files some variants on GRCh37 only, and
+    their coordinates would silently key every GRCh38 dataset at the wrong locus.
+    Route 2 gates itself by requiring the HGVS position to equal `start`."""
     chrom = str(rec.get("chromosome") or "").strip()
-    if not (start and chrom):
+    if not chrom:
+        return None
+
+    pos = rec.get("position_vcf")
+    ref = (rec.get("ref_allele") or "").strip()
+    alt = (rec.get("alt_allele") or "").strip()
+    asm = (rec.get("assembly") or "").strip()
+    if pos and ref and alt and asm == "GRCh38":
+        return f"{chrom}:{pos}:{ref}:{alt}"
+
+    start = rec.get("start")
+    if not start:
         return None
     for e in rec.get("hgvs_expressions") or []:
         m = _GENOMIC_SNV.match(e)
@@ -145,7 +181,8 @@ def gnomad_frequency(rec):
     """gnomAD v4.1 per-variant frequency — the ACMG BA1/BS1/PM2 layer. Looked up
     by coordinate via entry() (NOT map — that returns 0; audit Tier 1 false-Absent
     bug). Surfaces popmax + faf + per-ancestry. Falls back to the dbSNP global
-    frequency only when no genomic coordinate can be parsed (e.g. indels)."""
+    frequency when no coordinate can be parsed, and also when a NON-SNV coordinate
+    misses — see the comment at that branch for why a miss is not absence there."""
     coord = variant_coordinate(rec)
     if coord:
         g = _coord_entry(coord, "gnomad_variant")
@@ -190,6 +227,16 @@ def gnomad_frequency(rec):
                     "populations": pops,
                     "absent": False, "is_common": (popmax or 0) >= 0.05,
                     "band": _gnomad_band(af, popmax, anc), "source": "gnomAD v4.1"}
+        # A coordinate miss asserts ABSENCE, which renders as an ACMG PM2-supporting
+        # rarity claim — so only make it where the key is reliable. For a non-SNV it
+        # is not: ClinVar and gnomAD can left-align the same indel differently inside
+        # a tandem repeat, so a miss may be a representation difference rather than a
+        # real absence. Measured on benign BRCA1/BRCA2/CFTR/ATM/NF1 indels, the VCF
+        # triplet resolves 67% of the time — good enough to REPORT a hit, not good
+        # enough to assert a miss. Non-SNVs therefore keep the dbSNP fallback they
+        # had when they could not be keyed at all, and claim nothing.
+        if coord_is_snv(coord) is not True:
+            return gnomad_for(rec.get("rsid"))
         return {"absent": True, "is_common": False, "popmax": None,
                 "band": "absent from gnomAD v4.1", "source": "gnomAD v4.1"}
     # fallback — dbSNP inline global frequency (no coordinate to key gnomAD v4.1)
@@ -636,6 +683,40 @@ def cadd_for(coord):
     return {"phred": phred}
 
 
+# Pangolin's release is filtered the same way SpliceAI's is (largest delta >= 0.2).
+_PANGOLIN_THRESHOLD = 0.2
+
+
+def pangolin_for(coord):
+    """Pangolin splice prediction — an INDEPENDENT second opinion to SpliceAI.
+
+    A different model trained on different data, so agreement between the two is the
+    kind of cross-source concordance this reference is built on, and disagreement is
+    worth showing rather than hiding behind whichever predictor we happen to carry.
+    Descriptive only: we add no band, pick no cut-point and assign no ACMG code.
+
+    Statuses mirror spliceai_for, because the release has the same two limits — it is
+    built from a SNV-only source file and filtered at a 0.2 delta. One difference: it
+    is GENCODE-masked to protein-coding genes, so `absent` carries that reading too,
+    which is why it claims nothing beyond "not in the release"."""
+    if not coord:
+        return None
+    if coord_is_snv(coord) is False:
+        return {"status": "snv_only"}
+    a = _coord_entry(coord, "pangolin")
+    if a is FETCH_ERROR:
+        return None
+    if not a:
+        return {"status": "absent"}
+    score = _f(a.get("score"))
+    if score is None:
+        return None
+    return {"status": "scored", "score": score,
+            "effect": ((a.get("effect") or "").strip() or None),
+            "gain": _f(a.get("gain_score")), "loss": _f(a.get("loss_score")),
+            "gene": (a.get("gene") or None), "threshold": _PANGOLIN_THRESHOLD}
+
+
 # ── interval-indexed datasets (regional constraint) ──────────────────────────
 #
 # gnomad_gnocchi (1kb non-coding windows) and gnomad_rmc (sub-transcript missense
@@ -795,6 +876,89 @@ def is_noncoding(rec):
     evidence. Synonymous variants (p.Xxx123=) are coding positions and are excluded:
     Gnocchi's own release restricts the metric to non-coding sequence."""
     return not (rec.get("hgvs_p") or "").strip()
+
+
+def splice_agreement(sa, pg):
+    """How the two independent splice predictors stand relative to each other.
+
+    Only computed when Pangolin scored. Note SpliceAI's own "scored" state already
+    implies a delta of at least 0.2, because the release is filtered there — so
+    comparing its score against 0.2 would always agree and say nothing. The two
+    informative cases are where the predictors disagree about whether there IS a
+    signal, and where they agree there is one but disagree on its direction.
+
+    Returns {state, text} or None. Descriptive only: this is a statement about two
+    predictors, not a classification, and it feeds no concordance counter."""
+    if not isinstance(pg, dict) or pg.get("status") != "scored":
+        return None
+    if not isinstance(sa, dict):
+        return None
+    st = sa.get("status")
+    if st is None and sa.get("score") is not None:
+        st = "scored"                 # legacy record: score, no status field
+    if st == "scored":
+        eff = (sa.get("effect") or "").lower()
+        d_sa = "loss" if "loss" in eff else ("gain" if "gain" in eff else None)
+        d_pg = (pg.get("effect") or "").lower() or None
+        if d_sa and d_pg and d_sa != d_pg:
+            return {"state": "direction_differs",
+                    "text": f"SpliceAI calls {d_sa}, Pangolin {d_pg}"}
+        return {"state": "agree", "text": "agrees with SpliceAI"}
+    if st in ("other_allele", "absent"):
+        # The predictors genuinely disagree about whether there is a signal at all.
+        return {"state": "spliceai_below",
+                "text": "SpliceAI does not reach its 0.2 threshold here"}
+    return None
+
+
+# Repeat classes whose defining feature is a repeating unit, which is what makes an
+# indel's left/right alignment ambiguous. SINE/LINE/LTR/DNA are interspersed elements:
+# they say the position sits in a mobile element, not that the alignment is ambiguous.
+_TANDEM_CLASSES = {"simple_repeat", "satellite", "low_complexity"}
+
+
+def repeat_for(pos, cache=None):
+    """Overlapping repeat annotations (RepeatMasker / tandem repeats / segmental dups).
+
+    A CONFIDENCE qualifier, not a pathogenicity signal — and that is exactly why it is
+    worth carrying, because it is the one thing none of our scores can tell you. Two
+    distinct consequences, which is why the two flags are kept separate:
+
+      tandem  the same deletion or duplication can be written several ways inside a
+              repeating unit, so a lookup keyed on one representation can miss a
+              record written with another. This is measurable here, not theoretical:
+              a third of benign non-SNVs across BRCA1/BRCA2/CFTR/ATM/NF1 fail to
+              match gnomAD's own representation. (That a repeat tract is the CAUSE
+              of those particular misses is inference from the examples, several of
+              which sit in poly-A and GAAGA runs — not something measured.)
+      segdup  short reads may not map uniquely, so both the call and its population
+              frequency are less reliable than elsewhere in the genome.
+
+    Interval-indexed, so reached by the map chain, like the constraint datasets."""
+    rows = _interval_map(pos, "repeat", cache)
+    if rows is FETCH_ERROR:
+        return FETCH_ERROR
+    if not rows:
+        return None
+    types, classes, names = [], [], []
+    tandem = segdup = False
+    for r in rows:
+        ty = (r.get("repeat_type") or "").strip().lower()
+        cl = (r.get("repeat_class") or "").strip()
+        nm = (r.get("repeat_name") or "").strip()
+        if ty and ty not in types:
+            types.append(ty)
+        if cl and cl not in classes:
+            classes.append(cl)
+        if nm and nm not in names:
+            names.append(nm)
+        if ty == "tandem_repeat" or cl.lower() in _TANDEM_CLASSES:
+            tandem = True
+        if ty == "segmental_dup":
+            segdup = True
+    return {"n": len(rows), "types": types, "classes": classes,
+            "names": names[:3], "tandem": tandem, "segdup": segdup}
+
 
 def revel_for(coord):
     """REVEL ensemble missense pathogenicity (0–1) by chr:pos:ref:alt, with a
@@ -983,7 +1147,11 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
             note = "a splice-altering prediction on an uncertain variant — a signal for review"
         else:
             note = "a splice-altering prediction the current classification does not reflect"
-        lines.append(f"SpliceAI predicts **{effect}** (Δ {spliceai.get('score')}) — {note}")
+        try:
+            _sc = f"{float(spliceai.get('score')):.2f}"
+        except (TypeError, ValueError):
+            _sc = spliceai.get("score")
+        lines.append(f"SpliceAI predicts **{effect}** (Δ {_sc}) — {note}")
 
     if conservation and conservation.get("phylop") is not None:
         p, gerp, pc = conservation["phylop"], conservation.get("gerp"), conservation.get("phastcons")
@@ -1205,11 +1373,13 @@ def gene_spliceai(hgnc_id):
         by_allele: {"chr:pos:ref:alt": {effect, score}}
         by_pos:    {"chr:pos": [{ref, alt, effect, score}, ...]}
 
-    The by-position index exists because our upstream release carries only ONE of the
-    three possible alternate alleles at most scored positions. Without it, a variant
-    whose own allele is missing is indistinguishable from one SpliceAI never scored —
-    and we rendered nothing in both cases, which reads as "no splice signal". The index
-    is free: it is built from keys we already fetch."""
+    The by-position index exists so that a variant whose own allele is missing is
+    distinguishable from one SpliceAI never scored — we used to render nothing in both
+    cases, which reads as "no splice signal". Measured on BRCA1 (Oct 2026): 1,315
+    scored positions, 272 of them carrying all three alternate alleles. The alleles
+    that are missing are not a gap in the release — they are the ones whose deltas
+    fell below the 0.2 reporting threshold, which is why that case can now be stated
+    as negative evidence. The index is free: built from keys we already fetch."""
     by_allele, by_pos = {}, {}
     # uncapped: every variant's coordinate must resolve its SpliceAI score — a
     # 60-page cap would drop splice annotations on big genes. Once per gene (cached).
@@ -1252,19 +1422,69 @@ def spliceai_scored(sa):
     return st == "scored" or (st is None and sa.get("score") is not None)
 
 
+# The upstream release keeps only variants whose largest delta clears this, so an
+# allele's ABSENCE from it is a statement about the allele, not a gap in our data.
+# Mirrors spliceaiScoreThreshold in the biobtree loader; it is not exposed in the
+# dataset metadata, so it is pinned here and must be revisited if upstream changes.
+_SPLICEAI_THRESHOLD = 0.2
+
+_SPLICEAI_DELTA_LABEL = {"ds_ag": "acceptor gain", "ds_al": "acceptor loss",
+                         "ds_dg": "donor gain", "ds_dl": "donor loss"}
+
+
+def _spliceai_deltas(coord):
+    """All four SpliceAI deltas (+ their positions) for this exact allele, or None.
+
+    The gene-level map projection carries only the dominant effect and its score, so
+    the four deltas need one entry() hop per scored variant. That is worth paying:
+    without them a canonical +/-1,2 variant could only be shown with a caveat that the
+    single stored label might be the wrong one of the four. Roughly 5% of variants are
+    scored at all, so this adds a call to about 1 record in 20, not to every record."""
+    if not coord:
+        return None
+    a = _coord_entry(coord, "spliceai")
+    if a is FETCH_ERROR or not a:
+        return None
+    ds = {k: _f(a.get(k)) for k in _SPLICEAI_DELTA_LABEL}
+    if all(v is None for v in ds.values()):
+        return None
+    out = dict(ds)
+    out.update({k: a.get(k) for k in ("dp_ag", "dp_al", "dp_dg", "dp_dl")})
+    # Decide the dominant effect from the four deltas rather than trusting the
+    # projection's single label, which is what made the old caveat necessary.
+    scored = [k for k in ds if ds[k] is not None]
+    if scored:
+        best = max(scored, key=lambda k: ds[k])
+        out["dominant"] = _SPLICEAI_DELTA_LABEL[best]
+        out["dominant_score"] = ds[best]
+    return out
+
+
 def spliceai_for(coord, cache):
     """SpliceAI readout with an explicit STATUS, never a bare None.
 
     Absence of a score is not evidence of no splicing effect, and we used to render
-    nothing for it — which reads as "no splice signal". Three states:
-      scored        this exact allele is in the release
-      other_allele  this position is scored, but under a DIFFERENT alternate allele.
-                    Our release holds ~1 of 3 alts per position, so this is the common
-                    case at canonical splice sites; worth disclosing rather than hiding.
-      absent        the position is not in the release at all
+    nothing for it — which reads as "no splice signal". Four states:
+
+      scored        this exact allele is in the release; carries all four deltas
+      snv_only      the variant is not a substitution. The release is built from a
+                    SNV-only source file, so it can never hold this variant. New
+                    state: until ClinVar carried ref/alt, an indel had no coordinate
+                    and never reached this function at all.
+      other_allele  this position IS scored, under a different alternate allele, so
+                    this allele was evaluated and its deltas fell below the 0.2
+                    reporting threshold — genuine negative evidence for this allele.
+                    (The status name is historical; it used to be read as a gap in
+                    our data. Legacy records on disk carry it, so it is kept.)
+      absent        the position is in no record of the release — either outside the
+                    scored MANE scope or below threshold for every allele. Those two
+                    are indistinguishable from here, so this one claims neither.
+
     Returns None only when the variant has no coordinate to look up with."""
     if not coord:
         return None
+    if coord_is_snv(coord) is False:
+        return {"status": "snv_only"}
     by_allele = (cache or {}).get("by_allele")
     by_pos = (cache or {}).get("by_pos")
     if by_allele is None:                       # legacy flat {coord: hit} shape
@@ -1274,13 +1494,17 @@ def spliceai_for(coord, cache):
         out = dict(hit)
         out["status"] = "scored"
         out["band"] = spliceai_band(out.get("score"))
+        deltas = _spliceai_deltas(coord)
+        if deltas:
+            out.update(deltas)
         return out
     pos = ":".join(str(coord).split(":")[:2])
     others = (by_pos or {}).get(pos) or []
     if others:
         best = max(others, key=lambda d: (_f(d.get("score")) or 0))
         return {"status": "other_allele", "effect": best.get("effect"),
-                "score": best.get("score"), "ref": best.get("ref"), "alt": best.get("alt")}
+                "score": best.get("score"), "ref": best.get("ref"), "alt": best.get("alt"),
+                "threshold": _SPLICEAI_THRESHOLD}
     return {"status": "absent"}
 
 

@@ -265,6 +265,7 @@
 .vd-preds td{padding:.32rem 0;vertical-align:baseline;border-top:1px solid var(--line2,#eef1f4)}
 .vd-preds tr:first-child td,.vd-preds tr:first-child th{border-top:0}
 .vd-num{font-family:ui-monospace,monospace;font-weight:600;white-space:nowrap;padding-right:.7rem !important}
+.vd-deltas{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
 .vd-consensus{font-size:.9rem;margin-top:.6rem;padding-top:.5rem;border-top:1px dashed var(--border,#e5e7eb)}
 .vd-consensus.is-agree{color:var(--ok)}
 .vd-dl{display:grid;grid-template-columns:auto 1fr;gap:.25rem .8rem;margin:0;font-size:.86rem}
