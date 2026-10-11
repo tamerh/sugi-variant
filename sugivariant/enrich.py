@@ -602,6 +602,40 @@ def _revel_band(s):
     return "strongly benign-leaning"
 
 
+# CADD has NO single ClinGen-calibrated threshold, and the expert panels that use it do
+# not agree. Verified against the ClinGen CSpec API 2026-10: GUCY2D (GN167) and AIPL1
+# (GN208) require >= 20.0 for a UTR variant; ABCA4 (GN164) requires >= 28.1 for synonymous
+# or indel variants; Pulmonary Hypertension (GN125) imports Pejaver 2022's MISSENSE-
+# calibrated numbers; Antibody Deficiencies (GN141) declines CADD outright for PIK3CD,
+# citing "poor performance and significant discordance". So we show the score and the
+# disagreement, and pick no threshold ourselves (§8).
+CADD_PANEL_THRESHOLDS = [
+    ("GUCY2D / AIPL1 (GN167, GN208)", "\u2265 20.0 for a variant in an untranslated region"),
+    ("ABCA4 (GN164)", "\u2265 28.1 for a synonymous or indel variant"),
+    ("Pulmonary Hypertension (GN125)", "the missense-calibrated thresholds of Pejaver 2022"),
+    ("Antibody Deficiencies (GN141)", "declines CADD entirely for PIK3CD"),
+]
+
+
+def cadd_for(coord):
+    """CADD PHRED for a variant's coordinate. Descriptive only — no band, no verdict.
+
+    This is the first score we carry that covers non-missense variants allele-specifically:
+    AlphaMissense/REVEL/SaProt are missense-only and our SpliceAI release holds roughly one
+    of three alternate alleles per position. Note CADD v1.7 incorporates Zoonomia phyloP, so
+    it partly re-expresses the conservation shown alongside it rather than being independent
+    of it."""
+    if not coord:
+        return None
+    a = _coord_entry(coord, "cadd")
+    if a is FETCH_ERROR or not a:
+        return None
+    phred = _f(a.get("phred"))
+    if phred is None:
+        return None
+    return {"phred": phred}
+
+
 def revel_for(coord):
     """REVEL ensemble missense pathogenicity (0–1) by chr:pos:ref:alt, with a
     descriptive strength band (Pejaver-2022 thresholds) + direction. Presented as

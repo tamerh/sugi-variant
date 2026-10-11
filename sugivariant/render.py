@@ -456,7 +456,11 @@ def render_body(v, jsonld_tag=""):
     conc = v.get("concordance") or {}
     _gf = v.get("gnomad") or {}
     if (conc.get("verdict") or v.get("lof_context") or v.get("consequence")
-            or _gf.get("frequency") or _gf.get("af") or _gf.get("absent")):
+            or _gf.get("frequency") or _gf.get("af") or _gf.get("absent")
+            or v.get("cadd") or v.get("splice_region") or v.get("conservation")):
+        # CADD, splice-region placement and conservation each open this section on their
+        # own. They are precisely the signals that reach variants with nothing else, so
+        # gating them behind a concordance verdict hid them exactly where they mattered.
         # `absent` belongs in the gate: absence from gnomAD is PM2-supporting evidence and
         # the HTML states it, so omitting it here left the .md silent on a fact the page
         # reports (caught by tests/test_surface_parity.py, not by hand).
@@ -513,6 +517,15 @@ def render_body(v, jsonld_tag=""):
         # SpliceAI with its explicit status — the page states "not assessed" / "scored
         # only under a different allele at this position", and the .md must say the same
         # rather than falling silent, which would read as "no splice signal".
+        cd = v.get("cadd")
+        if cd and cd.get("phred") is not None:
+            L.append(f"- CADD: **PHRED {cd['phred']}**. No single ClinGen-calibrated threshold exists "
+                     "and the expert panels that use CADD disagree — GUCY2D/AIPL1 require \u2265 20.0 for "
+                     "an untranslated-region variant, ABCA4 \u2265 28.1 for a synonymous or indel variant, "
+                     "the Pulmonary Hypertension panel imports Pejaver 2022's missense-calibrated numbers, "
+                     "and the Antibody Deficiencies panel declines CADD entirely for PIK3CD. CADD v1.7 also "
+                     "incorporates Zoonomia phyloP, so it partly re-expresses the conservation above. "
+                     "*Descriptive; no threshold applied.*")
         sr = v.get("splice_region")
         if sr:
             L.append(f"- Splice region: **{sr['label']}**"

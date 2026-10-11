@@ -250,3 +250,36 @@ def test_canonical_splice_gain_label_is_flagged_incomplete():
            "spliceai": {"status": "scored", "effect": "donor_gain", "score": "0.87"}}
     html, _, _, _ = _both(rec)
     assert "effect label incomplete" in html
+
+
+# ── CADD: a described score, never a verdict ──────────────────────────────────
+# CADD is the first score we carry that covers non-missense variants allele-specifically.
+# It has NO single ClinGen-calibrated threshold, and the panels that use it disagree
+# (GN167/GN208 >=20.0 for UTR, GN164 >=28.1 for synonymous/indel, GN125 imports Pejaver's
+# missense numbers, GN141 declines it outright). We show the score and the disagreement,
+# and pick no threshold ourselves.
+def test_cadd_is_shown_with_its_disagreement_and_no_threshold():
+    os.environ.setdefault("BASE_PATH", "/variant")
+    rec = {"canonical_slug": "x-c-1-plus-1g-c", "gene_symbol": "X", "classification": "VUS",
+           "variation_id": 3, "name": "X:c.1+1G>C", "hgvs_c": "c.1+1G>C",
+           "review_status": "criteria provided, single submitter", "conditions": [],
+           "cadd": {"phred": 29.6}}
+    html, md, _, _ = _both(rec)
+    for surface, name in ((html, "HTML"), (md, ".md")):
+        assert "29.6" in surface, f"{name} omits the CADD score"
+        assert "disagree" in surface or "declines" in surface, \
+            f"{name} presents CADD without the panel disagreement"
+    # we must not assert a verdict of our own
+    for bad in ("CADD: pathogenic", "CADD supports pathogenicity", "meets PP3", "meets BP4"):
+        assert bad not in html and bad not in md, f"CADD presented as a verdict: {bad!r}"
+
+
+def test_cadd_absent_renders_nothing_rather_than_a_zero():
+    os.environ.setdefault("BASE_PATH", "/variant")
+    rec = {"canonical_slug": "x-p-y", "gene_symbol": "X", "classification": "VUS",
+           "variation_id": 4, "name": "X:c.1A>G", "hgvs_c": "c.1A>G",
+           "review_status": "criteria provided, single submitter", "conditions": [],
+           "cadd": None}
+    html, md, _, _ = _both(rec)
+    assert "<th>CADD</th>" not in html
+    assert "- CADD:" not in md

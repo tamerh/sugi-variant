@@ -183,6 +183,7 @@ def attach_enrichment(rec, ctx=None):
     # non-coding) and the indels that have no usable coordinate at all.
     rec["splice_region"] = EN.splice_region(rec.get("hgvs_c"))
     rec["revel"] = revel
+    rec["cadd"] = EN.cadd_for(coord)              # non-missense coverage; descriptive, no band
     rec["saprot"] = saprot
     rec["spliceai"] = EN.spliceai_for(coord, ctx.get("spliceai") or {})
     rec["consensus"] = EN.submitter_consensus(rec.get("submissions") or [])
