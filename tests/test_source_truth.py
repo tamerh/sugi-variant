@@ -278,3 +278,39 @@ def test_pangolin_scores_match_the_published_archive(ensg, pos, ref, alt, gain, 
                     assert _PANGOLIN_THRESHOLD == 0.2
                 return
     pytest.fail(f"{ensg} {pos}{ref}>{alt} not found in the Pangolin archive")
+
+
+# CADD's public API serves the whole-genome SNV file only, so an indel score cannot be
+# checked through it. The indel file is published with a .tbi, so check it there — this
+# is the slice the ClinVar ref/alt unlock actually opened up, and the only way to
+# confirm it is against the file CADD distributes.
+CADD_INDEL_CASES = [
+    # HFE p.His341fs, a 14 bp deletion. Had no coordinate at all before the unlock, so
+    # it carried no CADD; now live on prod at 34.0.
+    ("6", 26094198, "GGCACTACGTCTTA", "G", 34.0),
+]
+
+
+@pytest.mark.parametrize("ch,pos,ref,alt,phred", CADD_INDEL_CASES)
+def test_cadd_indel_score_matches_the_published_indel_file(ch, pos, ref, alt, phred):
+    import shutil
+    import subprocess
+    exe = shutil.which("tabix") or "/data/miniconda3/envs/biobtree/bin/tabix"
+    if not os.path.exists(exe):
+        pytest.skip("tabix not available for a remote lookup")
+    url = ("https://krishna.gs.washington.edu/download/CADD/v1.7/GRCh38/"
+           "gnomad.genomes.r4.0.indel.tsv.gz")
+    try:
+        out = subprocess.run([exe, url, f"{ch}:{pos}-{pos}"],
+                             capture_output=True, text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        pytest.skip("remote tabix query timed out")
+    if out.returncode != 0:
+        pytest.skip(f"remote tabix failed: {out.stderr[:160]}")
+    for line in out.stdout.splitlines():
+        f = line.split("\t")
+        if len(f) >= 6 and f[2] == ref and f[3] == alt:
+            assert float(f[5]) == pytest.approx(phred, abs=0.005), (
+                f"CADD now scores {ch}:{pos}{ref}>{alt} at {f[5]}, we display {phred}")
+            return
+    pytest.fail(f"{ch}:{pos} {ref}>{alt} is not in CADD's indel file")
