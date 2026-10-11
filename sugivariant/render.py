@@ -57,7 +57,7 @@ DATA_SOURCES = [
     # Pangolin — CC BY 4.0 (Zenodo 15649338), so attribution is the only condition.
     ("Pangolin", "Zeng & Li 2022 \u2014 CC BY 4.0", "pangolin"),
     # Repeat tracks are UCSC/Dfam derived and carry no redistribution restriction.
-    ("Repeat regions (RepeatMasker/TRF/segmental dups)", "UCSC Genome Browser", "repeat"),
+    ("Repeat regions", "UCSC — RepeatMasker, TRF, segmental duplications", "repeat"),
     ("ClinGen", "ClinGen", "clingen"),
     ("UniProt", "CC BY 4.0", "uniprot"),
     ("Reactome / GO", "CC BY 4.0", "reactome"),
@@ -76,7 +76,7 @@ SOURCE_REFS = {
     "SpliceAI":                             ("Jaganathan et al., Cell 2019",        "https://github.com/Illumina/SpliceAI"),
     "CADD":                                 ("Rentzsch et al., NAR 2019",           "https://cadd.gs.washington.edu/"),
     "Pangolin":                             ("Zeng & Li, Genome Biol 2022",         "https://github.com/tkzeng/Pangolin"),
-    "Repeat regions (RepeatMasker/TRF/segmental dups)": ("Smit et al.; Benson, NAR 1999", "https://genome.ucsc.edu/"),
+    "Repeat regions":                       ("Smit et al.; Benson, NAR 1999",        "https://genome.ucsc.edu/"),
     "Conservation (phyloP/phastCons/GERP)": ("Pollard et al. 2010; Davydov et al. 2010", "https://genome.ucsc.edu/"),
     "gnomAD Non-coding Constraint (Gnocchi)": ("Chen et al., Nature 2024",          "https://gnomad.broadinstitute.org/downloads"),
     # The dataset is gnomAD's v4.1.1 MCR release (Wang et al. 2024, bioRxiv
