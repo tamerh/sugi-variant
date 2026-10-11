@@ -219,12 +219,15 @@ def test_spliceai_absence_is_stated_on_both_surfaces():
         # release keeps every allele reaching delta 0.2, so this allele was evaluated
         # and fell under it. That is a prediction of no effect, and saying only
         # "not scored" threw the information away.
-        assert "below the reporting threshold" in surface, f"{name} hides the missing allele"
+        # Assert the CLAIM, not the prose — the page copy is deliberately terse and
+        # gets tightened; what must never drift is what it asserts.
         assert "0.2" in surface, f"{name} omits the threshold that makes absence meaningful"
         assert "0.99" in surface, f"{name} omits the same-position score"
         assert "evaluated" in surface, f"{name} does not say the allele was evaluated"
         assert "not scored for this allele" not in surface, (
             f"{name} still frames a below-threshold allele as missing data")
+        assert "not a gap" in surface or "not missing" in surface, (
+            f"{name} does not distinguish a below-threshold prediction from missing data")
 
     rec["spliceai"] = {"status": "absent"}
     html, md, _, _ = _both(rec)
@@ -532,7 +535,8 @@ def test_spliceai_declares_its_snv_only_scope_for_an_indel():
            "review_status": "criteria provided, single submitter", "spliceai": sa}
     html, md, _, _ = _both(rec)
     for surface, name in ((html, "HTML"), (md, ".md")):
-        assert "substitutions-only" in surface, f"{name} hides the SNV-only scope"
+        assert "substitutions only" in surface or "substitutions-only" in surface, (
+            f"{name} hides the SNV-only scope")
         assert "not evidence" in surface, f"{name} omits the absence caveat"
 
 
@@ -548,7 +552,8 @@ def test_repeat_context_is_framed_as_confidence_not_pathogenicity():
                       "names": ["(TAACCC)n"], "tandem": True, "segdup": False}}
     html, md, _, _ = _both(rec)
     for surface, name in ((html, "HTML"), (md, ".md")):
-        assert "simple_repeat" in surface.lower(), f"{name} omits the repeat class"
+        assert ("simple repeat" in surface.lower() or "simple_repeat" in surface.lower()), (
+            f"{name} omits the repeat class")
         assert "ambiguous" in surface, f"{name} omits the alignment ambiguity"
         assert "not a pathogenicity signal" in surface, (
             f"{name} fails to disclaim repeat context as a pathogenicity signal")
@@ -640,7 +645,9 @@ def test_splice_agreement_compares_the_right_thing():
     opposed = splice_agreement({"status": "scored", "effect": "acceptor_gain",
                                 "score": "0.6"}, pg)
     assert opposed["state"] == "direction_differs", opposed
-    assert "loss" in opposed["text"] and "gain" in opposed["text"]
+    # The text names SpliceAI's direction only: it is rendered inside the Pangolin
+    # row, which already states Pangolin's, so naming both was duplication.
+    assert "gain" in opposed["text"], opposed
 
     # Nothing to compare: no Pangolin score, or an indel neither release covers.
     assert splice_agreement({"status": "scored", "score": "0.9"},

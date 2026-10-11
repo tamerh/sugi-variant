@@ -606,12 +606,24 @@ def render_body(v, jsonld_tag=""):
         sa = v.get("spliceai") or {}
         sa_st = sa.get("status")
         if sa_st == "scored" and sa.get("ds_dl") is not None:
-            # All four deltas, so the reader can see the mechanism rather than take
-            # our single dominant label on trust.
+            # All four deltas, so the reader can see the mechanism rather than take a
+            # single dominant label on trust — plus the distance to the affected site,
+            # which is what decides whether a loss delta means anything, and the
+            # raw/masked convention, without which this cannot be reconciled against
+            # Ensembl VEP or the Broad lookup.
+            _dp = sa.get("dominant_dp")
+            _where = ""
+            if _dp is not None:
+                _where = (" at this position" if _dp == 0 else f", {abs(_dp)} bp away")
             L.append("- SpliceAI deltas: acceptor loss **{:.2f}**, donor loss **{:.2f}**, "
-                     "acceptor gain **{:.2f}**, donor gain **{:.2f}**.".format(
+                     "acceptor gain **{:.2f}**, donor gain **{:.2f}**.{}".format(
                          sa.get("ds_al") or 0, sa.get("ds_dl") or 0,
-                         sa.get("ds_ag") or 0, sa.get("ds_dg") or 0))
+                         sa.get("ds_ag") or 0, sa.get("ds_dg") or 0,
+                         f" Largest is {sa['dominant']}{_where}." if sa.get("dominant") else ""))
+            L.append("  These are **raw** scores. Masked SpliceAI — what Ensembl VEP and the "
+                     "Broad lookup serve by default — reports 0 for a loss scored against a "
+                     "position that is not an annotated splice site, so a masked lookup can "
+                     "legitimately show 0 where this shows a score.")
         elif sa_st == "other_allele":
             L.append(f"- SpliceAI: **below the reporting threshold**. This position is scored for a "
                      f"different substitution ({sa.get('ref')}>{sa.get('alt')}, \u0394{_fmt2(sa.get('score'))} "

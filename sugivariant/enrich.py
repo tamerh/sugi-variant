@@ -960,12 +960,11 @@ def splice_agreement(sa, pg):
         d_pg = (pg.get("effect") or "").lower() or None
         if d_sa and d_pg and d_sa != d_pg:
             return {"state": "direction_differs",
-                    "text": f"SpliceAI calls {d_sa}, Pangolin {d_pg}"}
+                    "text": f"SpliceAI calls {d_sa}"}
         return {"state": "agree", "text": "agrees with SpliceAI"}
     if st in ("other_allele", "absent"):
         # The predictors genuinely disagree about whether there is a signal at all.
-        return {"state": "spliceai_below",
-                "text": "SpliceAI does not reach its 0.2 threshold here"}
+        return {"state": "spliceai_below", "text": "SpliceAI below 0.2"}
     return None
 
 
@@ -1462,10 +1461,10 @@ def spliceai_band(score):
     except (TypeError, ValueError):
         return None
     if d >= 0.2:
-        return "ClinGen SVI PP3-supporting band (raw \u0394 \u2265 0.2)"
+        return "SVI PP3-supporting (raw \u0394\u22650.2)"
     if d > 0.1:
-        return "ClinGen SVI designates 0.1-0.2 uninformative \u2014 neither PP3 nor BP4"
-    return "ClinGen SVI BP4 band (raw \u0394 \u2264 0.1)"
+        return "SVI: 0.1-0.2 uninformative"
+    return "SVI BP4 band (raw \u0394\u22640.1)"
 
 
 def spliceai_scored(sa):
@@ -1518,6 +1517,19 @@ def _spliceai_deltas(coord):
         best = max(scored, key=lambda k: ds[k])
         out["dominant"] = _SPLICEAI_DELTA_LABEL[best]
         out["dominant_score"] = ds[best]
+        # How far the AFFECTED site is from the variant. This is the number that
+        # decides whether a loss delta is meaningful: a loss scored against a site
+        # the variant is sitting on is a real prediction, while one scored against a
+        # position 10 bp away is a cryptic site that masked SpliceAI reports as 0.
+        # Verified on PTEN c.83T>G, where we carry raw acceptor-loss 0.21 with
+        # dp_al -10 and Ensembl VEP (masked) reports 0: every other field of the two
+        # records is identical, and 87894018 is not an annotated boundary (exon 2
+        # starts at 87894025). Offsets are plain genomic, confirmed against MECP2
+        # c.413+2 (dp 2 -> the exon boundary) on the minus strand.
+        try:
+            out["dominant_dp"] = int(out.get("dp_" + best[3:]))
+        except (TypeError, ValueError):
+            out["dominant_dp"] = None
     return out
 
 
