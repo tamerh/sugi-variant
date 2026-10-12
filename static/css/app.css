@@ -166,8 +166,8 @@
 /* gene hub — variant list */
 .gh-list{list-style:none;padding:0;margin:0;display:grid;
   grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.3rem .9rem}
-.gh-row{display:flex;align-items:baseline;gap:.5rem;padding:.28rem 0;border-bottom:1px solid var(--line2,#eef1f4);font-size:.92rem}
-.gh-row>a:first-child{font-family:ui-monospace,monospace;text-decoration:none;color:var(--accent,#2563eb)}
+.gh-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem;padding:.28rem 0;border-bottom:1px solid var(--line2,#eef1f4);font-size:.92rem}
+.gh-row>a:first-child{font-family:ui-monospace,monospace;text-decoration:none;color:var(--accent,#2563eb);min-width:0;overflow-wrap:anywhere;word-break:break-word}
 .gh-row>a:first-child:hover{text-decoration:underline}
 .gh-stars{color:var(--path,#c0392b);font-size:.75rem;letter-spacing:-1px}
 .gh-cond{margin-left:auto;max-width:14ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -265,7 +265,6 @@
 .vd-preds td{padding:.32rem 0;vertical-align:baseline;border-top:1px solid var(--line2,#eef1f4)}
 .vd-preds tr:first-child td,.vd-preds tr:first-child th{border-top:0}
 .vd-num{font-family:ui-monospace,monospace;font-weight:600;white-space:nowrap;padding-right:.7rem !important}
-.vd-deltas{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
 .vd-consensus{font-size:.9rem;margin-top:.6rem;padding-top:.5rem;border-top:1px dashed var(--border,#e5e7eb)}
 .vd-consensus.is-agree{color:var(--ok)}
 .vd-dl{display:grid;grid-template-columns:auto 1fr;gap:.25rem .8rem;margin:0;font-size:.86rem}
@@ -397,9 +396,9 @@
 .cite>summary::-webkit-details-marker{display:none}
 .cite>summary::marker{content:""}
 .cite>summary:hover{color:var(--accent,#2563eb);border-bottom-color:var(--accent,#2563eb)}
-.cite-body{margin-top:.55rem;padding:.7rem .85rem;background:var(--bg-soft,#f9fafb);
+.cite-body{overflow-wrap:anywhere;margin-top:.55rem;padding:.7rem .85rem;background:var(--bg-soft,#f9fafb);
   border:1px solid var(--border,#e5e7eb);border-radius:8px;max-width:660px}
-.cite-text{margin:0;font-size:.82rem;line-height:1.55;color:var(--fg,#111827)}
+.cite-text{margin:0;font-size:.82rem;line-height:1.55;color:var(--fg,#111827);overflow-wrap:anywhere;word-break:break-word}
 .cite-copy{margin:.55rem .7rem 0 0;font-size:.72rem;padding:.2rem .6rem;border:1px solid var(--border,#cbd5e1);
   border-radius:6px;background:var(--bg,#fff);color:var(--fg-muted,#475569);cursor:pointer;vertical-align:middle}
 .cite-copy:hover{border-color:var(--accent,#2563eb);color:var(--accent,#2563eb)}
@@ -444,7 +443,7 @@ body > main { padding-bottom: 2.5rem; }
 .site-nav-group a.nav-compounds::before { background: #16a34a; }
 
 /* sources table (About #sources) — Source + dataset build date; licence dropped */
-.sources-table-wrap { border:1px solid var(--border,#e5e7eb); border-radius:8px; overflow:hidden; margin-top:.9rem; }
+.sources-table-wrap { border:1px solid var(--border,#e5e7eb); border-radius:8px; overflow-x:auto; margin-top:.9rem; }
 .sources-table { border-collapse:collapse; width:100%; font-size:.9rem; }
 .sources-table thead th { text-align:left; font-size:.7rem; text-transform:uppercase; letter-spacing:.06em;
   font-weight:600; color:var(--muted,#6b7280); padding:.6rem .85rem;
@@ -508,6 +507,22 @@ table.pf-tbl tr.is-max td{color:var(--fg,#0f172a);background:rgba(63,127,212,.07
   table.pf-tbl tr.is-max td{background:color-mix(in srgb, var(--accent,#3f7fd4) 8%, transparent)}}
 .pf-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:1.1rem 2rem;align-items:start}
 @media (max-width:720px){.pf-split{grid-template-columns:1fr}}
+
+/* The preprint page is prose with URLs in it. overflow-wrap:anywhere only breaks a
+   token that would otherwise overflow, so running text is untouched. */
+.preprint-doc{overflow-wrap:anywhere}
+
+/* ── narrow viewports: nothing may force the page wider than the screen ──────
+   A nowrap cell sets its table's minimum width, so on a phone a long label or a
+   long source name used to push the whole page sideways (or, in the sources table,
+   get clipped out of reach). Labels wrap here instead; the numeric cells keep
+   nowrap because a split number reads as two numbers. */
+@media (max-width:720px){
+  .vd-preds th{white-space:normal}
+  .sources-table .src-name-cell{white-space:normal}
+  .ds-table th{white-space:normal}
+  .set-table td,.set-table th{white-space:normal}
+}
 .pf-absent{margin:.15rem 0 0;font-size:.88rem;color:var(--fg,#0f172a)}
 .pf-absent .pf-key-x{display:block;margin-top:.15rem}
 .pf-badge-mute{opacity:.72;font-weight:500;text-transform:none;letter-spacing:0}

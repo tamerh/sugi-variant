@@ -777,3 +777,71 @@ def test_our_keying_assumptions_match_what_biobtree_publishes():
     assert not wrong, "keying assumptions now disagree with upstream:\n  " + "\n  ".join(wrong)
     if missing:
         print(f"note: no keyScheme published for {missing} — assumption unverified")
+
+
+# ── mobile: nothing may force the page wider than a phone screen ──────────────
+#
+# Found 2026-10-12 on a real phone. The citation line prints the page's full
+# canonical URL, and for an indel slug that is ~59 unbreakable characters
+# (https://sugi.bio/variant/pten-c-802-minus-9-802-minus-8insc) — about 384px at
+# .82rem, past a 360px viewport, so the whole page scrolled sideways. It was not a
+# new bug; it only became visible because indels are what this release made worth
+# looking at, and indels get the long HGVS-derived slugs. A missense slug makes a
+# 40-char URL and fits, which is why it had never shown up.
+
+def _css():
+    import pathlib
+    return pathlib.Path("static/css/app.css").read_text(encoding="utf-8")
+
+
+def _rule(css, selector):
+    import re
+    m = re.search(re.escape(selector) + r"\s*\{[^}]*\}", css)
+    return m.group(0) if m else ""
+
+
+def test_the_citation_url_can_wrap():
+    """The one container that prints a full URL must be allowed to break it."""
+    css = _css()
+    rule = _rule(css, ".cite-text")
+    assert rule, ".cite-text rule disappeared"
+    assert "overflow-wrap:anywhere" in rule or "word-break:break-word" in rule, (
+        "the citation line prints the page's full canonical URL as one unbreakable "
+        f"token; without wrapping a long indel slug scrolls the page: {rule}")
+
+
+def test_long_slug_pages_do_not_emit_unwrappable_tokens():
+    """Render a page whose slug is as long as the real ones and check the citation
+    URL is present AND that its container wraps — the two have to move together."""
+    os.environ.setdefault("BASE_PATH", "/variant")
+    slug = "pten-c-802-minus-9-802-minus-8insc"
+    rec = {"canonical_slug": slug, "gene_symbol": "PTEN", "classification": "Likely benign",
+           "variation_id": 9, "name": "NM_000314.8(PTEN):c.802-9_802-8insC",
+           "hgvs_c": "c.802-9_802-8insC", "variant_type": "Insertion", "conditions": [],
+           "review_status": "criteria provided, single submitter"}
+    html_out, _, _, _ = _both(rec)
+    if slug not in html_out:
+        pytest.skip("citation block not rendered in this harness")
+    longest = max((w for w in html_out.split() if "sugi.bio/variant/" in w), key=len, default="")
+    assert len(longest) >= 40, "expected a long canonical URL to be present"
+    assert "overflow-wrap:anywhere" in _rule(_css(), ".cite-text"), (
+        f"page emits a {len(longest)}-char unbreakable URL with no wrapping")
+
+
+def test_nowrap_tables_release_their_labels_on_narrow_viewports():
+    """A nowrap cell sets its table's minimum width, so a long label pushes the whole
+    page sideways on a phone. The labels are the only thing naming each metric, so
+    they wrap on small screens rather than being shortened. Numeric cells keep
+    nowrap deliberately — a split number reads as two numbers."""
+    css = _css()
+    assert "white-space:nowrap" in _rule(css, ".vd-preds th"), (
+        "expected the desktop nowrap rule to still exist")
+    import re
+    narrow = re.findall(r"@media\s*\(max-width:\s*720px\)\s*\{(.*?)\n\}", css, re.S)
+    blob = " ".join(narrow)
+    for sel in (".vd-preds th", ".sources-table .src-name-cell"):
+        assert sel in blob and "white-space:normal" in blob, (
+            f"{sel} is not released from nowrap on narrow viewports")
+    assert "overflow:hidden" not in _rule(css, ".sources-table-wrap "), (
+        "the sources wrapper clips instead of scrolling, so the longest source names "
+        "are unreachable on a phone rather than merely cramped")
