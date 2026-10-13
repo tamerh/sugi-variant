@@ -273,7 +273,11 @@ def test_gnomad_band_uses_popmax():
     assert _gnomad_band(0.06, 0.08, "nfe").startswith("common")
     assert "too common" in _gnomad_band(0.06, 0.08, "nfe")
     assert _gnomad_band(1e-5, 2e-5, "afr").startswith("very rare")
-    assert _gnomad_band(None, None, None).startswith("absent")
+    # _gnomad_band is only reached on the branch where the gnomAD record WAS found, so
+    # no frequency there means "not reported", never "absent" — absence is PM2-supporting
+    # evidence and this function has no standing to claim it.
+    assert _gnomad_band(None, None, None) == "frequency not reported in gnomAD v4.1"
+    assert "absent" not in _gnomad_band(None, None, None)
 
 
 def test_spliceai_for_reports_status_not_silence():

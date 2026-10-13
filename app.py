@@ -25,6 +25,7 @@ from sugivariant.collect import collect                   # noqa: E402
 from sugivariant.render import _label as variant_label    # noqa: E402
 from sugivariant.slug import _norm, _norm_hgvs            # noqa: E402
 from sugivariant.enrich import refresh_concordance as _refresh_concordance  # noqa: E402
+from sugivariant.enrich import refresh_frequency as _refresh_frequency  # noqa: E402
 from sugivariant.enrich import (review_stars, review_tier, tier_label,  # noqa: E402
                                 missense_short, disagreement_flag,
                                 DISAGREEMENT_CATEGORIES)
@@ -549,7 +550,11 @@ def _freq_ctx(rec):
     production (b598202). `pops` is (ancestry, af) sorted high→low."""
     g = {k: None for k in ("popmax", "ancestry", "af", "ac", "an", "ac_grpmax", "an_grpmax",
                            "faf", "faf95", "faf99", "faf95_exomes", "faf99_exomes",
-                           "frequency", "band", "absent", "is_common", "source", "populations")}
+                           "frequency", "band", "absent", "unknown", "is_common", "source",
+                           "populations")}
+    # Correct a stored block that claims an absence it cannot support, before anything
+    # reads `absent` or `band` (pure; both bad shapes are visible in the stored dict).
+    _refresh_frequency(rec)
     g.update(rec.get("gnomad") or {})
     if g.get("faf95") is None:
         g["faf95"] = g.get("faf")

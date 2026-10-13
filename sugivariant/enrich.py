@@ -211,6 +211,7 @@ def gnomad_frequency(rec):
                 af = _f(g.get("af"))
                 ac = int(_f(g.get("ac"))) if _f(g.get("ac")) is not None else None
                 an = int(_f(g.get("an"))) if _f(g.get("an")) is not None else None
+            no_count = af is None and ac is None and popmax is None
             return {"af": af, "popmax": popmax, "ancestry": anc,
                     # FAF95 (JOINT, i.e. exomes+genomes combined) is ClinGen's designated
                     # BA1/BS1 input — gnomAD v4 guidance v3.0, June 2025. biobtree renamed
@@ -225,8 +226,20 @@ def gnomad_frequency(rec):
                     "ac": ac, "an": an,
                     "ac_grpmax": _f(g.get("ac_grpmax")), "an_grpmax": _f(g.get("an_grpmax")),
                     "populations": pops,
-                    "absent": False, "is_common": (popmax or 0) >= 0.05,
-                    "band": _gnomad_band(af, popmax, anc), "source": "gnomAD v4.1"}
+                    # A gnomAD row carrying AN but NO allele count at all. The shape is
+                    # uniform across every one of the 1,602 measured cases — af, ac and
+                    # popmax all absent, AN set, median 1.55M alleles — so the position is
+                    # deeply sequenced and the count simply is not published in this
+                    # projection. We cannot tell AC=0 from "not projected", and asserting
+                    # absence would manufacture a PM2-supporting rarity claim out of a
+                    # field upstream never populated. Report the coverage we do have.
+                    "absent": False, "unknown": no_count,
+                    "is_common": (popmax or 0) >= 0.05,
+                    "band": (f"no allele count reported in gnomAD v4.1 (AN {an:,})"
+                             if no_count and an else
+                             "no allele count reported in gnomAD v4.1" if no_count
+                             else _gnomad_band(af, popmax, anc)),
+                    "source": "gnomAD v4.1"}
         # A coordinate miss asserts ABSENCE, which renders as an ACMG PM2-supporting
         # rarity claim — so only make it where the key is reliable. For a non-SNV it
         # is not: ClinVar and gnomAD can left-align the same indel differently inside
@@ -237,7 +250,7 @@ def gnomad_frequency(rec):
         # had when they could not be keyed at all, and claim nothing.
         if coord_is_snv(coord) is not True:
             return gnomad_for(rec.get("rsid"))
-        return {"absent": True, "is_common": False, "popmax": None,
+        return {"absent": True, "unknown": False, "is_common": False, "popmax": None,
                 "band": "absent from gnomAD v4.1", "source": "gnomAD v4.1"}
     # fallback — dbSNP inline global frequency (no coordinate to key gnomAD v4.1)
     return gnomad_for(rec.get("rsid"))
@@ -1174,7 +1187,9 @@ def _gnomad_band(af, popmax, ancestry):
     metric). Descriptive, not a clinical criterion call."""
     p = popmax if popmax is not None else af
     if not p:
-        return "absent from gnomAD v4.1"
+        # Only reachable on the branch where the gnomAD record WAS found, so absence is
+        # not ours to claim here — the no-allele-count shape is handled by the caller.
+        return "frequency not reported in gnomAD v4.1"
     # ONE unit for the popmax value everywhere (audit P2a): a percentage, 3 s.f.
     pct = f"popmax {p * 100:.3g}%" + (f", {ancestry}" if ancestry else "")
     if p >= 0.05:
@@ -1206,17 +1221,24 @@ def gnomad_for(rsid):
     if not d:
         return None
     freq = (d[0].get("gnomad_frequency") or "").strip()
-    absent = freq in ("", "0", "0.0")
+    # Three states, not two. An EMPTY string means dbSNP carries no gnomAD frequency for
+    # this rsID; "0" means it carries an explicit zero. Collapsing them made 22.6% of
+    # pathogenic/LP pages assert "absent from gnomAD" — an ACMG PM2-supporting rarity
+    # claim, repeated into the meta description and the JSON-LD FAQ — from a field that
+    # was simply never populated.
+    unknown = freq == ""
+    absent = freq in ("0", "0.0")
     # Return the SAME key set as the coordinate path (gnomad_frequency) — a divergent
     # shape here crashed the variant template on every fallback record with a frequency
     # (Jinja: a missing key is Undefined, and `Undefined is not none` is True).
-    return {"frequency": freq, "af": _f(freq), "absent": absent,
+    return {"frequency": freq, "af": _f(freq), "absent": absent, "unknown": unknown,
             "popmax": None, "ancestry": None, "faf": None, "faf95": None, "faf99": None,
             "faf95_exomes": None, "faf99_exomes": None,
             "ac": None, "an": None, "ac_grpmax": None, "an_grpmax": None,
             "populations": {},
             "is_common": (d[0].get("is_common") == "true"),
-            "band": _freq_band(freq, absent), "source": "dbSNP/gnomAD"}
+            "band": ("no gnomAD frequency available for this variant" if unknown
+                     else _freq_band(freq, absent)), "source": "dbSNP/gnomAD"}
 
 
 def _freq_band(freq, absent):
@@ -1435,6 +1457,43 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
     else:
         verdict = "Mixed / partial computational evidence (see below)"
     return {"lines": lines, "verdict": verdict, "flags": flags, "consensus": consensus}
+
+
+def refresh_frequency(rec):
+    """Correct a stored gnomad block that asserts an absence it cannot support.
+
+    Unlike the concordance readout, the frequency block cannot be recomputed at render
+    time — `gnomad_frequency()` needs a lookup. But both bad shapes are identifiable
+    from the stored dict alone, so the correction is pure and reaches the records
+    already on disk without a rebuild:
+
+      · source gnomAD v4.1, found (absent False), yet af/ac/popmax all absent while AN
+        is set. Coverage known, allele count not published. Was rendering "absent from
+        gnomAD v4.1" beside a tile reading "Rare" — one of the two necessarily untrue.
+      · source dbSNP/gnomAD with an EMPTY frequency string and absent True. dbSNP
+        carries no gnomAD frequency for the rsID; an explicit "0" still counts as a
+        real zero and is left alone.
+
+    Mutates in place, once per record per process.
+    """
+    g = rec.get("gnomad")
+    if not g or g.get("_freq_fresh"):
+        return g
+    g["_freq_fresh"] = True
+    src, freq = g.get("source"), g.get("frequency")
+    no_count = not g.get("af") and not g.get("ac") and g.get("popmax") is None
+    if src == "gnomAD v4.1" and not g.get("absent") and no_count:
+        an = g.get("an")
+        g["unknown"] = True
+        g["band"] = (f"no allele count reported in gnomAD v4.1 (AN {an:,})" if an
+                     else "no allele count reported in gnomAD v4.1")
+    elif src == "dbSNP/gnomAD" and g.get("absent") and freq in (None, ""):
+        g["absent"] = False
+        g["unknown"] = True
+        g["band"] = "no gnomAD frequency available for this variant"
+    else:
+        g.setdefault("unknown", False)
+    return g
 
 
 def refresh_concordance(rec):

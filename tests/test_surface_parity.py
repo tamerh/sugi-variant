@@ -1334,3 +1334,76 @@ def test_no_cached_record_renders_a_false_agreement_claim():
                 print(f"\n/{r.get('canonical_slug')}: " + "; ".join(v))
     assert checked, "no ambiguous-AlphaMissense records found — sweep proved nothing"
     assert not bad, f"{bad}/{checked} records violate the abstention invariants"
+
+
+# ── "absent from gnomAD" is only sayable when we looked and found nothing ─────
+# Absence is an ACMG PM2-supporting rarity claim that propagates into the meta
+# description and the JSON-LD FAQ, so it must never be produced by missing data.
+# Two shapes did exactly that, on 22.6% and 3.5% of pathogenic/LP records.
+def test_a_gnomad_row_with_coverage_but_no_allele_count_is_not_an_absence():
+    from sugivariant.enrich import refresh_frequency
+    # uniform shape across all 1,602 measured cases: AN set, af/ac/popmax all absent
+    rec = {"gnomad": {"source": "gnomAD v4.1", "absent": False, "af": None, "ac": None,
+                      "popmax": None, "an": 1605142, "band": "absent from gnomAD v4.1"}}
+    g = refresh_frequency(rec)
+    assert g["unknown"] is True
+    assert g["absent"] is False
+    assert "absent" not in g["band"], g["band"]
+    assert "1,605,142" in g["band"], "the coverage we do know should still be reported"
+
+
+def test_an_empty_dbsnp_frequency_string_is_not_a_zero():
+    from sugivariant.enrich import refresh_frequency
+    g = refresh_frequency({"gnomad": {"source": "dbSNP/gnomAD", "frequency": "",
+                                      "absent": True, "band": "absent from gnomAD"}})
+    assert g["unknown"] is True and g["absent"] is False
+    assert "absent" not in g["band"], g["band"]
+
+
+def test_an_explicit_dbsnp_zero_is_still_a_real_absence():
+    """The fix must not throw away a genuine zero: "0" is dbSNP reporting a frequency,
+    "" is dbSNP reporting nothing. Only the second is missing data."""
+    from sugivariant.enrich import refresh_frequency
+    g = refresh_frequency({"gnomad": {"source": "dbSNP/gnomAD", "frequency": "0",
+                                      "absent": True, "band": "absent from gnomAD"}})
+    assert g["absent"] is True and g.get("unknown") is False
+
+
+def test_a_real_coordinate_miss_on_an_snv_still_claims_absence():
+    """A reliable key that found nothing IS an absence — the PM2 signal must survive."""
+    from sugivariant.enrich import refresh_frequency
+    g = refresh_frequency({"gnomad": {"source": "gnomAD v4.1", "absent": True,
+                                      "af": None, "ac": None, "popmax": None, "an": None,
+                                      "band": "absent from gnomAD v4.1"}})
+    assert g["absent"] is True and "absent from gnomAD" in g["band"]
+
+
+def test_a_real_frequency_is_left_untouched():
+    from sugivariant.enrich import refresh_frequency
+    band = "rare (popmax 0.12%, nfe)"
+    g = refresh_frequency({"gnomad": {"source": "gnomAD v4.1", "absent": False, "af": 0.0012,
+                                      "ac": 18, "an": 1500000, "popmax": 0.0012,
+                                      "ancestry": "nfe", "band": band}})
+    assert g["band"] == band and g["unknown"] is False and g["absent"] is False
+
+
+def test_no_surface_calls_a_missing_frequency_an_absence():
+    """Both surfaces, on a real record carrying the no-allele-count shape."""
+    rec = next(_records(limit_genes=500, want=lambda r: (
+        (r.get("gnomad") or {}).get("source") == "gnomAD v4.1"
+        and (r.get("gnomad") or {}).get("absent") is False
+        and not (r.get("gnomad") or {}).get("af")
+        and (r.get("gnomad") or {}).get("popmax") is None
+        and (r.get("gnomad") or {}).get("an"))), None)
+    if rec is None:
+        pytest.skip("no no-allele-count record in the sampled genes")
+    html, md, g, _ = _both(rec)
+    assert g["unknown"] is True
+    for name, surface in (("HTML", html), (".md", md)):
+        assert "Absent from gnomAD" not in surface, f"{name} claims absence"
+        assert "absent from gnomAD" not in surface, f"{name} claims absence"
+        assert "PM2-supporting" not in surface or "cannot be assessed" in surface, \
+            f"{name} offers the PM2 rarity signal off a missing number"
+    # and the block must still RENDER — hiding it would lose the disclosure entirely
+    assert "no allele count reported" in html
+    assert "cannot be assessed" in md

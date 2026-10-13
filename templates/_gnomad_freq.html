@@ -17,7 +17,14 @@
   <div class="pf-head"><h4>Population frequency</h4>
     <span class="pf-src">{% if is_fallback %}dbSNP / gnomAD{% else %}gnomAD v4.1 · exomes + genomes{% endif %}</span></div>
 
-  {% if g.absent %}
+  {% if g.get('unknown') %}
+    {# No frequency for this variant: either gnomAD published coverage without an allele
+       count, or dbSNP carried no gnomAD frequency for the rsID. Neither is an absence,
+       and the difference matters — absence is PM2-supporting evidence. #}
+    <p class="pf-absent"><b>{{ g.band|capitalize }}.</b>
+      <span class="pf-key-x">This is missing data, not an absence: the variant may or may not
+        be present in gnomAD. Rarity (ACMG&nbsp;PM2) and BA1/BS1 cannot be assessed for it.</span></p>
+  {% elif g.absent %}
     <p class="pf-absent"><b>Absent from gnomAD v4.1.</b>
       <span class="pf-key-x">Not observed in {{ "{:,}".format(g.an) if g.an else "any" }} sequenced alleles — a rarity signal (ACMG&nbsp;PM2-supporting), not evidence of pathogenicity on its own.</span></p>
   {% elif is_fallback %}

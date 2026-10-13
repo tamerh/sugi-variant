@@ -38,7 +38,7 @@
       <div class="vd-tile"><div class="lab">Review</div><div class="val">{{ st.label }} <span class="vd-stars" title="ClinVar {{ st.n }} of 4 stars"><span class="on">{{ '★' * st.n }}</span><span class="off">{{ '☆' * (4 - st.n) }}</span></span></div><div class="sub">ClinVar · {{ v.submitter_count or 0 }} submitter{{ 's' if v.submitter_count != 1 }}</div></div>
       {% if p and p.class %}<div class="vd-tile"><div class="lab">AlphaMissense</div><div class="val">{{ p.class|replace('_',' ') }}</div><div class="sub">{{ p.score }} · ACMG-weighted</div></div>
       {% elif v.lof_context %}<div class="vd-tile"><div class="lab">Consequence</div><div class="val">{{ v.lof_context.label }}</div><div class="sub">predicted LoF</div></div>{% endif %}
-      <div class="vd-tile"><div class="lab">gnomAD v4.1</div><div class="val">{% if not g %}—{% elif g.absent %}Absent{% elif g.is_common %}Common{% else %}Rare{% endif %}</div><div class="sub">{{ g.band if g else 'no coord. frequency' }}</div></div>
+      <div class="vd-tile"><div class="lab">gnomAD v4.1</div><div class="val">{% if not g %}—{% elif g.get('unknown') %}Not reported{% elif g.absent %}Absent{% elif g.is_common %}Common{% else %}Rare{% endif %}</div><div class="sub">{{ g.band if g else 'no coord. frequency' }}</div></div>
       {% if c and c.consensus %}<div class="vd-tile"><div class="lab">In-silico consensus</div><div class="val">{{ c.consensus.n_damaging }}/{{ c.consensus.total }} damaging</div><div class="sub">{{ 'unanimous' if c.consensus.unanimous else 'mixed' }}{% if c.consensus.get('abstained') %} · {{ c.consensus.abstained|join(', ') }} ambiguous{% endif %}</div></div>{% endif %}
       {% if v.conditions %}<div class="vd-tile"><div class="lab">Conditions</div><div class="val">{{ v.conditions|length }}</div><div class="sub">{{ v.conditions[0].name }}</div></div>{% endif %}
     </div>
@@ -84,7 +84,7 @@
         {# Population frequency — a distinct evidence class from the predictors above.
            Handles all four shapes internally (multi-ancestry, single-ancestry, absent,
            dbSNP fallback); renders nothing when there is no gnomAD data at all. #}
-        {% if freq_g and (freq_g.absent or freq_g.popmax is not none or freq_g.af) %}
+        {% if freq_g and (freq_g.absent or freq_g.unknown or freq_g.popmax is not none or freq_g.af) %}
         <section class="vd-card">{{ freq_block(freq_g, freq_pops) }}</section>
         {% endif %}
 

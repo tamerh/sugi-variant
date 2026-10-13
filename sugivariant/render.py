@@ -437,8 +437,9 @@ def render_body(v, jsonld_tag=""):
     # The concordance readout is pickled with the record, so refresh it from the
     # record's own predictor fields (pure, no lookups) before rendering — otherwise a
     # correction to it would only reach a page after a full rebuild.
-    from sugivariant.enrich import refresh_concordance
+    from sugivariant.enrich import refresh_concordance, refresh_frequency
     refresh_concordance(v)
+    refresh_frequency(v)
     L = ["## Summary", "", declarative(v), ""]
     # At a glance
     L.append("**At a glance:** "
@@ -686,7 +687,12 @@ def render_body(v, jsonld_tag=""):
                      + " *A qualifier on how reliably this variant can be called and counted \u2014 not a "
                        "pathogenicity signal.*")
         gf = v.get("gnomad")
-        if gf and not gf.get("absent"):
+        if gf and gf.get("unknown"):
+            # No frequency for this variant. Say that, and say what it costs the reader:
+            # neither the PM2 rarity signal nor BA1/BS1 can be read off a missing number.
+            L.append(f"- Population frequency: **{gf.get('band')}** — rarity (ACMG PM2) and "
+                     "BA1/BS1 cannot be assessed for this variant.")
+        elif gf and not gf.get("absent"):
             gp = []
             if gf.get("popmax") is not None:
                 gp.append(f"grpmax **{gf['popmax'] * 100:.3g}%**"
