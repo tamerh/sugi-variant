@@ -18,6 +18,7 @@ import sqlite3
 from sugivariant.build import enriched_records
 from sugivariant.slug import _norm, _norm_hgvs
 from sugivariant.enrich import disagreement_flag, missense_short, review_stars
+from sugivariant.enrich import refresh_concordance
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS variant(
@@ -92,6 +93,12 @@ def index_gene(conn, gene, recs=None):
         cur.execute(f"DELETE FROM variant WHERE vcv IN ({qs})", vcvs)
     for r in recs:
         vcv = int(r["variation_id"])
+        # Refresh before classifying: `recs` defaults to the pickles, whose concordance
+        # readout can predate a fix to it. This is the one disagreement_flag() call site
+        # that PERSISTS its answer (into variant.flag, read by slug_flags() for the /set
+        # worklist and the similar-variants warning), so a stale category written here
+        # survives on disk with no code path able to correct it.
+        refresh_concordance(r)
         flag = disagreement_flag(r)
         cond = (r.get("conditions") or [{}])[0].get("name")
         cur.execute(

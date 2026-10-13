@@ -1264,7 +1264,7 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
     clinvar_path = "pathogenic" in cls and "conflict" not in cls
     clinvar_vus = "uncertain" in cls
     lines, flags, agree, total, consensus = [], [], 0, 0, None
-    am_call = None
+    am_call, abstained = None, []
 
     if am:
         amclass, amscore = am.get("class"), am.get("score")
@@ -1318,7 +1318,7 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
             preds.append(("REVEL", revel["direction"] == "pathogenic"))
         if saprot:
             preds.append(("SaProt", saprot["damaging"]))
-        abstained = [n for n, out in (("AlphaMissense", am_call is None),
+        abstained += [n for n, out in (("AlphaMissense", am_call is None),
                                       ("REVEL", bool(revel) and revel["direction"] == "indeterminate"))
                      if out]
         if len(preds) >= 2:
@@ -1411,6 +1411,15 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
         # The one ACMG-weighted tool abstained, but the others did score it. Say so
         # plainly instead of going silent, and mark it descriptive (ClinGen SVI, §8).
         verdict = (f"AlphaMissense makes no call; {consensus['summary']} — descriptive only")
+    elif total == 0 and abstained:
+        # Both calibrated missense tools declined (AlphaMissense is ambiguous on 10.4% of
+        # the missense it scores, and REVEL is indeterminate on 39.7% of those). Too few
+        # predictors remain to state agreement, so name the tools that went quiet —
+        # omitting the verdict silently reads as missing data rather than as a tool
+        # declining to call, which is a materially different thing.
+        who = " and ".join(abstained)
+        verdict = (f"{who} make{'s' if len(abstained) == 1 else ''} no call here — "
+                   "the available evidence is described below")
     elif total == 0:
         verdict = None
     elif agree == total and clinvar_path:

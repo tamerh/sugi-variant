@@ -40,8 +40,9 @@ def _records(limit_genes=25, want=None):
 def _both(rec):
     os.environ.setdefault("BASE_PATH", "/variant")
     import app
-    from sugivariant.enrich import disagreement_flag
+    from sugivariant.enrich import disagreement_flag, refresh_concordance
     from sugivariant.render import render_body
+    refresh_concordance(rec)          # what app.py does before rendering
     g, pops = app._freq_ctx(rec)
     html = app._render("variant.html", v=rec, canonical=rec.get("canonical_slug"),
                        nav="variant", jsonld="", disagreement=disagreement_flag(rec),
@@ -1152,3 +1153,184 @@ def test_the_readout_is_recomputed_from_the_record_so_fixes_need_no_rebuild():
     c = refresh_concordance(stale)
     assert c["consensus"]["total"] == 2
     assert stale["concordance"] is c, "must replace the record's readout in place"
+
+
+# ── the abstention invariants, as a checker ──────────────────────────────────
+# Written as a function rather than inline asserts for two reasons: the truth-table
+# test below sweeps every predictor combination through it, and the mutation test
+# feeds it the pre-fix output to prove the checker actually catches the regression.
+def abstention_violations(c, am=None, revel=None):
+    """Claims a concordance readout must never make. Returns a list of violations."""
+    bad = []
+    amb = (am or {}).get("class") == "ambiguous"
+    rev_ind = (revel or {}).get("direction") == "indeterminate"
+    joined = " | ".join(c.get("lines") or [])
+    cons = c.get("consensus") or {}
+    names, summary = cons.get("names") or "", cons.get("summary") or ""
+    if amb:
+        if "with AlphaMissense" in joined:
+            bad.append("claims agreement/disagreement with a call AlphaMissense never made")
+        if "AlphaMissense" in names:
+            bad.append("consensus counts AlphaMissense as a voter after it abstained")
+        if "AlphaMissense" not in (cons.get("abstained") or []) and cons:
+            bad.append("consensus does not record the AlphaMissense abstention")
+        if "conserved (agrees)" in joined:
+            bad.append("conservation 'agrees' with an abstention")
+    if rev_ind:
+        if "REVEL" in names:
+            bad.append("consensus counts REVEL after it returned indeterminate")
+        if "indeterminate AlphaMissense" in joined:
+            bad.append("nonsense REVEL/AlphaMissense agreement wording")
+    # the counted total must equal the number of tools that actually made a call
+    calls = sum([bool(am) and not amb, bool(revel) and not rev_ind, True])  # SaProt always calls
+    if cons and cons.get("total", 0) > calls:
+        bad.append(f"consensus total {cons['total']} exceeds the {calls} tools that called")
+    if cons and cons.get("total", 0) < 2:
+        bad.append("a consensus was formed from fewer than two predictors")
+    return bad
+
+
+_AM_CLASSES = [None,
+               {"class": "likely_pathogenic", "score": "0.91"},
+               {"class": "ambiguous", "score": "0.45"},
+               {"class": "likely_benign", "score": "0.07"}]
+_REVEL_STATES = [None,
+                 {"score": 0.9, "band": "strongly pathogenic-leaning", "direction": "pathogenic"},
+                 {"score": 0.55, "band": "indeterminate", "direction": "indeterminate"},
+                 {"score": 0.2, "band": "benign-leaning", "direction": "benign"}]
+_SAPROT_STATES = [None, {"llr": -12.4, "damaging": True}, {"llr": -5.5, "damaging": False}]
+
+
+def test_no_predictor_combination_can_produce_a_false_agreement_claim():
+    """Sweep every AlphaMissense x REVEL x SaProt state against every ClinVar call."""
+    from sugivariant.enrich import concordance
+    checked = 0
+    for cls in ("Pathogenic", "Likely pathogenic", "Uncertain significance",
+                "Conflicting classifications of pathogenicity", "Benign", None):
+        for am in _AM_CLASSES:
+            for revel in _REVEL_STATES:
+                for saprot in _SAPROT_STATES:
+                    c = concordance(cls, am, None, None,
+                                    {"phylop": 7.5, "phastcons": 1.0}, revel, saprot)
+                    v = abstention_violations(c, am, revel)
+                    assert not v, (f"cls={cls} am={am} revel={revel} saprot={saprot}\n"
+                                   + "\n".join(v) + "\n" + "\n".join(c["lines"]))
+                    checked += 1
+    assert checked == 6 * 4 * 4 * 3
+
+
+def test_the_checker_catches_the_pre_fix_output():
+    """A mutation test on the guard itself. This is verbatim what the page used to
+    render for /otud5-p-arg515leu; if the checker ever stops flagging it, the test
+    above has become decorative."""
+    pre_fix = {"lines": ["AlphaMissense **ambiguous** (0.5367)",
+                         "REVEL 0.249 (benign-leaning) — agrees with AlphaMissense",
+                         "SaProt LLR -5.52 (tolerated) — agrees with AlphaMissense",
+                         "→ **In-silico consensus:** all 3 predictors call this tolerated "
+                         "(AlphaMissense, REVEL, SaProt)",
+                         "Conservation: phyloP 7.585, GERP 0.541, phastCons 1 — conserved (agrees)"],
+               "consensus": {"n_damaging": 0, "total": 3, "unanimous": True,
+                             "names": "AlphaMissense, REVEL, SaProt",
+                             "summary": "all 3 predictors call this tolerated"}}
+    v = abstention_violations(pre_fix, _AMB, _REVEL_BENIGN)
+    assert len(v) >= 4, v
+    assert any("never made" in x for x in v)
+    assert any("as a voter" in x for x in v)
+    assert any("conservation 'agrees'" in x for x in v)
+
+
+def test_when_both_calibrated_tools_abstain_the_page_says_which():
+    from sugivariant.enrich import concordance
+    c = concordance("Likely pathogenic", {"class": "ambiguous", "score": "0.5521"}, None, None,
+                    {"phylop": 5.529, "phastcons": 1.0},
+                    {"score": 0.547, "band": "indeterminate", "direction": "indeterminate"},
+                    {"llr": -5.197, "damaging": False})
+    assert c["consensus"] is None, "one remaining tool is not a consensus"
+    # the verdict must not go silent: a missing verdict reads as missing DATA, which is
+    # a different claim from a tool declining to call.
+    assert c["verdict"] == ("AlphaMissense and REVEL make no call here — "
+                            "the available evidence is described below"), c["verdict"]
+
+
+def test_a_non_missense_record_still_gets_a_verdict():
+    # `abstained` is built inside the AlphaMissense branch; the verdict chain reads it
+    # unconditionally, so a record with no AlphaMissense at all must not trip over it.
+    from sugivariant.enrich import concordance
+    c = concordance("Pathogenic", None, None, conservation={"phylop": 5.0})
+    assert c["verdict"] and "no call" not in c["verdict"]
+
+
+def test_the_alphamissense_class_bands_are_the_published_ones():
+    """We take `am_class` from upstream rather than deriving it, so this pins the
+    boundary we rely on: ambiguous spans 0.34-0.564 (AlphaMissense, Cheng et al. 2023).
+    Measured over 600 genes / 93,231 scored missense: likely_benign <= 0.3400,
+    ambiguous 0.3400-0.5639, likely_pathogenic >= 0.5640 — disjoint, no overlap.
+    If upstream ever re-bands, the score/class pairs stop agreeing and this fails."""
+    from sugivariant.enrich import concordance
+    for score, cls, expect_vote in ((0.20, "likely_benign", True),
+                                    (0.45, "ambiguous", False),
+                                    (0.80, "likely_pathogenic", True)):
+        c = concordance("Uncertain significance", {"class": cls, "score": str(score)}, None,
+                        None, None, _REVEL_BENIGN, _SAPROT_TOL)
+        counted = "AlphaMissense" in (c["consensus"] or {}).get("names", "")
+        assert counted is expect_vote, f"{cls} ({score}) counted={counted}"
+
+
+def test_every_disagreement_flag_call_site_refreshes_the_readout_first():
+    """disagreement_flag() classifies whatever readout the record carries, so each
+    caller must refresh it first. index.py was missed on the first pass, and it is the
+    one site that PERSISTS its answer (variant.flag → the /set worklist and the
+    similar-variants ⚠), where a stale category survives on disk uncorrectable."""
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parent.parent
+    offenders = []
+    for f in list(root.glob("*.py")) + list((root / "sugivariant").glob("*.py")):
+        src = f.read_text()
+        calls = [ln for ln in src.splitlines()
+                 if "disagreement_flag(" in ln and "def disagreement_flag" not in ln
+                 and not ln.strip().startswith("#")]
+        if calls and "refresh_concordance" not in src:
+            offenders.append(f"{f.name}: calls disagreement_flag but never refreshes")
+    assert not offenders, "\n".join(offenders)
+
+
+def test_the_page_and_the_md_both_name_an_abstaining_predictor():
+    """Surface parity for the abstention: whatever each surface shows, neither may
+    report agreement with a call AlphaMissense did not make."""
+    rec = next(_records(limit_genes=400,
+                        want=lambda r: (r.get("alphamissense") or {}).get("class") == "ambiguous"
+                        and (r.get("revel") or {}).get("direction") not in (None, "indeterminate")
+                        and r.get("saprot")), None)
+    if rec is None:
+        pytest.skip("no ambiguous-AlphaMissense record in the sampled genes")
+    html, md, _, _ = _both(rec)
+    for name, surface in (("HTML", html), (".md", md)):
+        assert "agrees with AlphaMissense" not in surface, f"{name}: false agreement claim"
+        assert "differs from AlphaMissense" not in surface, f"{name}: false disagreement claim"
+        assert "all 3 predictors" not in surface, f"{name}: counts an abstaining tool"
+    assert "ambiguous" in html
+    # the HTML tile must disclose which tool went quiet, not just the surviving tally
+    assert "AlphaMissense ambiguous" in html, "the consensus tile hides the abstention"
+    assert "no call either way" in md
+
+
+@pytest.mark.skipif(not os.environ.get("SUGI_CORPUS_INVARIANTS"),
+                    reason="corpus sweep; set SUGI_CORPUS_INVARIANTS=1")
+def test_no_cached_record_renders_a_false_agreement_claim():
+    """The unit tests above cover constructed inputs. This one sweeps real records,
+    which is how the bug reached production in the first place: every input involved
+    was individually plausible and no constructed case had been written for it."""
+    from sugivariant.enrich import refresh_concordance
+    checked = bad = 0
+    for r in _records(limit_genes=1200):
+        am = r.get("alphamissense") or {}
+        if am.get("class") != "ambiguous":
+            continue
+        checked += 1
+        v = abstention_violations(refresh_concordance(r), am, r.get("revel"))
+        if v:
+            bad += 1
+            if bad <= 5:
+                print(f"\n/{r.get('canonical_slug')}: " + "; ".join(v))
+    assert checked, "no ambiguous-AlphaMissense records found — sweep proved nothing"
+    assert not bad, f"{bad}/{checked} records violate the abstention invariants"
