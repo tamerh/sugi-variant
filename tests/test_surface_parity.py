@@ -1323,7 +1323,7 @@ def test_the_page_and_the_md_both_name_an_abstaining_predictor():
         assert "all 3 predictors" not in surface, f"{name}: counts an abstaining tool"
     assert "ambiguous" in html
     # the HTML tile must disclose which tool went quiet, not just the surviving tally
-    assert "AlphaMissense ambiguous" in html, "the consensus tile hides the abstention"
+    assert "AlphaMissense no call" in html, "the consensus tile hides the abstention"
     assert "no call either way" in md
 
 

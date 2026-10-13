@@ -91,10 +91,10 @@ def test_unanimity_is_reported_as_text_and_never_as_colour():
     only that the predictors agree with each other."""
     disc = consensus_view({"consensus": {"stance": "discordant", "unanimous": True,
                                          "n_damaging": 0, "total": 2,
+                                         "names": "REVEL, SaProt",
                                          "abstained": ["AlphaMissense"]}})
-    assert disc["tone"] == "is-flag"
-    assert "unanimous" in disc["detail"], "unanimity still belongs in the text"
-    assert "AlphaMissense ambiguous" in disc["detail"], "the abstention must be disclosed"
+    assert disc["tone"] == "is-flag", "unanimity must never reach the colour"
+    assert "AlphaMissense no call" in disc["detail"], "the abstention must be disclosed"
     conc = consensus_view({"consensus": {"stance": "concordant", "unanimous": True,
                                          "n_damaging": 2, "total": 2}})
     assert conc["tone"] == "is-agree"
@@ -243,3 +243,36 @@ def test_the_consensus_sits_inside_the_group_it_describes():
     nxt = body.find('class="vd-grp"', i_note)
     assert nxt == -1 or nxt > i_note
     assert "REVEL and SaProt" in body, "the summary must name its subjects"
+
+
+def test_the_consensus_tile_names_its_scope_and_its_subjects():
+    """It was labelled "In-silico consensus" while CADD, conservation and SpliceAI —
+    all in silico — sat uncounted in the same card, so the label overclaimed. And the
+    sub said "unanimous", which the 0/2 already conveys, instead of WHICH predictors."""
+    v = consensus_view({"consensus": {"stance": "discordant", "unanimous": True,
+                                      "n_damaging": 0, "total": 2,
+                                      "names": "REVEL, SaProt",
+                                      "abstained": ["AlphaMissense"]}})
+    assert v["label"] == "0/2 damaging"
+    assert "REVEL, SaProt" in v["detail"]
+    assert "AlphaMissense no call" in v["detail"]
+    assert "unanimous" not in v["detail"]
+    tpl = (TEMPLATES / "variant.html").read_text(encoding="utf-8")
+    assert "Missense predictors" in tpl and "In-silico consensus</div>" not in tpl
+
+
+def test_only_allele_specific_missense_predictors_are_counted():
+    """The question this answers is "does this substitution break the protein", so the
+    consensus covers AlphaMissense, REVEL and SaProt and nothing else. Conservation is
+    an input to REVEL and CADD (double-counting), regional constraint describes the
+    region not the allele, Gnocchi is non-coding, and SpliceAI answers splicing."""
+    from sugivariant.enrich import concordance
+    c = concordance("Likely pathogenic", {"class": "ambiguous", "score": "0.44"}, None,
+                    {"status": "scored", "effect": "donor_loss", "score": 0.99},
+                    {"phylop": 7.5, "gerp": 0.6, "phastcons": 1.0},
+                    {"score": 0.227, "band": "benign-leaning", "direction": "benign"},
+                    {"llr": -7.9, "damaging": False})
+    cons = c["consensus"]
+    assert cons["total"] == 2 and cons["names"] == "REVEL, SaProt"
+    for excluded in ("CADD", "conservation", "SpliceAI", "Regional", "Gnocchi"):
+        assert excluded not in cons["names"]

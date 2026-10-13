@@ -106,9 +106,12 @@ def consensus_view(c):
     if not cons:
         return None
     abstained = cons.get("abstained") or []
-    sub = "unanimous" if cons.get("unanimous") else "mixed"
+    # Name the tools rather than saying "unanimous". Over two predictors "unanimous" is
+    # a grand word for a small fact, and the 0/2 above already carries it — whereas WHICH
+    # two is the thing a reader cannot otherwise recover from a tile.
+    sub = cons.get("names") or ""
     if abstained:
-        sub += " · " + ", ".join(abstained) + " ambiguous"
+        sub += " · " + ", ".join(abstained) + " no call"
     return _el(cons.get("stance") or "neutral",
                f"{cons.get('n_damaging')}/{cons.get('total')} damaging", sub,
                summary=cons.get("summary"), abstained=abstained)
