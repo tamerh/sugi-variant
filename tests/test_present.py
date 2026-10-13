@@ -280,15 +280,23 @@ def test_only_allele_specific_missense_predictors_are_counted():
 
 def test_the_conservation_row_does_not_imply_three_independent_measures():
     """phyloP470way and phastCons470way are two statistics on the SAME UCSC hg38 470-way
-    Zoonomia mammalian alignment (confirmed by the upstream prepare script); GERP++ is
-    Ensembl Compara's ~90-mammal set. Three agreeing numbers shown side by side read as
-    three confirmations, which is the same "correlated things presented as independent"
-    error the missense-predictor framing exists to prevent."""
+    alignment; GERP++ is Ensembl Compara's ~90-mammal set. Three agreeing numbers shown
+    side by side read as three confirmations, which is the same "correlated things
+    presented as independent" error the missense-predictor framing exists to prevent.
+
+    The 470-way is the Hiller Lab multiz alignment of 470 mammal assemblies (431
+    species) — NOT Zoonomia, which is the 447-way Cactus alignment. Our observed phyloP
+    max of 11.936 matches UCSC's documented range for 470-way exactly, and no other hg38
+    phyloP track reaches it (100-way caps at 7.532, 241-way at 9.28, 447-way at 8.123).
+    The attribution was briefly wrong here because it was taken from an upstream note
+    rather than from the track documentation."""
     tpl = (TEMPLATES / "variant.html").read_text(encoding="utf-8")
     # the tooltip lives in the data-tip ATTRIBUTE, which precedes the label text
     i = tpl.index(">Conservation</span>")
     row = tpl[max(0, i - 1400):i + 200]
     assert "470-way" in row, "the alignment must be stated — it was absent on 4.12M pages"
+    assert "Hiller" in row, "470-way is the Hiller Lab multiz alignment, not Zoonomia"
+    assert "Zoonomia" not in row, "Zoonomia is the 447-way Cactus alignment, a different track"
     assert "not three independent" in row
     assert "mammalian" in row and "primates" in row, \
         "an all-mammal alignment cannot speak to primate- or human-specific constraint"
@@ -298,4 +306,5 @@ def test_the_sources_table_names_the_conservation_alignment():
     from sugivariant.render import DATA_SOURCES
     row = [r for r in DATA_SOURCES if r[0].startswith("Conservation")]
     assert row, "conservation missing from DATA_SOURCES"
-    assert "470-way" in row[0][1] and "Zoonomia" in row[0][1], row[0]
+    assert "470-way" in row[0][1] and "Hiller" in row[0][1], row[0]
+    assert "Zoonomia" not in row[0][1], "that is the 447-way track"
