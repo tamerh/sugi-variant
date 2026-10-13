@@ -21,7 +21,7 @@
     {# No frequency for this variant: either gnomAD published coverage without an allele
        count, or dbSNP carried no gnomAD frequency for the rsID. Neither is an absence,
        and the difference matters — absence is PM2-supporting evidence. #}
-    <p class="pf-absent"><b>{{ g.band|capitalize }}.</b>
+    <p class="pf-absent"><b>{{ g.band|ucfirst }}.</b>
       <span class="pf-key-x">This is missing data, not an absence: the variant may or may not
         be present in gnomAD. Rarity (ACMG&nbsp;PM2) and BA1/BS1 cannot be assessed for it.</span></p>
   {% elif g.absent %}

@@ -1498,3 +1498,23 @@ def test_both_surfaces_say_we_did_not_look_rather_than_not_assessed():
     assert "not looked up on this page" in md
     for surface in (html, md):
         assert "no allele at this position is in our SpliceAI release" not in surface
+
+
+def test_no_surface_lowercases_a_dataset_or_field_name():
+    """Jinja's |capitalize and str.capitalize() lowercase the REST of the string, which
+    turned "gnomAD v4.1 (AN 1,208,295)" into "gnomad v4.1 (an ...)" and, earlier,
+    "SpliceAI" into "Spliceai". Both read as sloppy on a reference page."""
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parent.parent
+    bad = [f"{f.name}: |capitalize" for f in (root / "templates").glob("*.html")
+           if "|capitalize" in f.read_text()]
+    assert not bad, bad + ["use the ucfirst filter instead"]
+    rec = next(_records(limit_genes=400, want=lambda r: (r.get("gnomad") or {}).get("an")
+                        and not (r.get("gnomad") or {}).get("af")
+                        and (r.get("gnomad") or {}).get("popmax") is None), None)
+    if rec is None:
+        pytest.skip("no no-allele-count record in the sampled genes")
+    html, md, _, _ = _both(rec)
+    for name, surface in (("HTML", html), (".md", md)):
+        for wrong in ("gnomad v4.1", "(an ", "Spliceai", "Alphamissense", "Clinvar"):
+            assert wrong not in surface, f"{name} contains {wrong!r}"

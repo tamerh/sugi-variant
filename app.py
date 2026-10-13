@@ -82,6 +82,11 @@ env.globals["tier_label"] = tier_label
 # variants where it was never assessed. Templates must ask whether it actually scored.
 from sugivariant.enrich import spliceai_scored as _spliceai_scored  # noqa: E402
 env.globals["spliceai_scored"] = _spliceai_scored
+# Jinja's |capitalize lowercases the REST of the string, which turned "no allele count
+# reported in gnomAD v4.1 (AN 1,208,295)" into "...gnomad v4.1 (an ...)". Same trap as
+# str.capitalize() lowercasing "SpliceAI". Upper-case the first character only.
+from sugivariant.render import _ucfirst as _uc1  # noqa: E402
+env.filters["ucfirst"] = _uc1
 
 # ClinGen dosage haploinsufficiency: 0–3 is the evidence scale; 30/40 are category codes
 # (not points on the scale), so don't render them as "30/3".
