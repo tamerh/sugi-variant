@@ -484,12 +484,19 @@ def test_saprot_agreement_and_consensus():
     assert any("SaProt LLR -14.5" in ln and "agrees with AlphaMissense" in ln for ln in c["lines"])
     assert "1 independent predictor" in c["verdict"]        # AM alone carries the ACMG weight
     # consensus summary across the 3 independent missense predictors
-    assert any("consensus" in ln and "all 3" in ln and "damaging" in ln for ln in c["lines"])
+    # The summary NAMES the predictors rather than counting them ("all 3"), so the
+    # reader does not have to work out which tools it means from a 13-row card.
+    assert any("consensus" in ln and "damaging" in ln
+               and all(t in ln for t in ("AlphaMissense", "REVEL", "SaProt"))
+               for ln in c["lines"]), c["lines"]
     # a tolerated SaProt vs pathogenic AM → "differs from" + mixed consensus
     d = concordance("Pathogenic", am, None,
                     saprot={"llr": -0.1, "damaging": False})
     assert any("differs from AlphaMissense" in ln for ln in d["lines"])
-    assert any("consensus" in ln and "1/2" in ln for ln in d["lines"])
+    # a mixed consensus names both sides rather than printing a ratio, for the same
+    # reason: "1/2 damaging — mixed" made the reader hunt for which half was which.
+    assert any("consensus" in ln and "AlphaMissense calls this damaging" in ln
+               and "SaProt does not" in ln for ln in d["lines"]), d["lines"]
 
 
 # ── upstream absence vs upstream failure ──────────────────────────────────────

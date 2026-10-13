@@ -25,7 +25,7 @@ from sugivariant.collect import collect                   # noqa: E402
 from sugivariant.render import _label as variant_label    # noqa: E402
 from sugivariant.slug import _norm, _norm_hgvs            # noqa: E402
 from sugivariant.enrich import refresh_record as _refresh  # noqa: E402
-from sugivariant.present import evidence_view  # noqa: E402
+from sugivariant.present import evidence_groups, evidence_view  # noqa: E402
 from sugivariant.enrich import (review_stars, review_tier, tier_label,  # noqa: E402
                                 missense_short, disagreement_flag,
                                 DISAGREEMENT_CATEGORIES)
@@ -321,6 +321,7 @@ def _render(tpl, **ctx):
     """
     if tpl == "variant.html" and "ui" not in ctx and ctx.get("v") is not None:
         ctx["ui"] = evidence_view(ctx["v"], ctx.get("freq_g"))
+        ctx["ui"]["groups"] = evidence_groups(ctx["v"])
     return env.get_template(tpl).render(**ctx)
 
 

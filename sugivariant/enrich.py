@@ -1303,6 +1303,12 @@ def conservation_note(p, weighted):
     return "not a conserved position (phyloP < 0.1, ACGS BP7 cut)"
 
 
+def _and_list(xs):
+    """["a"] -> "a"; ["a","b"] -> "a and b"; ["a","b","c"] -> "a, b and c"."""
+    xs = list(xs)
+    return xs[0] if len(xs) == 1 else " and ".join([", ".join(xs[:-1]), xs[-1]]) if xs else ""
+
+
 def concordance(classification, am, gnomad, spliceai=None, conservation=None, revel=None, saprot=None):
     """Cross-source concordance readout: do the computational predictors agree with
     ClinVar? Returns {lines, verdict, flags}. ClinGen-SVI framing: in-silico
@@ -1376,16 +1382,24 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
         if len(preds) >= 2:
             n_dmg = sum(1 for _, d in preds if d)
             names = ", ".join(n for n, _ in preds)
-            alln = "both" if len(preds) == 2 else f"all {len(preds)}"
-            # "scoring" is what keeps the summary true when a tool sat out: it is a claim
-            # about the predictors that spoke, not about all of them.
-            scoring = " scoring" if abstained else ""
+            alln = "both" if len(preds) == 2 else "all"
+            # NAME the tools. "both scoring predictors call this tolerated" was true but
+            # made the reader work out which two, from a card of up to thirteen rows —
+            # and "scoring" only hinted that a third had sat out. Saying "REVEL and SaProt
+            # both call this tolerated; AlphaMissense makes no call" needs no decoding.
             if n_dmg == len(preds):
-                summary = f"{alln}{scoring} predictors call this damaging"
+                summary = f"{_and_list([n for n, _ in preds])} {alln} call this damaging"
             elif n_dmg == 0:
-                summary = f"{alln}{scoring} predictors call this tolerated"
+                summary = f"{_and_list([n for n, _ in preds])} {alln} call this tolerated"
             else:
-                summary = f"{n_dmg}/{len(preds)} damaging — mixed"
+                dmg = _and_list([n for n, d in preds if d])
+                tol = _and_list([n for n, d in preds if not d])
+                n_tol = len(preds) - n_dmg
+                summary = (f"{dmg} call{'s' if n_dmg == 1 else ''} this damaging; "
+                           f"{tol} do{'es' if n_tol == 1 else ''} not")
+            if abstained:
+                summary += (f"; {_and_list(abstained)} "
+                            f"make{'s' if len(abstained) == 1 else ''} no call")
             # `unanimous` says the predictors agree WITH EACH OTHER. It must not drive
             # the styling on its own: a unanimous "tolerated" against a Likely pathogenic
             # ClinVar call was rendered in the agreement colour, which reads as "all fine"
@@ -1407,8 +1421,7 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
                          "names": names, "summary": summary,
                          "unanimous": unanimous, "stance": stance,
                          "abstained": abstained}
-            tail = ("; " + ", ".join(f"{n} ambiguous" for n in abstained)) if abstained else ""
-            lines.append(f"→ **In-silico consensus:** {summary} ({names}){tail}")
+            lines.append(f"→ **In-silico consensus:** {summary}")
     else:
         lines.append("**Missense predictors (AlphaMissense/REVEL/SaProt) do not apply** to this "
                      "variant type — they score amino-acid substitutions only. For non-missense "

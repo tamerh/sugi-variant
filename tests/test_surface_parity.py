@@ -1097,8 +1097,13 @@ def test_the_consensus_says_which_predictors_it_is_speaking_for():
     # "both predictors" would be a claim about all three; "both scoring predictors"
     # is a claim only about the two that spoke, and the abstention is named.
     c = _conc_ambiguous()
-    assert "scoring" in c["consensus"]["summary"]
-    assert "AlphaMissense ambiguous" in [l for l in c["lines"] if "consensus" in l][0]
+    summary = c["consensus"]["summary"]
+    # it must name the predictors it speaks for, and say which one sat out — "both
+    # scoring predictors call this tolerated" was true but left the reader to work out
+    # which two, from a card of up to thirteen rows.
+    assert "REVEL and SaProt" in summary, summary
+    assert "AlphaMissense makes no call" in summary, summary
+    assert "AlphaMissense" not in summary.split(";")[0], "an abstainer is not a speaker"
 
 
 def test_a_single_remaining_predictor_is_not_a_consensus():
@@ -1558,8 +1563,10 @@ def test_the_rendered_page_does_not_paint_a_discordant_consensus_green():
         pytest.skip("no ambiguous-AM pathogenic record in the sampled genes")
     html, _, _, _ = _both(rec)
     import re
-    m = re.search(r'<p class="vd-consensus([^"]*)">(.*?)</p>', html, re.S)
-    assert m, "consensus paragraph not rendered"
+    # the consensus now renders inside the predictor group it summarises, not as a
+    # paragraph below the whole card
+    m = re.search(r'class="vd-consensus([^"]*)">(.*?)</td>', html, re.S)
+    assert m, "consensus row not rendered"
     klass, text = m.group(1), m.group(2)
     if "tolerated" in text:
         assert "is-agree" not in klass, f"discordant consensus painted as agreement: {klass!r}"

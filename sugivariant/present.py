@@ -131,3 +131,40 @@ def evidence_view(rec, freq_g=None):
                                                 rec.get("classification")),
             "consensus": consensus_view(c),
             "verdict": verdict_view(c)}
+
+
+# ── evidence card layout ─────────────────────────────────────────────────────
+# The card grew from 3 rows to 13 as datasets were added, in the order they were
+# added: CADD landed between Consequence and REVEL, Pangolin five rows from
+# SpliceAI. A flat list of 13 makes the reader scan everything to find the one
+# thing they came for, and it is why "both scoring predictors" was hard to place —
+# the sentence sat below a wall of rows rather than beside the two it described.
+#
+# Groups are by the QUESTION a row answers, so each block can be read or skipped
+# whole, and the consensus sits directly under the predictors it summarises.
+EVIDENCE_GROUPS = (
+    ("protein", "Protein change"),
+    ("splicing", "Splicing"),
+    ("constraint", "Constraint at this position"),
+    ("overall", "Overall"),
+    ("region", "Region caveats"),
+)
+
+
+def evidence_groups(rec):
+    """Which groups have at least one row. Mirrors the template's row conditions;
+    tests/test_present.py renders real records and fails on an empty group heading."""
+    gn = rec.get("gnocchi") or {}
+    cons = rec.get("conservation") or {}
+    return {
+        # the AlphaMissense row always renders — either a score or the note explaining
+        # why missense predictors do not apply — so this group is never empty
+        "protein": True,
+        "splicing": bool(rec.get("splice_region") or rec.get("spliceai")
+                         or (rec.get("pangolin") or {}).get("status") == "scored"),
+        "constraint": bool(cons.get("phylop") is not None or rec.get("rmc")
+                           or gn.get("z") is not None or gn.get("not_covered")),
+        "overall": bool(rec.get("cadd")),
+        "region": bool((rec.get("repeat") or {}).get("tandem")
+                       or (rec.get("repeat") or {}).get("segdup")),
+    }

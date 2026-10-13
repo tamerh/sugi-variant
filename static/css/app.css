@@ -268,6 +268,15 @@
 .vd-consensus{font-size:.9rem;margin-top:.6rem;padding-top:.5rem;border-top:1px dashed var(--border,#e5e7eb)}
 .vd-consensus.is-agree{color:var(--ok)}
 .vd-consensus.is-flag{color:var(--flag)}
+/* Evidence-card grouping. The card grew from 3 rows to 13 in the order datasets were
+   added; grouping by the question each row answers lets a reader skip a whole block
+   instead of scanning all of it. The heading is quiet on purpose — it is a signpost,
+   not a finding, and must not compete with the rows under it. */
+.vd-grp>td{padding:1rem 0 .3rem;font-size:.72rem;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted,#6b7280);border-bottom:1px solid var(--border,#e5e7eb)}
+.vd-preds tbody tr.vd-grp:first-child>td{padding-top:.1rem}
+.vd-note>td{padding:.5rem 0 .2rem;font-size:.86rem}
+.vd-note>td.vd-consensus{margin:0;border-top:0;padding-top:.45rem}
 .vd-dl{display:grid;grid-template-columns:auto 1fr;gap:.25rem .8rem;margin:0;font-size:.86rem}
 .vd-dl dt{color:var(--muted,#6b7280);font-weight:600}.vd-dl dd{margin:0}
 .vd-chips{display:flex;flex-wrap:wrap;gap:.3rem}

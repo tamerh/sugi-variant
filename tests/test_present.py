@@ -170,3 +170,76 @@ def test_evidence_view_adds_no_lookups(monkeypatch):
                    "gnomad": {"absent": True, "band": "absent from gnomAD v4.1"},
                    "concordance": {"consensus": {"stance": "neutral", "n_damaging": 0,
                                                  "total": 2}, "verdict": "x"}})
+
+
+# ── evidence-card grouping ───────────────────────────────────────────────────
+def test_no_group_heading_renders_without_rows_under_it():
+    """evidence_groups() mirrors the template's row conditions, so the two can drift.
+    An empty heading is worse than no grouping: it implies evidence that is not there."""
+    import glob
+    import gzip
+    import os
+    import pickle
+    import random
+    import re as _re
+    os.environ.setdefault("BASE_PATH", "/variant")
+    import app
+    from sugivariant.enrich import refresh_record
+    from sugivariant.present import EVIDENCE_GROUPS
+    titles = {t for _, t in EVIDENCE_GROUPS}
+    cache = os.environ.get("RECORDS_DIR") or "/data2/sugi-variant-cache/records"
+    files = sorted(glob.glob(os.path.join(cache, "*.pkl.gz")))
+    if not files:
+        pytest.skip("no cached records")
+    random.Random(5).shuffle(files)
+    checked = 0
+    for f in files[:12]:
+        try:
+            recs = pickle.load(gzip.open(f, "rb"))
+        except Exception:
+            continue
+        for rec in recs[:40]:
+            refresh_record(rec)
+            g, pops = app._freq_ctx(rec)
+            html = app._render("variant.html", v=rec, canonical=rec.get("canonical_slug"),
+                               nav="variant", jsonld="", freq_g=g, freq_pops=pops)
+            body = _re.search(r'<table class="vd-preds"><tbody>(.*?)</tbody>', html, _re.S)
+            assert body, "evidence table not rendered"
+            rows = _re.findall(r'<tr[^>]*class="(vd-grp|vd-note)"[^>]*>|<tr(?![^>]*vd-)',
+                               body.group(1))
+            # walk the rows: a vd-grp must be followed by at least one non-group row
+            seq = _re.findall(r'<tr([^>]*)>', body.group(1))
+            for i, attrs in enumerate(seq):
+                if "vd-grp" not in attrs:
+                    continue
+                rest = seq[i + 1:]
+                assert rest and "vd-grp" not in rest[0], (
+                    f"{rec.get('canonical_slug')}: an empty group heading")
+            checked += 1
+    assert checked, "no records rendered — the sweep proved nothing"
+
+
+def test_the_consensus_sits_inside_the_group_it_describes():
+    """It used to be a paragraph below the whole 13-row card, which is why "both
+    scoring predictors" was hard to place: the sentence was nowhere near its subjects."""
+    import os
+    os.environ.setdefault("BASE_PATH", "/variant")
+    import app
+    import re as _re
+    rec = {"canonical_slug": "x-p-y", "gene_symbol": "X", "classification": "Likely pathogenic",
+           "alphamissense": {"class": "ambiguous", "score": "0.44"},
+           "revel": {"score": 0.2, "band": "benign-leaning", "direction": "benign"},
+           "saprot": {"llr": -5.5, "damaging": False},
+           "cadd": {"phred": 24.2}}
+    from sugivariant.enrich import refresh_record
+    refresh_record(rec)
+    html = app._render("variant.html", v=rec, canonical="x-p-y", nav="variant", jsonld="",
+                       freq_g=None, freq_pops=[])
+    body = _re.search(r'<table class="vd-preds"><tbody>(.*?)</tbody>', html, _re.S).group(1)
+    assert "vd-note" in body, "the consensus must render inside the table"
+    # it must come after SaProt and before the next group heading
+    i_sap, i_note = body.index("SaProt"), body.index("vd-note")
+    assert i_sap < i_note, "the consensus must follow the predictors it summarises"
+    nxt = body.find('class="vd-grp"', i_note)
+    assert nxt == -1 or nxt > i_note
+    assert "REVEL and SaProt" in body, "the summary must name its subjects"
