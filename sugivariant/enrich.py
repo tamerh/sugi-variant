@@ -1427,8 +1427,9 @@ def mavedb_for(hgvs_p, cache):
 
 def gene_spliceai(hgnc_id):
     """The gene's SpliceAI predictions, indexed two ways:
-        by_allele: {"chr:pos:ref:alt": {effect, score}}
-        by_pos:    {"chr:pos": [{ref, alt, effect, score}, ...]}
+        by_allele: {"chr:pos:ref:alt": {effect, score, ds_*, ds_*_masked}}
+        by_pos:    {"chr:pos": [{ref, alt, effect, score, ds_*, ds_*_masked}, ...]}
+        masked_loaded: whether the masked deltas are populated at all (see below)
 
     The by-position index exists so that a variant whose own allele is missing is
     distinguishable from one SpliceAI never scored — we used to render nothing in both
@@ -1438,18 +1439,35 @@ def gene_spliceai(hgnc_id):
     fell below the 0.2 reporting threshold, which is why that case can now be stated
     as negative evidence. The index is free: built from keys we already fetch."""
     by_allele, by_pos = {}, {}
+    masked_seen = False
     # uncapped: every variant's coordinate must resolve its SpliceAI score — a
     # 60-page cap would drop splice annotations on big genes. Once per gene (cached).
     for r in map_all(hgnc_id, ">>hgnc>>spliceai", cap=None):
         cid = r.get("id")
         if cid and r.get("score"):
             hit = {"effect": r.get("effect"), "score": r.get("score")}
+            for k in _SPLICEAI_DELTA_LABEL:
+                hit[k] = _f(r.get(k))
+                mv = _f(r.get(k + "_masked"))
+                hit[k + "_masked"] = mv
+                if mv:
+                    masked_seen = True
             by_allele[cid] = hit
             parts = cid.split(":")
             if len(parts) == 4:
                 by_pos.setdefault(":".join(parts[:2]), []).append(
                     {"ref": parts[2], "alt": parts[3], **hit})
-    return {"by_allele": by_allele, "by_pos": by_pos}
+    # Whether the masked deltas are POPULATED, which is not the same as present.
+    # Verified 2026-10-13: prod served all four masked keys for every one of PTEN's
+    # 1,851 scored variants with the value 0.00, while dev served the real figures —
+    # same version, same commit, same last_built. Reading the keys' presence as
+    # evidence would have rendered "masked predicts no effect" on every splice
+    # readout on the site. Genuine data has non-zero masked deltas somewhere in a
+    # gene (dev PTEN: 1,156 of 1,851), unpopulated data has none at all, so one
+    # non-zero value anywhere in the gene is the discriminator. Costs nothing — it
+    # is read off rows already fetched — and starts working by itself once the data
+    # lands, with no deploy.
+    return {"by_allele": by_allele, "by_pos": by_pos, "masked_loaded": masked_seen}
 
 
 # ClinGen SVI calibration of SpliceAI (Walker et al., AJHG 2023;110:1046, PMID 37352859).
@@ -1492,45 +1510,25 @@ _SPLICEAI_DELTA_LABEL = {"ds_ag": "acceptor gain", "ds_al": "acceptor loss",
                          "ds_dg": "donor gain", "ds_dl": "donor loss"}
 
 
-def _spliceai_deltas(coord):
-    """All four SpliceAI deltas (+ their positions) for this exact allele, or None.
+def _spliceai_dp(coord, delta_key):
+    """The dp_* offset for one delta, via entry(). None if unavailable.
 
-    The gene-level map projection carries only the dominant effect and its score, so
-    the four deltas need one entry() hop per scored variant. That is worth paying:
-    without them a canonical +/-1,2 variant could only be shown with a caveat that the
-    single stored label might be the wrong one of the four. Roughly 5% of variants are
-    scored at all, so this adds a call to about 1 record in 20, not to every record."""
-    if not coord:
+    The map projection carries all eight deltas but not the four dp_* offsets, so the
+    distance to the affected site still costs one entry(). It is now paid only where
+    it earns its keep: when masked disagrees with raw, the distance is the explanation
+    (a loss scored 10 bp from any annotated site is a cryptic-site artifact), and when
+    masked agrees there is nothing to explain. Scored variants are a small share of the
+    corpus and disagreements a share of those, so this is cheaper than the old
+    unconditional hop while losing nothing a reader uses."""
+    if not coord or not delta_key:
         return None
     a = _coord_entry(coord, "spliceai")
     if a is FETCH_ERROR or not a:
         return None
-    ds = {k: _f(a.get(k)) for k in _SPLICEAI_DELTA_LABEL}
-    if all(v is None for v in ds.values()):
+    try:
+        return int(a.get("dp_" + delta_key[3:]))
+    except (TypeError, ValueError):
         return None
-    out = dict(ds)
-    out.update({k: a.get(k) for k in ("dp_ag", "dp_al", "dp_dg", "dp_dl")})
-    # Decide the dominant effect from the four deltas rather than trusting the
-    # projection's single label, which is what made the old caveat necessary.
-    scored = [k for k in ds if ds[k] is not None]
-    if scored:
-        best = max(scored, key=lambda k: ds[k])
-        out["dominant"] = _SPLICEAI_DELTA_LABEL[best]
-        out["dominant_score"] = ds[best]
-        # How far the AFFECTED site is from the variant. This is the number that
-        # decides whether a loss delta is meaningful: a loss scored against a site
-        # the variant is sitting on is a real prediction, while one scored against a
-        # position 10 bp away is a cryptic site that masked SpliceAI reports as 0.
-        # Verified on PTEN c.83T>G, where we carry raw acceptor-loss 0.21 with
-        # dp_al -10 and Ensembl VEP (masked) reports 0: every other field of the two
-        # records is identical, and 87894018 is not an annotated boundary (exon 2
-        # starts at 87894025). Offsets are plain genomic, confirmed against MECP2
-        # c.413+2 (dp 2 -> the exon boundary) on the minus strand.
-        try:
-            out["dominant_dp"] = int(out.get("dp_" + best[3:]))
-        except (TypeError, ValueError):
-            out["dominant_dp"] = None
-    return out
 
 
 def spliceai_for(coord, cache):
@@ -1567,9 +1565,29 @@ def spliceai_for(coord, cache):
         out = dict(hit)
         out["status"] = "scored"
         out["band"] = spliceai_band(out.get("score"))
-        deltas = _spliceai_deltas(coord)
-        if deltas:
-            out.update(deltas)
+        # Dominant effect decided from the four RAW deltas, which the projection now
+        # carries, so this costs nothing and no longer trusts a single stored label.
+        ds = {k: out.get(k) for k in _SPLICEAI_DELTA_LABEL}
+        scored = [k for k in ds if ds[k] is not None]
+        best = max(scored, key=lambda k: ds[k]) if scored else None
+        if best:
+            out["dominant"] = _SPLICEAI_DELTA_LABEL[best]
+            out["dominant_score"] = ds[best]
+        # The masked release is what Ensembl VEP and the Broad lookup serve. Where it
+        # disagrees with raw, that disagreement is the single most useful thing on the
+        # row — but only claim it where the gene's masked deltas are actually
+        # populated, because unpopulated zeros are indistinguishable from a genuine
+        # "no effect" on any one variant.
+        if (cache or {}).get("masked_loaded"):
+            mx = max((out.get(k + "_masked") or 0.0) for k in _SPLICEAI_DELTA_LABEL)
+            out["masked_max"] = mx
+            out["masked_verdict"] = (
+                "agrees" if mx >= dataset_threshold("spliceai", _SPLICEAI_THRESHOLD)
+                else "no_effect")
+        if best and out.get("masked_verdict") != "agrees":
+            dp = _spliceai_dp(coord, best)
+            if dp is not None:
+                out["dominant_dp"] = dp
         return out
     pos = ":".join(str(coord).split(":")[:2])
     others = (by_pos or {}).get(pos) or []

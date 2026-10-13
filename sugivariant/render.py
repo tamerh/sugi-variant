@@ -615,15 +615,28 @@ def render_body(v, jsonld_tag=""):
             _where = ""
             if _dp is not None:
                 _where = (" at this position" if _dp == 0 else f", {abs(_dp)} bp away")
-            L.append("- SpliceAI deltas: acceptor loss **{:.2f}**, donor loss **{:.2f}**, "
+            L.append("- SpliceAI deltas (raw): acceptor loss **{:.2f}**, donor loss **{:.2f}**, "
                      "acceptor gain **{:.2f}**, donor gain **{:.2f}**.{}".format(
                          sa.get("ds_al") or 0, sa.get("ds_dl") or 0,
                          sa.get("ds_ag") or 0, sa.get("ds_dg") or 0,
                          f" Largest is {sa['dominant']}{_where}." if sa.get("dominant") else ""))
-            L.append("  These are **raw** scores. Masked SpliceAI — what Ensembl VEP and the "
-                     "Broad lookup serve by default — reports 0 for a loss scored against a "
-                     "position that is not an annotated splice site, so a masked lookup can "
-                     "legitimately show 0 where this shows a score.")
+            if sa.get("masked_verdict"):
+                L.append("- SpliceAI deltas (masked): acceptor loss **{:.2f}**, donor loss "
+                         "**{:.2f}**, acceptor gain **{:.2f}**, donor gain **{:.2f}**.".format(
+                             sa.get("ds_al_masked") or 0, sa.get("ds_dl_masked") or 0,
+                             sa.get("ds_ag_masked") or 0, sa.get("ds_dg_masked") or 0))
+            if sa.get("masked_verdict") == "no_effect":
+                L.append("  Masked SpliceAI — what Ensembl VEP and the Broad lookup serve by "
+                         "default — is below the reporting threshold here, so those tools show "
+                         "**no splice signal** for this allele. Masking zeroes a loss scored "
+                         "against a position that is not an annotated splice site, and a gain "
+                         "that merely strengthens an existing one, so the raw score above is "
+                         "describing a cryptic site rather than the site the variant sits on. "
+                         "*No ACMG code is assigned either way.*")
+            elif not sa.get("masked_verdict"):
+                L.append("  These are **raw** scores. Masked SpliceAI — what Ensembl VEP and the "
+                         "Broad lookup serve by default — can legitimately show 0 where this "
+                         "shows a score; the masked figures are not available for this record.")
         elif sa_st == "other_allele":
             L.append(f"- SpliceAI: **below the reporting threshold**. This position is scored for a "
                      f"different substitution ({sa.get('ref')}>{sa.get('alt')}, \u0394{_fmt2(sa.get('score'))} "

@@ -845,3 +845,85 @@ def test_nowrap_tables_release_their_labels_on_narrow_viewports():
     assert "overflow:hidden" not in _rule(css, ".sources-table-wrap "), (
         "the sources wrapper clips instead of scrolling, so the longest source names "
         "are unreachable on a phone rather than merely cramped")
+
+
+# ── SpliceAI masked deltas (biobtree v2.16.0) ─────────────────────────────────
+#
+# The masked release is what Ensembl VEP and the Broad lookup serve. On 2026-10-13
+# prod returned all four masked keys for every one of PTEN's 1,851 scored variants
+# with the value 0.00, while dev returned the real figures — same version, same
+# commit, same last_built. Trusting the keys' presence would have rendered "masked
+# predicts no effect" on every splice readout on the site, so presence is never
+# taken as evidence; a non-zero value somewhere in the gene is.
+
+def test_masked_claims_need_the_gene_to_actually_have_masked_data():
+    """THE safety case for masked. Unpopulated zeros are indistinguishable from a
+    genuine "no effect" on any single variant, so the gate is per gene."""
+    from sugivariant.enrich import spliceai_for
+    raw_only = {"effect": "acceptor_loss", "score": "0.21", "ds_ag": 0.01, "ds_al": 0.21,
+                "ds_dg": 0.0, "ds_dl": 0.0,
+                "ds_ag_masked": 0.0, "ds_al_masked": 0.0,
+                "ds_dg_masked": 0.0, "ds_dl_masked": 0.0}
+    coord = "10:87894028:T:G"
+
+    # prod's shape: every masked delta zero across the gene -> claim nothing
+    unloaded = {"by_allele": {coord: raw_only}, "by_pos": {}, "masked_loaded": False}
+    sa = spliceai_for(coord, unloaded)
+    assert sa.get("masked_verdict") is None, (
+        "masked data is not populated for this gene, so no masked claim may be made: "
+        f"{sa.get('masked_verdict')}")
+
+    # dev's shape: the gene has real masked values somewhere, so this allele's
+    # all-zero masked IS the real negative evidence
+    loaded = {"by_allele": {coord: raw_only}, "by_pos": {}, "masked_loaded": True}
+    sa = spliceai_for(coord, loaded)
+    assert sa["masked_verdict"] == "no_effect", sa
+    assert sa["masked_max"] == 0.0
+
+
+def test_masked_agreement_suppresses_the_disagreement_text():
+    from sugivariant.enrich import spliceai_for
+    agree = {"effect": "donor_gain", "score": "0.78", "ds_ag": 0.0, "ds_al": 0.0,
+             "ds_dg": 0.78, "ds_dl": 0.52,
+             "ds_ag_masked": 0.0, "ds_al_masked": 0.0,
+             "ds_dg_masked": 0.78, "ds_dl_masked": 0.52}
+    sa = spliceai_for("X:154032202:C:T",
+                      {"by_allele": {"X:154032202:C:T": agree}, "by_pos": {},
+                       "masked_loaded": True})
+    assert sa["masked_verdict"] == "agrees", sa
+    assert sa["dominant"] == "donor gain", sa
+
+
+def test_gene_spliceai_detects_unpopulated_masked_deltas(monkeypatch):
+    """masked_loaded is read off rows already fetched, so it costs nothing and starts
+    working by itself once upstream populates the data — no deploy needed."""
+    from sugivariant import enrich
+    zeros = [{"id": "1:1:A:G", "effect": "acceptor_loss", "score": "0.3",
+              "ds_ag": "0.00", "ds_al": "0.30", "ds_dg": "0.00", "ds_dl": "0.00",
+              "ds_ag_masked": "0.00", "ds_al_masked": "0.00",
+              "ds_dg_masked": "0.00", "ds_dl_masked": "0.00"}]
+    real = [dict(zeros[0], ds_al_masked="0.30")]
+    monkeypatch.setattr(enrich, "map_all", lambda *a, **k: zeros)
+    assert enrich.gene_spliceai("HGNC:1")["masked_loaded"] is False
+    monkeypatch.setattr(enrich, "map_all", lambda *a, **k: real)
+    assert enrich.gene_spliceai("HGNC:1")["masked_loaded"] is True
+
+
+def test_masked_disagreement_is_visible_on_both_surfaces():
+    os.environ.setdefault("BASE_PATH", "/variant")
+    sa = {"status": "scored", "effect": "acceptor_loss", "score": "0.21",
+          "ds_ag": 0.01, "ds_al": 0.21, "ds_dg": 0.0, "ds_dl": 0.0,
+          "ds_ag_masked": 0.0, "ds_al_masked": 0.0, "ds_dg_masked": 0.0,
+          "ds_dl_masked": 0.0, "masked_verdict": "no_effect", "masked_max": 0.0,
+          "dominant": "acceptor loss", "dominant_score": 0.21, "dominant_dp": -10}
+    rec = {"canonical_slug": "x-c-83t-g", "gene_symbol": "X", "classification": "VUS",
+           "variation_id": 11, "name": "X:c.83T>G", "hgvs_c": "c.83T>G", "conditions": [],
+           "variant_type": "single nucleotide variant",
+           "review_status": "criteria provided, single submitter", "spliceai": sa}
+    html_out, md, _, _ = _both(rec)
+    assert "masked 0" in html_out, "HTML hides that masked disagrees"
+    assert "10 bp away" in html_out, "HTML omits the distance that explains it"
+    assert "no splice signal" in md, ".md does not say what VEP would show"
+    assert "cryptic site" in md, ".md omits why raw and masked differ"
+    for surface, name in ((html_out, "HTML"), (md, ".md")):
+        assert "0.21" in surface, f"{name} drops the raw score"
