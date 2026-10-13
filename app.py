@@ -24,8 +24,7 @@ from sugivariant.build import enriched_records            # noqa: E402
 from sugivariant.collect import collect                   # noqa: E402
 from sugivariant.render import _label as variant_label    # noqa: E402
 from sugivariant.slug import _norm, _norm_hgvs            # noqa: E402
-from sugivariant.enrich import refresh_concordance as _refresh_concordance  # noqa: E402
-from sugivariant.enrich import refresh_frequency as _refresh_frequency  # noqa: E402
+from sugivariant.enrich import refresh_record as _refresh  # noqa: E402
 from sugivariant.enrich import (review_stars, review_tier, tier_label,  # noqa: E402
                                 missense_short, disagreement_flag,
                                 DISAGREEMENT_CATEGORIES)
@@ -78,6 +77,11 @@ env.globals["data_asof"] = data_asof
 env.globals["data_asof_range"] = data_asof_range
 env.globals["source_asof"] = source_asof
 env.globals["tier_label"] = tier_label
+# `v.spliceai` is ALWAYS a dict carrying a status now, so {% if v.spliceai %} is true for
+# "absent" and "snv_only" too — which had the page claim SpliceAI "carries the signal" on
+# variants where it was never assessed. Templates must ask whether it actually scored.
+from sugivariant.enrich import spliceai_scored as _spliceai_scored  # noqa: E402
+env.globals["spliceai_scored"] = _spliceai_scored
 
 # ClinGen dosage haploinsufficiency: 0–3 is the evidence scale; 30/40 are category codes
 # (not points on the scale), so don't render them as "30/3".
@@ -467,7 +471,7 @@ def _grouped_flags(recs):
     within each group (pathogenic → higher review stars → slug)."""
     groups = {cat: [] for cat in DISAGREEMENT_CATEGORIES}
     for r in recs:
-        _refresh_concordance(r)       # pickled readouts may predate a fix to it
+        _refresh(r)                   # pickled readouts may predate a fix to them
         f = disagreement_flag(r)
         if f:
             groups[f["category"]].append({"rec": r, "flag": f})
@@ -554,7 +558,7 @@ def _freq_ctx(rec):
                            "populations")}
     # Correct a stored block that claims an absence it cannot support, before anything
     # reads `absent` or `band` (pure; both bad shapes are visible in the stored dict).
-    _refresh_frequency(rec)
+    _refresh(rec)
     g.update(rec.get("gnomad") or {})
     if g.get("faf95") is None:
         g["faf95"] = g.get("faf")
@@ -797,7 +801,7 @@ def gene_hub(gene: str):
                                     status_code=404)
             raise StarletteHTTPException(404, f"No variants built for “{g}”.")
         for x in recs:
-            _refresh_concordance(x)   # pickled readouts may predate a fix to it
+            _refresh(x)               # pickled readouts may predate a fix to them
         rows = sorted(({"slug": x["canonical_slug"], "hgvs_p": x.get("hgvs_p"),
                         "hgvs_c": x.get("hgvs_c"), "classification": x["classification"],
                         "stars": review_stars(x.get("review_status")),
@@ -863,10 +867,10 @@ def variant_page(slug: str, view: str = ""):
     except Exception:
         jsonld = ""
     freq_g, freq_pops = _freq_ctx(rec)
-    # Refresh the pickled concordance readout from the record's own fields before the
-    # template reads it (pure, no lookups). Explicit rather than relying on
-    # disagreement_flag()'s side effect, which happens to run first today.
-    _refresh_concordance(rec)
+    # Re-derive the pickled readouts from the record's own fields before the template
+    # reads them (pure, no lookups). Explicit rather than relying on disagreement_flag()'s
+    # side effect, which happens to run first today.
+    _refresh(rec)
     html = _render("variant.html", v=rec, canonical=rec["canonical_slug"], nav="variant",
                    jsonld=jsonld, disagreement=disagreement_flag(rec),
                    freq_g=freq_g, freq_pops=freq_pops)

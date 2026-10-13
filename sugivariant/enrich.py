@@ -1107,10 +1107,21 @@ def splice_agreement(sa, pg):
         if d_sa and d_pg and d_sa != d_pg:
             return {"state": "direction_differs",
                     "text": f"SpliceAI calls {d_sa}"}
+        if not (d_sa and d_pg):
+            # One of the two carries no direction label. Both scored, so they agree a
+            # signal exists, but agreement on DIRECTION is not ours to assert.
+            return {"state": "both_scored", "text": "both predict an effect"}
         return {"state": "agree", "text": "agrees with SpliceAI"}
-    if st in ("other_allele", "absent"):
-        # The predictors genuinely disagree about whether there is a signal at all.
+    if st == "other_allele":
+        # The position WAS evaluated and this allele was not among the scored ones, so
+        # the release really does place it under its own 0.2 cut. A genuine disagreement.
         return {"state": "spliceai_below", "text": "SpliceAI below 0.2"}
+    if st == "absent":
+        # No SpliceAI record for this position at all. That is missing data, not a
+        # sub-threshold score — the delta could be anything, and the SpliceAI row two
+        # rows up already says "not assessed". Claiming "below 0.2" here made the page
+        # contradict itself on 957 of 1,249 measured spliceai_below states.
+        return {"state": "spliceai_absent", "text": "not in the SpliceAI release"}
     return None
 
 
@@ -1274,6 +1285,24 @@ def submitter_consensus(submissions):
     return {"n": len(calls), "breakdown": dict(bd), "verdict": verdict}
 
 
+# phyloP bands. ACGS 2024 operationalises BP7's conservation clause as "not highly
+# conserved regions are those with e.g. PhyloP score < 0.1", which is the only published
+# cut available here, so it is the one used rather than an invented midpoint. The old
+# chain labelled everything in (-2, 2) "moderately conserved position" — including
+# phyloP -0.8, where GERP and phastCons both say the opposite, on 2,193 pathogenic/LP
+# records. A negative phyloP is acceleration, not moderate conservation.
+def conservation_note(p, weighted):
+    """Label a phyloP value. `weighted` marks the non-missense branch, where conservation
+    is the single ACMG-weighted computational signal and so carries the PP3-type note."""
+    if p >= 2:
+        return "highly conserved position (PP3-type support)" if weighted else "highly conserved"
+    if p <= -2:
+        return "fast-evolving / accelerated position"
+    if p >= 0.1:
+        return "weakly conserved position"
+    return "not a conserved position (phyloP < 0.1, ACGS BP7 cut)"
+
+
 def concordance(classification, am, gnomad, spliceai=None, conservation=None, revel=None, saprot=None):
     """Cross-source concordance readout: do the computational predictors agree with
     ClinVar? Returns {lines, verdict, flags}. ClinGen-SVI framing: in-silico
@@ -1403,20 +1432,16 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
             total += 1
             if conserved and clinvar_path:
                 agree += 1
-            note = ("highly conserved position (PP3-type support)" if conserved
-                    else "fast-evolving / non-conserved position" if p <= -2
-                    else "moderately conserved position")
-            lines.append(f"Conservation: {detail} — {note}")
+            lines.append(f"Conservation: {detail} — {conservation_note(p, True)}")
         else:
             # missense: conservation is an agreement check on AlphaMissense (not counted).
             # It can only "agree" with a call that was made, and with a likely-benign call
             # a conserved position DIFFERS — the old wording said "agrees" for both.
-            if not conserved:
-                note = "low conservation"
-            elif am_call is None:
-                note = "conserved"
-            else:
-                note = "conserved (agrees)" if am_call else "conserved (differs from AlphaMissense)"
+            # Same bands as the non-missense branch — phyloP 1.9 used to read "low
+            # conservation" here and "moderately conserved" there, from one threshold.
+            note = conservation_note(p, False)
+            if conserved and am_call is not None:
+                note += " (agrees)" if am_call else " (differs from AlphaMissense)"
             lines.append(f"Conservation: {detail} — {note}")
 
     # Population frequency — it still raises the "common in gnomAD" disagreement FLAG
@@ -1457,6 +1482,32 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
     else:
         verdict = "Mixed / partial computational evidence (see below)"
     return {"lines": lines, "verdict": verdict, "flags": flags, "consensus": consensus}
+
+
+def refresh_record(rec):
+    """Re-derive every pickled readout that is a pure function of the record's own
+    stored fields, before anything renders or classifies it.
+
+    This is the one entry point deliberately: there are three of these now, each with
+    its own set of call sites, and the first round of this work shipped with index.py
+    still reading a stale concordance — the single site that PERSISTS its answer. One
+    function to call means a new caller cannot pick up two of the three.
+
+    All three are lookup-free, which is what lets a correction reach the 4.12M records
+    already on disk without an 18,792-gene rebuild.
+    """
+    refresh_concordance(rec)
+    refresh_frequency(rec)
+    refresh_splice_agreement(rec)
+    return rec
+
+
+def refresh_splice_agreement(rec):
+    """Recompute `rec["splice_agreement"]` from the stored spliceai/pangolin blocks."""
+    if not rec.get("_sag_fresh"):
+        rec["splice_agreement"] = splice_agreement(rec.get("spliceai"), rec.get("pangolin"))
+        rec["_sag_fresh"] = True
+    return rec["splice_agreement"]
 
 
 def refresh_frequency(rec):
@@ -1819,10 +1870,22 @@ def spliceai_for(coord, cache):
       absent        the position is in no record of the release — either outside the
                     scored MANE scope or below threshold for every allele. Those two
                     are indistinguishable from here, so this one claims neither.
+      not_loaded    the gene's SpliceAI index was never built for this page, so nothing
+                    was looked up. Previously this also returned `absent`, which turned
+                    "we did not look" into a statement about the release: BRCA1
+                    c.4357+2T>A, a pathogenic canonical donor whose real readout is
+                    donor_loss delta 0.99, rendered as "not assessed". It happens on the
+                    whale fast path before a gene's pickle exists, and permanently for
+                    variants served under a different gene's record (WRAP53 under TP53,
+                    MT-ATP8 under MT-ATP6, OMG/EVI2A/EVI2B under NF1).
 
     Returns None only when the variant has no coordinate to look up with."""
     if not coord:
         return None
+    # gene_spliceai() always returns a 3-key dict, empty maps included, so a falsy cache
+    # means it was never built — never that the gene has no SpliceAI data.
+    if not cache:
+        return {"status": "not_loaded"}
     if coord_is_snv(coord) is False:
         return {"status": "snv_only"}
     by_allele = (cache or {}).get("by_allele")

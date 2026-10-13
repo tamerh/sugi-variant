@@ -437,9 +437,8 @@ def render_body(v, jsonld_tag=""):
     # The concordance readout is pickled with the record, so refresh it from the
     # record's own predictor fields (pure, no lookups) before rendering — otherwise a
     # correction to it would only reach a page after a full rebuild.
-    from sugivariant.enrich import refresh_concordance, refresh_frequency
-    refresh_concordance(v)
-    refresh_frequency(v)
+    from sugivariant.enrich import refresh_record
+    refresh_record(v)
     L = ["## Summary", "", declarative(v), ""]
     # At a glance
     L.append("**At a glance:** "
@@ -655,6 +654,10 @@ def render_body(v, jsonld_tag=""):
                      f"{(v.get('variant_type') or 'non-substitution').lower()} variants. That is a "
                      "property of the dataset, not of the variant, and is not evidence against a "
                      "splicing effect.")
+        elif sa_st == "not_loaded":
+            L.append("- SpliceAI: **not looked up on this page** — it was served without the gene's "
+                     "SpliceAI index, so no lookup was made. This is a gap in this page, not in the "
+                     "data, and says nothing about whether a splicing effect is predicted.")
         elif sa_st == "absent":
             L.append("- SpliceAI: **not assessed** — no allele at this position is in our SpliceAI "
                      "release, either because it lies outside the scored MANE transcript scope or "

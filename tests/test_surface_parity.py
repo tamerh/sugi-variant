@@ -657,7 +657,13 @@ def test_splice_agreement_compares_the_right_thing():
     disagree = splice_agreement({"status": "other_allele", "score": "0.9"}, pg)
     assert disagree["state"] == "spliceai_below", disagree
     assert "0.2" in disagree["text"]
-    assert splice_agreement({"status": "absent"}, pg)["state"] == "spliceai_below"
+    # `absent` means there is no SpliceAI record for the position, so the delta could be
+    # anything. Reading it as "below 0.2" made the Pangolin row contradict the SpliceAI
+    # row two above it ("not assessed") on 957 of 1,249 measured cases.
+    absent = splice_agreement({"status": "absent"}, pg)
+    assert absent["state"] == "spliceai_absent", absent
+    assert "0.2" not in absent["text"], absent
+    assert absent["text"] == "not in the SpliceAI release"
 
     # Agree that there is a signal, disagree on its direction — worth surfacing.
     opposed = splice_agreement({"status": "scored", "effect": "acceptor_gain",
@@ -1284,12 +1290,14 @@ def test_every_disagreement_flag_call_site_refreshes_the_readout_first():
     import pathlib
     root = pathlib.Path(__file__).resolve().parent.parent
     offenders = []
+    # refresh_record() is the entry point; refresh_concordance() alone also satisfies the
+    # requirement, since it is what disagreement_flag actually reads.
     for f in list(root.glob("*.py")) + list((root / "sugivariant").glob("*.py")):
         src = f.read_text()
         calls = [ln for ln in src.splitlines()
                  if "disagreement_flag(" in ln and "def disagreement_flag" not in ln
                  and not ln.strip().startswith("#")]
-        if calls and "refresh_concordance" not in src:
+        if calls and not ("refresh_record" in src or "refresh_concordance" in src):
             offenders.append(f"{f.name}: calls disagreement_flag but never refreshes")
     assert not offenders, "\n".join(offenders)
 
@@ -1407,3 +1415,86 @@ def test_no_surface_calls_a_missing_frequency_an_absence():
     # and the block must still RENDER — hiding it would lose the disclosure entirely
     assert "no allele count reported" in html
     assert "cannot be assessed" in md
+
+
+# ── phyloP bands: a negative score is not "moderately conserved" ─────────────
+def test_a_negative_phylop_is_never_called_conserved():
+    """One threshold (p >= 2) drove three different claims: everything in (-2, 2) read
+    "moderately conserved position" on the non-missense branch — where conservation is
+    the single ACMG-weighted signal — including phyloP -0.8 on 2,193 pathogenic/LP
+    records whose GERP and phastCons both said the opposite."""
+    from sugivariant.enrich import concordance, conservation_note
+    for p in (-0.096, -0.808, -1.9, -2.5, 0.0):
+        for weighted in (True, False):
+            note = conservation_note(p, weighted)
+            assert "conserved position" not in note or "not a conserved" in note, (p, note)
+            assert "moderately conserved" not in note, (p, note)
+    # and on a real non-missense readout, which is where it carried ACMG weight
+    line = [l for l in concordance("Pathogenic", None, None, None,
+                                   {"phylop": -0.808, "gerp": -2.24, "phastcons": 0.003})["lines"]
+            if "Conservation" in l][0]
+    assert "not a conserved position" in line, line
+    assert "PP3" not in line, "a non-conserved position must not offer PP3-type support"
+
+
+def test_the_two_conservation_branches_agree_on_the_same_value():
+    """phyloP 1.9 read "low conservation" on a missense page and "moderately conserved"
+    on a non-missense one. Both now come from one band definition."""
+    from sugivariant.enrich import conservation_note
+    for p in (1.9, 0.5, -0.5, 3.0, -3.0):
+        a, b = conservation_note(p, True), conservation_note(p, False)
+        # the only licensed difference is the PP3-type note on the weighted branch
+        assert a.replace(" (PP3-type support)", "").replace("position", "").strip() == \
+               b.replace("position", "").strip() or p >= 2, (p, a, b)
+
+
+def test_splice_agreement_is_refreshed_from_the_stored_blocks():
+    from sugivariant.enrich import refresh_record
+    rec = {"spliceai": {"status": "absent"},
+           "pangolin": {"status": "scored", "effect": "loss", "score": 0.35},
+           "splice_agreement": {"state": "spliceai_below", "text": "SpliceAI below 0.2"}}
+    refresh_record(rec)
+    assert rec["splice_agreement"]["state"] == "spliceai_absent"
+    assert "0.2" not in rec["splice_agreement"]["text"]
+
+
+# ── "we did not look" is not "the release has nothing" ───────────────────────
+def test_an_unloaded_spliceai_cache_is_not_reported_as_absence():
+    """spliceai_for returned `absent` when no per-gene index had been built, turning
+    "we did not look" into a claim about the release. BRCA1 c.4357+2T>A — a pathogenic
+    canonical donor whose real readout is donor_loss Δ0.99 — rendered as "not assessed"."""
+    from sugivariant.enrich import spliceai_for
+    assert spliceai_for("17:43082402:A:T", {})["status"] == "not_loaded"
+    assert spliceai_for("17:43082402:A:T", None)["status"] == "not_loaded"
+    # a gene genuinely carrying no rows still yields the 3-key dict, so it is NOT not_loaded
+    loaded_but_empty = {"by_allele": {}, "by_pos": None, "masked_loaded": False}
+    assert spliceai_for("17:43082402:A:T", loaded_but_empty)["status"] != "not_loaded"
+
+
+def test_an_unloaded_cache_makes_no_splice_agreement_claim():
+    from sugivariant.enrich import splice_agreement
+    pg = {"status": "scored", "effect": "loss", "score": 0.35}
+    assert splice_agreement({"status": "not_loaded"}, pg) is None
+
+
+def test_both_surfaces_say_we_did_not_look_rather_than_not_assessed():
+    import os as _os
+    _os.environ.setdefault("BASE_PATH", "/variant")
+    import app
+    from sugivariant.render import render_body
+    from sugivariant.enrich import refresh_record, disagreement_flag
+    rec = next(_records(limit_genes=60, want=lambda r: r.get("spliceai")), None)
+    if rec is None:
+        pytest.skip("no record with a spliceai block")
+    rec = dict(rec)
+    rec["spliceai"] = {"status": "not_loaded"}
+    rec.pop("_sag_fresh", None); rec.pop("_conc_fresh", None)
+    refresh_record(rec)
+    g, pops = app._freq_ctx(rec)
+    html = app._render("variant.html", v=rec, canonical=rec.get("canonical_slug"), nav="variant",
+                       jsonld="", disagreement=disagreement_flag(rec), freq_g=g, freq_pops=pops)
+    md = render_body(rec)
+    assert "not looked up on this page" in html
+    assert "not looked up on this page" in md
+    for surface in (html, md):
+        assert "no allele at this position is in our SpliceAI release" not in surface
