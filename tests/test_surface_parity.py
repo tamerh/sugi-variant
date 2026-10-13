@@ -1050,3 +1050,105 @@ def test_gene_rmc_caches_per_gene_so_a_file_pays_once(monkeypatch):
     for _ in range(20):
         EN.gene_rmc("WRAP53", cache)
     assert calls["map"] == 2, calls
+
+
+# ── AlphaMissense abstention: 'ambiguous' is not a vote ──────────────────────
+# AlphaMissense makes a three-way call. Collapsing it to `== "likely_pathogenic"`
+# turned every 'ambiguous' into a tolerated vote, so pages claimed "all 3 predictors
+# call this tolerated" when the ACMG-weighted tool had explicitly declined to call —
+# on ~2,700 pathogenic/LP variants that also carried a severity-3 disagreement flag.
+_AMB = {"class": "ambiguous", "score": "0.5367", "short": "R520L", "uniprot": "Q96G74"}
+_REVEL_BENIGN = {"score": 0.249, "band": "benign-leaning", "direction": "benign"}
+_SAPROT_TOL = {"llr": -5.52, "damaging": False}
+
+
+def _conc_ambiguous(**kw):
+    from sugivariant.enrich import concordance
+    args = dict(classification="Likely pathogenic", am=_AMB, gnomad=None,
+                revel=_REVEL_BENIGN, saprot=_SAPROT_TOL)
+    args.update(kw)
+    return concordance(args.pop("classification"), args.pop("am"), args.pop("gnomad"), **args)
+
+
+def test_an_ambiguous_alphamissense_is_never_counted_as_a_tolerated_vote():
+    c = _conc_ambiguous()
+    cons = c["consensus"]
+    assert cons["total"] == 2, f"AlphaMissense abstained but was counted: {cons}"
+    assert "AlphaMissense" not in cons["names"]
+    assert cons["abstained"] == ["AlphaMissense"]
+    assert "all 3" not in cons["summary"]
+
+
+def test_nothing_agrees_with_a_call_alphamissense_did_not_make():
+    joined = " | ".join(_conc_ambiguous()["lines"])
+    assert "agrees with AlphaMissense" not in joined, joined
+    assert "differs from AlphaMissense" not in joined, joined
+    assert "no call either way" in joined
+
+
+def test_the_consensus_says_which_predictors_it_is_speaking_for():
+    # "both predictors" would be a claim about all three; "both scoring predictors"
+    # is a claim only about the two that spoke, and the abstention is named.
+    c = _conc_ambiguous()
+    assert "scoring" in c["consensus"]["summary"]
+    assert "AlphaMissense ambiguous" in [l for l in c["lines"] if "consensus" in l][0]
+
+
+def test_a_single_remaining_predictor_is_not_a_consensus():
+    # AM ambiguous + REVEL indeterminate leaves only SaProt. One tool is not agreement.
+    c = _conc_ambiguous(revel={"score": 0.547, "band": "indeterminate",
+                               "direction": "indeterminate"})
+    assert c["consensus"] is None, c["consensus"]
+
+
+def test_an_abstention_downgrades_the_clinvar_disagreement_and_names_the_tool():
+    from sugivariant.enrich import disagreement_flag
+    from sugivariant.enrich import refresh_concordance
+    rec = {"classification": "Likely pathogenic", "alphamissense": _AMB,
+           "revel": _REVEL_BENIGN, "saprot": _SAPROT_TOL}
+    refresh_concordance(rec)          # what every render path does first
+    f = disagreement_flag(rec)
+    assert f["category"] == "predictor_vs_clinvar"
+    assert f["severity"] == 2, "the ACMG-weighted tool abstained — this is weaker evidence"
+    assert "AlphaMissense ambiguous" in f["reason"], f["reason"]
+
+
+def test_a_real_likely_benign_call_still_raises_the_full_severity_flag():
+    # The downgrade must apply ONLY to abstentions, not to genuine discordance.
+    from sugivariant.enrich import disagreement_flag
+    from sugivariant.enrich import refresh_concordance
+    rec = {"classification": "Likely pathogenic",
+           "alphamissense": {"class": "likely_benign", "score": "0.07"},
+           "revel": _REVEL_BENIGN, "saprot": _SAPROT_TOL}
+    refresh_concordance(rec)
+    f = disagreement_flag(rec)
+    assert f["severity"] == 3, f
+    assert "ambiguous" not in f["reason"]
+
+
+def test_conservation_cannot_agree_with_an_absent_or_opposite_call():
+    cons_hi = {"phylop": 7.585, "phastcons": 1.0, "gerp": 0.541}
+    line = [l for l in _conc_ambiguous(conservation=cons_hi)["lines"] if "Conservation" in l][0]
+    assert "agrees" not in line, line
+    # against a genuine likely-benign call, a conserved position DIFFERS
+    from sugivariant.enrich import concordance
+    line2 = [l for l in concordance("Likely benign", {"class": "likely_benign", "score": "0.05"},
+                                    None, conservation=cons_hi)["lines"]
+             if "Conservation" in l][0]
+    assert "differs from AlphaMissense" in line2, line2
+
+
+def test_the_readout_is_recomputed_from_the_record_so_fixes_need_no_rebuild():
+    # A record pickled before the fix carries the wrong readout. Rendering must not
+    # trust it: refresh_concordance rebuilds it from the stored predictor fields.
+    from sugivariant.enrich import refresh_concordance
+    stale = {"classification": "Likely pathogenic", "alphamissense": _AMB,
+             "revel": _REVEL_BENIGN, "saprot": _SAPROT_TOL,
+             "concordance": {"lines": ["all 3 predictors call this tolerated"],
+                             "verdict": "stale", "flags": [],
+                             "consensus": {"n_damaging": 0, "total": 3, "unanimous": True,
+                                           "names": "AlphaMissense, REVEL, SaProt",
+                                           "summary": "all 3 predictors call this tolerated"}}}
+    c = refresh_concordance(stale)
+    assert c["consensus"]["total"] == 2
+    assert stale["concordance"] is c, "must replace the record's readout in place"

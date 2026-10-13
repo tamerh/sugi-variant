@@ -434,6 +434,11 @@ def _fmt2(v):
 
 
 def render_body(v, jsonld_tag=""):
+    # The concordance readout is pickled with the record, so refresh it from the
+    # record's own predictor fields (pure, no lookups) before rendering — otherwise a
+    # correction to it would only reach a page after a full rebuild.
+    from sugivariant.enrich import refresh_concordance
+    refresh_concordance(v)
     L = ["## Summary", "", declarative(v), ""]
     # At a glance
     L.append("**At a glance:** "

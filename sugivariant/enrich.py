@@ -1264,55 +1264,82 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
     clinvar_path = "pathogenic" in cls and "conflict" not in cls
     clinvar_vus = "uncertain" in cls
     lines, flags, agree, total, consensus = [], [], 0, 0, None
+    am_call = None
 
     if am:
         amclass, amscore = am.get("class"), am.get("score")
-        am_path = amclass == "likely_pathogenic"
-        total += 1
+        # AlphaMissense makes a THREE-way call. 'ambiguous' is an ABSTENTION — the tool
+        # declined to call this variant — and must never be read as a tolerated vote.
+        # Collapsing it to `== "likely_pathogenic"` made REVEL and SaProt "agree with" a
+        # call that was never made, and let the consensus claim "all 3 predictors call
+        # this tolerated" on pathogenic variants (~2,700 of which carried a severity-3
+        # disagreement flag built on that phantom vote).
+        am_call = (True if amclass == "likely_pathogenic"
+                   else False if amclass == "likely_benign" else None)
+        am_path = am_call is True
+        if am_call is not None:
+            total += 1
         pretty = (amclass or "").replace("_", " ")
         if clinvar_path and am_path:
             agree += 1
             lines.append(f"AlphaMissense **{pretty}** ({amscore}) — concordant with the pathogenic call")
-        elif clinvar_path and amclass == "likely_benign":
+        elif clinvar_path and am_call is False:
             flags.append("AlphaMissense predicts likely-benign")
             lines.append(f"AlphaMissense **{pretty}** ({amscore}) — ⚠ discordant with the pathogenic call")
+        elif am_call is None:
+            lines.append(f"AlphaMissense **{pretty}** ({amscore}) — no call either way")
         else:
             lines.append(f"AlphaMissense **{pretty}** ({amscore})")
-        # REVEL — an AGREEMENT check on AlphaMissense (NOT a second vote; ClinGen SVI)
+        # REVEL — an AGREEMENT check on AlphaMissense (NOT a second vote; ClinGen SVI).
+        # Where either tool abstained there is nothing to agree with, so REVEL is
+        # reported on its own rather than against an absent call.
         if revel:
-            if revel["direction"] == "indeterminate":
-                rel = "indeterminate"
+            if am_call is None or revel["direction"] == "indeterminate":
+                lines.append(f"REVEL {revel['score']} ({revel['band']})")
             else:
-                rel = "agrees with" if (revel["direction"] == "pathogenic") == am_path else "differs from"
-            lines.append(f"REVEL {revel['score']} ({revel['band']}) — {rel} AlphaMissense")
+                rel = "agrees with" if (revel["direction"] == "pathogenic") == am_call else "differs from"
+                lines.append(f"REVEL {revel['score']} ({revel['band']}) — {rel} AlphaMissense")
         # SaProt — orthogonal (ClinVar-independent) protein-language-model opinion,
         # also an agreement signal (not additive). Raw LLR surfaced; the ClinVar-
         # calibrated -10.0 cut divides the damaging/tolerated *read* only.
         if saprot:
-            rel = "agrees with" if saprot["damaging"] == am_path else "differs from"
-            lines.append(f"SaProt LLR {saprot['llr']:g} "
-                         f"({'damaging' if saprot['damaging'] else 'tolerated'}) — {rel} AlphaMissense")
+            read = "damaging" if saprot["damaging"] else "tolerated"
+            if am_call is None:
+                lines.append(f"SaProt LLR {saprot['llr']:g} ({read})")
+            else:
+                rel = "agrees with" if saprot["damaging"] == am_call else "differs from"
+                lines.append(f"SaProt LLR {saprot['llr']:g} ({read}) — {rel} AlphaMissense")
         # In-silico CONSENSUS — descriptive agreement of the independent missense
         # predictors (do they concur?). NOT additive ACMG evidence (ClinGen SVI).
-        preds = [("AlphaMissense", am_path)]
+        # Only tools that actually made a call are counted; the ones that abstained are
+        # named, so the readout can never imply a unanimity that excluded a silent tool.
+        preds = [("AlphaMissense", am_call)] if am_call is not None else []
         if revel and revel["direction"] != "indeterminate":
             preds.append(("REVEL", revel["direction"] == "pathogenic"))
         if saprot:
             preds.append(("SaProt", saprot["damaging"]))
+        abstained = [n for n, out in (("AlphaMissense", am_call is None),
+                                      ("REVEL", bool(revel) and revel["direction"] == "indeterminate"))
+                     if out]
         if len(preds) >= 2:
             n_dmg = sum(1 for _, d in preds if d)
             names = ", ".join(n for n, _ in preds)
             alln = "both" if len(preds) == 2 else f"all {len(preds)}"
+            # "scoring" is what keeps the summary true when a tool sat out: it is a claim
+            # about the predictors that spoke, not about all of them.
+            scoring = " scoring" if abstained else ""
             if n_dmg == len(preds):
-                summary = f"{alln} predictors call this damaging"
+                summary = f"{alln}{scoring} predictors call this damaging"
             elif n_dmg == 0:
-                summary = f"{alln} predictors call this tolerated"
+                summary = f"{alln}{scoring} predictors call this tolerated"
             else:
                 summary = f"{n_dmg}/{len(preds)} damaging — mixed"
             consensus = {"n_damaging": n_dmg, "total": len(preds),
                          "names": names, "summary": summary,
-                         "unanimous": n_dmg in (0, len(preds))}
-            lines.append(f"→ **In-silico consensus:** {summary} ({names})")
+                         "unanimous": n_dmg in (0, len(preds)),
+                         "abstained": abstained}
+            tail = ("; " + ", ".join(f"{n} ambiguous" for n in abstained)) if abstained else ""
+            lines.append(f"→ **In-silico consensus:** {summary} ({names}){tail}")
     else:
         lines.append("**Missense predictors (AlphaMissense/REVEL/SaProt) do not apply** to this "
                      "variant type — they score amino-acid substitutions only. For non-missense "
@@ -1359,8 +1386,16 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
                     else "moderately conserved position")
             lines.append(f"Conservation: {detail} — {note}")
         else:
-            # missense: conservation is an agreement check on AlphaMissense (not counted)
-            lines.append(f"Conservation: {detail} — {'conserved (agrees)' if conserved else 'low conservation'}")
+            # missense: conservation is an agreement check on AlphaMissense (not counted).
+            # It can only "agree" with a call that was made, and with a likely-benign call
+            # a conserved position DIFFERS — the old wording said "agrees" for both.
+            if not conserved:
+                note = "low conservation"
+            elif am_call is None:
+                note = "conserved"
+            else:
+                note = "conserved (agrees)" if am_call else "conserved (differs from AlphaMissense)"
+            lines.append(f"Conservation: {detail} — {note}")
 
     # Population frequency — it still raises the "common in gnomAD" disagreement FLAG
     # (which feeds the verdict), but it no longer contributes a prose line here. The
@@ -1372,6 +1407,10 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
 
     if flags:
         verdict = "Evidence sources **disagree** — " + "; ".join(flags)
+    elif total == 0 and consensus:
+        # The one ACMG-weighted tool abstained, but the others did score it. Say so
+        # plainly instead of going silent, and mark it descriptive (ClinGen SVI, §8).
+        verdict = (f"AlphaMissense makes no call; {consensus['summary']} — descriptive only")
     elif total == 0:
         verdict = None
     elif agree == total and clinvar_path:
@@ -1387,6 +1426,24 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
     else:
         verdict = "Mixed / partial computational evidence (see below)"
     return {"lines": lines, "verdict": verdict, "flags": flags, "consensus": consensus}
+
+
+def refresh_concordance(rec):
+    """Recompute `rec["concordance"]` from the record's own stored predictor fields.
+
+    `concordance()` is a pure function of seven keys the record already carries
+    (classification, alphamissense, gnomad, spliceai, conservation, revel, saprot),
+    so it costs no lookups and is safe to run at render time. That is the point: the
+    readout is built at collect time and pickled, so without this a correction to the
+    wording or to the vote arithmetic would only reach a page after a full 18,792-gene
+    rebuild. Mutates the record in place and runs once per record per process.
+    """
+    if not rec.get("_conc_fresh"):
+        rec["concordance"] = concordance(
+            rec.get("classification"), rec.get("alphamissense"), rec.get("gnomad"),
+            rec.get("spliceai"), rec.get("conservation"), rec.get("revel"), rec.get("saprot"))
+        rec["_conc_fresh"] = True
+    return rec["concordance"]
 
 
 # Category order for the /disagreements browse view (higher = surfaced first).
@@ -1410,8 +1467,12 @@ def disagreement_flag(rec):
       predictors_split         — the independent predictors disagree with each other
 
     Descriptive only — a QC signal, NOT a reclassification (ClinGen SVI, HANDOVER §8)."""
+    # Classifies the readout the record carries; it does NOT rebuild it. Callers that
+    # render a possibly-stale pickled record call refresh_concordance() first — keeping
+    # that out of here leaves the category routing a pure function of the readout.
     c = rec.get("concordance") or {}
     cons = c.get("consensus") or {}
+    abst = cons.get("abstained") or []
     total = cons.get("total") or 0
     n_dmg = cons.get("n_damaging") or 0
     cls = (rec.get("classification") or "").lower()
@@ -1422,8 +1483,14 @@ def disagreement_flag(rec):
 
     if is_path and (am_benign or (total and n_dmg * 2 < total)):
         detail = cons.get("summary") if total else "AlphaMissense predicts likely-benign"
+        # When the ACMG-weighted tool itself abstained, the remaining predictors can still
+        # lean against the clinical call — but that is weaker, and the flag must name the
+        # tool that declined rather than implying the full panel dissented.
+        am_out = "AlphaMissense" in abst and not am_benign
+        tail = " (AlphaMissense ambiguous)" if am_out else ""
         return {"category": "predictor_vs_clinvar", "label": "Predictors vs ClinVar",
-                "reason": f"ClinVar {rec.get('classification')}, but {detail}", "severity": 3}
+                "reason": f"ClinVar {rec.get('classification')}, but {detail}{tail}",
+                "severity": 2 if am_out else 3}
     if is_conf and total >= 2 and cons.get("unanimous"):
         return {"category": "resolves_conflicting", "label": "Predictors agree, ClinVar conflicts",
                 "reason": f"ClinVar conflicting; {cons.get('summary')} — a QC flag, not a reclassification",
@@ -1443,8 +1510,9 @@ def disagreement_flag(rec):
     # prioritisation signal for review, explicitly NOT a reclassification (ClinGen SVI, §8).
     if is_vus and total >= 2 and cons.get("unanimous"):
         lean = "damaging" if n_dmg else "tolerated"
+        tail = (" (" + ", ".join(f"{n} ambiguous" for n in abst) + ")") if abst else ""
         return {"category": "vus_predictors_lean", "label": "Predictors lean, ClinVar uncertain",
-                "reason": f"ClinVar uncertain significance; {cons.get('summary')} ({lean}) "
+                "reason": f"ClinVar uncertain significance; {cons.get('summary')} ({lean}){tail} "
                           "— a triage signal, not a reclassification", "severity": 2}
     if total >= 2 and not cons.get("unanimous"):
         return {"category": "predictors_split", "label": "Predictors split",

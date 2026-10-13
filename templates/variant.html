@@ -39,7 +39,7 @@
       {% if p and p.class %}<div class="vd-tile"><div class="lab">AlphaMissense</div><div class="val">{{ p.class|replace('_',' ') }}</div><div class="sub">{{ p.score }} · ACMG-weighted</div></div>
       {% elif v.lof_context %}<div class="vd-tile"><div class="lab">Consequence</div><div class="val">{{ v.lof_context.label }}</div><div class="sub">predicted LoF</div></div>{% endif %}
       <div class="vd-tile"><div class="lab">gnomAD v4.1</div><div class="val">{% if not g %}—{% elif g.absent %}Absent{% elif g.is_common %}Common{% else %}Rare{% endif %}</div><div class="sub">{{ g.band if g else 'no coord. frequency' }}</div></div>
-      {% if c and c.consensus %}<div class="vd-tile"><div class="lab">In-silico consensus</div><div class="val">{{ c.consensus.n_damaging }}/{{ c.consensus.total }} damaging</div><div class="sub">{{ 'unanimous' if c.consensus.unanimous else 'mixed' }}</div></div>{% endif %}
+      {% if c and c.consensus %}<div class="vd-tile"><div class="lab">In-silico consensus</div><div class="val">{{ c.consensus.n_damaging }}/{{ c.consensus.total }} damaging</div><div class="sub">{{ 'unanimous' if c.consensus.unanimous else 'mixed' }}{% if c.consensus.get('abstained') %} · {{ c.consensus.abstained|join(', ') }} ambiguous{% endif %}</div></div>{% endif %}
       {% if v.conditions %}<div class="vd-tile"><div class="lab">Conditions</div><div class="val">{{ v.conditions|length }}</div><div class="sub">{{ v.conditions[0].name }}</div></div>{% endif %}
     </div>
 
