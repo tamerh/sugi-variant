@@ -25,6 +25,7 @@ from sugivariant.collect import collect                   # noqa: E402
 from sugivariant.render import _label as variant_label    # noqa: E402
 from sugivariant.slug import _norm, _norm_hgvs            # noqa: E402
 from sugivariant.enrich import refresh_record as _refresh  # noqa: E402
+from sugivariant.present import evidence_view  # noqa: E402
 from sugivariant.enrich import (review_stars, review_tier, tier_label,  # noqa: E402
                                 missense_short, disagreement_flag,
                                 DISAGREEMENT_CATEGORIES)
@@ -310,6 +311,16 @@ def _resolve_page(slug):
 
 
 def _render(tpl, **ctx):
+    """Render a template, deriving the variant page's presentation states here rather
+    than at each call site.
+
+    `ui` holds every semantic state the page styles on (see sugivariant/present.py).
+    Computing it here means a caller cannot render the page without it and get an
+    unstyled or, worse, a differently-styled page — the same footgun that let
+    index.py classify a flag from a stale readout. It is pure and adds no lookups.
+    """
+    if tpl == "variant.html" and "ui" not in ctx and ctx.get("v") is not None:
+        ctx["ui"] = evidence_view(ctx["v"], ctx.get("freq_g"))
     return env.get_template(tpl).render(**ctx)
 
 
@@ -877,8 +888,7 @@ def variant_page(slug: str, view: str = ""):
     # side effect, which happens to run first today.
     _refresh(rec)
     html = _render("variant.html", v=rec, canonical=rec["canonical_slug"], nav="variant",
-                   jsonld=jsonld, disagreement=disagreement_flag(rec),
-                   freq_g=freq_g, freq_pops=freq_pops)
+                   jsonld=jsonld, freq_g=freq_g, freq_pops=freq_pops)
     if rec.get("_degraded"):
         # Built while an upstream fetch was failing → incomplete evidence. Serve it,
         # but keep it out of every cache so the next request re-builds it cleanly.

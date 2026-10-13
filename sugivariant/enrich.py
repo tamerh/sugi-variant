@@ -1315,7 +1315,7 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
     clinvar_path = "pathogenic" in cls and "conflict" not in cls
     clinvar_vus = "uncertain" in cls
     clinvar_benign = "benign" in cls and "conflict" not in cls
-    lines, flags, agree, total, consensus = [], [], 0, 0, None
+    lines, flags, agree, total, consensus, verdict_kind = [], [], 0, 0, None, None
     am_call, abstained = None, []
 
     if am:
@@ -1497,9 +1497,14 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
         lean = "damaging" if consensus["n_damaging"] else "tolerated"
         verdict = (f"ClinVar classifies this **uncertain**; the computational predictors "
                    f"unanimously lean **{lean}** — a triage signal, not a reclassification")
+        verdict_kind = "triage"
     else:
         verdict = "Mixed / partial computational evidence (see below)"
-    return {"lines": lines, "verdict": verdict, "flags": flags, "consensus": consensus}
+    # The template used to decide this line's colour by testing `'triage' in verdict` —
+    # presentation keyed on an incidental substring of its own prose, so a reworded
+    # verdict would silently restyle. The branch that produces it says so instead.
+    return {"lines": lines, "verdict": verdict, "flags": flags, "consensus": consensus,
+            "verdict_kind": verdict_kind}
 
 
 def refresh_record(rec):
