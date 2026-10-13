@@ -276,3 +276,26 @@ def test_only_allele_specific_missense_predictors_are_counted():
     assert cons["total"] == 2 and cons["names"] == "REVEL, SaProt"
     for excluded in ("CADD", "conservation", "SpliceAI", "Regional", "Gnocchi"):
         assert excluded not in cons["names"]
+
+
+def test_the_conservation_row_does_not_imply_three_independent_measures():
+    """phyloP470way and phastCons470way are two statistics on the SAME UCSC hg38 470-way
+    Zoonomia mammalian alignment (confirmed by the upstream prepare script); GERP++ is
+    Ensembl Compara's ~90-mammal set. Three agreeing numbers shown side by side read as
+    three confirmations, which is the same "correlated things presented as independent"
+    error the missense-predictor framing exists to prevent."""
+    tpl = (TEMPLATES / "variant.html").read_text(encoding="utf-8")
+    # the tooltip lives in the data-tip ATTRIBUTE, which precedes the label text
+    i = tpl.index(">Conservation</span>")
+    row = tpl[max(0, i - 1400):i + 200]
+    assert "470-way" in row, "the alignment must be stated — it was absent on 4.12M pages"
+    assert "not three independent" in row
+    assert "mammalian" in row and "primates" in row, \
+        "an all-mammal alignment cannot speak to primate- or human-specific constraint"
+
+
+def test_the_sources_table_names_the_conservation_alignment():
+    from sugivariant.render import DATA_SOURCES
+    row = [r for r in DATA_SOURCES if r[0].startswith("Conservation")]
+    assert row, "conservation missing from DATA_SOURCES"
+    assert "470-way" in row[0][1] and "Zoonomia" in row[0][1], row[0]

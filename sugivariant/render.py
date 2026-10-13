@@ -48,7 +48,8 @@ DATA_SOURCES = [
     # use, commercial use needs a University of Washington licence. This product is free, so
     # the terms are met; they still have to be stated.
     ("CADD", "Rentzsch et al. 2019, University of Washington \u2014 free for non-commercial use", "cadd"),
-    ("Conservation (phyloP/phastCons/GERP)", "UCSC", "conservation"),
+    ("Conservation (phyloP/phastCons/GERP)", "UCSC hg38 470-way (Zoonomia) + Ensembl Compara",
+     "conservation"),
     # Regional constraint — both CC0, per the gnomAD release terms carried in the biobtree
     # dataset metadata. Separate entries, not folded into gnomAD v4.1: they are distinct
     # datasets with their own build dates, and the provenance table joins on the group.
