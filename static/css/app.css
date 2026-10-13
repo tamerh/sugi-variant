@@ -10,6 +10,12 @@
   --lben:#2e7d32; --lben-soft:#eaf4eb;
   --ben:#1e8449; --ben-soft:#e8f5ec;
   --ok:#2e7d32; --flag:#c77800;
+  /* --muted was never defined: 29 rules in this file read var(--muted,#6b7280) and so
+     sat on the hardcoded fallback in BOTH themes, never adapting to dark. atlas.css
+     (loaded first) defines the real token as --fg-soft and overrides it for dark, so
+     aliasing resolves all of them at once — var() resolves at use time, so the dark
+     value follows automatically. */
+  --muted: var(--fg-soft, #64748b);
 }
 [data-theme="dark"]{
   --path:#ff6b5e; --path-soft:#3a1c19;
@@ -234,7 +240,7 @@
 /* Dashboard v2: one coherent centred column (header, tiles, lead, cards share a width) */
 .vd-container{max-width:1000px}
 /* Single-column stack: cards one below another, filling the column */
-.vd-stack{display:flex;flex-direction:column;gap:.7rem}
+.vd-stack{display:flex;flex-direction:column;gap:1.1rem}
 .vd-stack .vd-card{margin-bottom:0}   /* gap controls spacing; drop the card's own margin */
 /* Sub-sections inside the combined "Variant & gene context" card */
 .vd-sub{margin-top:1.1rem;padding-top:.9rem;border-top:1px solid var(--border,#eef0f3)}
@@ -252,16 +258,25 @@
 /* Gene/protein-level metrics block inside the Computational evidence card */
 .vd-genemetrics{margin-top:.9rem;padding-top:.75rem;border-top:1px dashed var(--border,#e5e7eb)}
 .vd-genemetrics-lab{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted,#6b7280);margin:0 0 .35rem}
-.vd-card{border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:.9rem 1rem;margin-bottom:1rem;background:var(--bg,#fff)}
-.vd-card>h3{font-size:.9rem;font-weight:700;letter-spacing:.01em;color:var(--fg,#111827);
-  margin:0 0 .7rem;padding-bottom:.45rem;border-bottom:1px solid var(--border,#eef0f3)}
+.vd-card{position:relative;border:1px solid var(--border,#e5e7eb);border-radius:12px;
+  padding:1.25rem 1rem .9rem;margin-bottom:1rem;background:var(--bg,#fff)}
+/* The card title sits ON the top border, centred, interrupting the rule rather than
+   adding a second one under itself. The card already draws a line; a titled card was
+   drawing two, and once the evidence card gained group headings — each with its own
+   rule — the page was mostly horizontal lines and the card's own title stopped reading
+   as a level above them. The background must match the card's so the border breaks
+   cleanly behind the text. */
+.vd-card>h3{position:absolute;top:0;left:50%;transform:translate(-50%,-50%);
+  max-width:calc(100% - 2rem);margin:0;padding:0 .55rem;background:var(--bg,#fff);
+  font-size:.78rem;font-weight:800;letter-spacing:.085em;text-transform:uppercase;
+  color:var(--fg,#0f172a);text-align:center;line-height:1.3;border-bottom:0}
 .vd-card p{margin:.4rem 0;line-height:1.5;font-size:.92rem}
 .vd-side .vd-card{font-size:.86rem}
 .vd-side .vd-card p{font-size:.85rem;margin:.3rem 0}
 .vd-verdict{font-weight:600;margin:.2rem 0 1rem;font-size:.98rem}
 .vd-verdict.is-flag{color:var(--flag)}.vd-verdict.is-ok{color:var(--ok)}
 .vd-preds{width:100%;border-collapse:collapse;font-size:.9rem}
-.vd-preds th{text-align:left;font-weight:600;white-space:nowrap;padding:.32rem .7rem .32rem 0;vertical-align:baseline;width:1%}
+.vd-preds th{text-align:left;font-weight:600;color:var(--fg-muted,#475569);white-space:nowrap;padding:.32rem .7rem .32rem 0;vertical-align:baseline;width:1%}
 .vd-preds td{padding:.32rem 0;vertical-align:baseline;border-top:1px solid var(--line2,#eef1f4)}
 .vd-preds tr:first-child td,.vd-preds tr:first-child th{border-top:0}
 .vd-num{font-family:ui-monospace,monospace;font-weight:600;white-space:nowrap;padding-right:.7rem !important}
@@ -272,8 +287,10 @@
    added; grouping by the question each row answers lets a reader skip a whole block
    instead of scanning all of it. The heading is quiet on purpose — it is a signpost,
    not a finding, and must not compete with the rows under it. */
-.vd-grp>td{padding:1rem 0 .3rem;font-size:.72rem;font-weight:700;letter-spacing:.06em;
-  text-transform:uppercase;color:var(--muted,#6b7280);border-bottom:1px solid var(--border,#e5e7eb)}
+.vd-grp>td{padding:1.15rem 0 .35rem;font-size:.72rem;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--fg,#0f172a);border-bottom:0}
+/* the first row of a group needs no rule either — the heading's space already separates it */
+.vd-preds tr.vd-grp+tr>td,.vd-preds tr.vd-grp+tr>th{border-top:0}
 .vd-preds tbody tr.vd-grp:first-child>td{padding-top:.1rem}
 .vd-note>td{padding:.5rem 0 .2rem;font-size:.86rem}
 .vd-note>td.vd-consensus{margin:0;border-top:0;padding-top:.45rem}
@@ -536,3 +553,12 @@ table.pf-tbl tr.is-max td{color:var(--fg,#0f172a);background:rgba(63,127,212,.07
 .pf-absent{margin:.15rem 0 0;font-size:.88rem;color:var(--fg,#0f172a)}
 .pf-absent .pf-key-x{display:block;margin-top:.15rem}
 .pf-badge-mute{opacity:.72;font-weight:500;text-transform:none;letter-spacing:0}
+
+/* Method-page note. Sits above the preprint, never inside it: the paper is a fixed
+   citable artifact and is not edited to track the system. Matches the note on the
+   BioBTree preprint page — neutral left rule, soft ground, constrained to the paper's
+   own text column rather than the wide container it sits in. */
+.method-note{max-width:68em;margin:1.1rem auto 1.5rem;padding:.75rem 1rem;
+  background:var(--bg-soft,#f6f7f8);border-left:4px solid var(--ink,#111);
+  color:var(--fg,#111);font-size:.88rem;line-height:1.55}
+.method-note p{margin:0}

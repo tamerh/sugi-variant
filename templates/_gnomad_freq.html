@@ -14,7 +14,7 @@
 {% if g %}
 {% set is_fallback = g.source == 'dbSNP/gnomAD' %}
 <div class="pf">
-  <div class="pf-head"><h4>Population frequency</h4>
+  <div class="pf-head">
     <span class="pf-src">{% if is_fallback %}dbSNP / gnomAD{% else %}gnomAD v4.1 · exomes + genomes{% endif %}</span></div>
 
   {% if g.get('unknown') %}

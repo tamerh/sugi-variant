@@ -23,8 +23,15 @@
     <nav class="breadcrumb"><a href="{{ base }}/">Sugi Variant</a> <span>›</span> method</nav>
     <header class="prose-header">
       <h1 class="prose-title">Method</h1>
-      <p class="prose-tagline">The preprint behind the system.&nbsp;·&nbsp;<a href="{{ base }}/static/preprint/main.pdf" target="_blank" rel="noopener">Download PDF</a></p>
+      <p class="prose-tagline">The preprint behind the system.&nbsp;·&nbsp;<a href="{{ base }}/static/preprint/main.pdf" target="_blank" rel="noopener">Download PDF</a>&nbsp;·&nbsp;<a href="https://zenodo.org/records/21509445" target="_blank" rel="noopener">Preprint on Zenodo</a></p>
     </header>
+    {# A preprint is a fixed citable artifact: kept exactly as published, never edited to
+       track the system. Where the live system has moved on, say so HERE, above it. #}
+    <aside class="method-note">
+      <p>Since this preprint was published, Sugi Variant has integrated additional
+      datasets, including CADD, Pangolin, gnomAD non-coding and regional missense
+      constraint, and repeat context. A follow-up publication is planned.</p>
+    </aside>
     {% if preprint_body %}
     <div class="preprint-doc">
       {{ preprint_body | safe }}
