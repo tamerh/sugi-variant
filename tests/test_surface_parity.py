@@ -371,19 +371,32 @@ def test_each_regional_dataset_is_gated_to_its_own_variant_class():
         assert is_noncoding(rec) is non, f"is_noncoding wrong for {rec}"
 
 
-def test_rmc_declines_to_guess_when_transcripts_are_ambiguous(monkeypatch):
-    """RMC regions are per-transcript and a gene has dozens. With no MANE match and more
-    than one candidate, showing one would attach a region from a transcript the variant
-    was never reported on."""
+def test_rmc_only_ever_reports_the_genes_own_mane_transcript(monkeypatch):
+    """RMC regions are per-transcript and a gene has dozens, so a region from the wrong
+    transcript is a figure the variant was never reported under.
+
+    The positional route could not always tell which transcript a region belonged to and
+    accepted a lone region from ANY transcript. Asking the gene's MANE transcript makes
+    that unrepresentable, which is what this pins: a non-MANE region is dropped, not
+    ranked."""
     from sugivariant import enrich as EN
     rows = [{"id": "ENST1:100", "transcript": "ENST1", "oe": "0.2", "constrained": "true"},
             {"id": "ENST2:100", "transcript": "ENST2", "oe": "0.9", "constrained": "false"}]
-    monkeypatch.setattr(EN, "_interval_map", lambda pos, ds, c=None: rows)
-    monkeypatch.setattr(EN, "_interval_attrs", lambda i, ds, c: {})
-    assert EN.rmc_for("1:100", None, {}) is None            # ambiguous → nothing
-    got = EN.rmc_for("1:100", "ENST2", {})                  # MANE picks the right one
-    assert got["transcript"] == "ENST2" and got["on_mane"] is True
-    assert got["oe"] == 0.9
+    monkeypatch.setattr(EN, "map_all", lambda *a, **k: rows)
+    monkeypatch.setattr(EN, "mane_select", lambda h: {"enst": "ENST2"})
+    monkeypatch.setattr(EN, "_interval_attrs",
+                        lambda i, ds, c: {"start": 50, "end": 150, "oe_chisq_p": "0.01"})
+    regions = EN.gene_rmc("HGNC:1", {})
+    assert [r["transcript"] for r in regions] == ["ENST2"], (
+        f"a region from a non-MANE transcript survived: {regions}")
+    got = EN.rmc_for("1:100", regions)
+    assert got["oe"] == 0.9 and got["on_mane"] is True, got
+    # and a position outside every region yields nothing rather than the nearest one
+    assert EN.rmc_for("1:9999", regions) is None
+
+    # with no MANE transcript there is nothing to key on, so nothing is claimed
+    monkeypatch.setattr(EN, "mane_select", lambda h: None)
+    assert EN.gene_rmc("HGNC:1", {}) == []
 
 
 def test_rmc_constrained_false_string_is_not_read_as_true(monkeypatch):
@@ -391,11 +404,13 @@ def test_rmc_constrained_false_string_is_not_read_as_true(monkeypatch):
     bool("false") is True. Truth-testing it would mark every unconstrained region as
     depleted of missense variation — a clinical claim, inverted."""
     from sugivariant import enrich as EN
-    monkeypatch.setattr(EN, "_interval_attrs", lambda i, ds, c: {})
+    monkeypatch.setattr(EN, "_interval_attrs",
+                        lambda i, ds, c: {"start": 50, "end": 150, "oe_chisq_p": "0.01"})
+    monkeypatch.setattr(EN, "mane_select", lambda h: {"enst": "E"})
     for raw, expected in (("false", False), ("true", True), (False, False), (True, True)):
-        monkeypatch.setattr(EN, "_interval_map", lambda pos, ds, c=None, _r=raw: [
+        monkeypatch.setattr(EN, "map_all", lambda *a, _r=raw, **k: [
             {"id": "E:1", "transcript": "E", "oe": "0.5", "constrained": _r}])
-        got = EN.rmc_for("1:100", "E", {})
+        got = EN.rmc_for("1:100", EN.gene_rmc("HGNC:1", {}))
         assert got["constrained"] is expected, f"constrained={raw!r} read as {got['constrained']}"
 
 
@@ -433,7 +448,9 @@ def test_interval_fetch_failure_degrades_the_build_and_is_not_cached(monkeypatch
     EN.begin_build()
     cache = {}
     assert EN.gnocchi_for("1:786500", cache) is None
-    assert EN.rmc_for("1:786500", "ENST1", cache) is None
+    monkeypatch.setattr(EN, "mane_select", lambda h: {"enst": "ENST1"})
+    assert EN.gene_rmc("HGNC:1", cache) is EN.FETCH_ERROR
+    assert EN.rmc_for("1:786500", EN.FETCH_ERROR) is EN.FETCH_ERROR
     assert EN.build_degraded(), "a transport failure did not degrade the build"
     assert cache == {}, "a failure was cached — the retry would be skipped"
     assert calls["n"] == 2, "the second call reused a cached failure"
@@ -927,3 +944,109 @@ def test_masked_disagreement_is_visible_on_both_surfaces():
     assert "cryptic site" in md, ".md omits why raw and masked differ"
     for surface, name in ((html_out, "HTML"), (md, ".md")):
         assert "0.21" in surface, f"{name} drops the raw score"
+
+
+# ── which upstream data a gene's records were built from ──────────────────────
+#
+# biobtree v2.16.1 added data_db_version, which tracks the INDEXED data. last_built
+# does not: on 2026-10-13 prod reported last_built 2026-10-13T02:43:47 while the
+# masked SpliceAI deltas were absent, and it did not change when they landed. The
+# records cache had no way to know what it was built from, which is why three
+# full-corpus rebuilds happened in three days.
+
+def test_the_stamp_reads_data_db_version_and_never_last_built(monkeypatch):
+    from sugivariant import enrich
+    enrich._DATASET_META = {
+        "clinvar": {"data_db_version": "db_v52", "last_built": "2026-10-13T02:43:47"},
+        "spliceai": {"data_db_version": "db_v52", "last_built": "2026-10-13T02:43:47"},
+        "cadd": {"last_built": "2026-10-13T02:43:47"},   # no data version published
+    }
+    try:
+        v = enrich.record_data_versions()
+        assert v == {"clinvar": "db_v52", "spliceai": "db_v52"}, v
+        assert not any("2026" in str(x) for x in v.values()), (
+            "last_built leaked into the stamp; it does not track the data")
+    finally:
+        enrich._DATASET_META = None
+
+
+def test_stale_datasets_separates_out_of_date_from_cannot_tell(tmp_path):
+    """"Cannot tell" and "up to date" must not collapse into each other: an unstamped
+    legacy file would otherwise report itself current and never be rebuilt."""
+    from sugivariant import enrich
+    recs = tmp_path / "BRCA1.pkl.gz"
+    recs.write_bytes(b"x")
+    cur = {"clinvar": "db_v52", "spliceai": "db_v52"}
+
+    # never stamped -> cannot tell, which is NOT the same as ()
+    assert enrich.stale_datasets(recs, cur) is None
+
+    assert enrich.write_data_stamp(recs, cur) is True
+    assert enrich.read_data_stamp(recs) == cur
+    assert enrich.stale_datasets(recs, cur) == ()          # up to date
+
+    moved = {"clinvar": "db_v52", "spliceai": "db_v53"}
+    assert enrich.stale_datasets(recs, moved) == ("spliceai",)
+
+    added = dict(cur, cadd="db_v2")
+    assert enrich.stale_datasets(recs, added) == ("cadd",)
+
+    # meta unreachable -> cannot tell, and refuse to write a stamp we cannot vouch for
+    assert enrich.stale_datasets(recs, {}) is None
+    assert enrich.write_data_stamp(recs, {}) is False
+
+
+def test_the_stamp_lives_beside_the_records_not_inside_them(tmp_path):
+    """A new key on every record is the Jinja Undefined trap that has caused three
+    outages here, and would carry the same string 4.1M times."""
+    from sugivariant import enrich
+    recs = tmp_path / "TP53.pkl.gz"
+    recs.write_bytes(b"x")
+    enrich.write_data_stamp(recs, {"clinvar": "db_v52"})
+    assert (tmp_path / "TP53.dbver.json").exists(), "stamp not written beside the records"
+    assert recs.read_bytes() == b"x", "the records file was modified"
+
+
+def test_rmc_uses_the_variants_true_gene_not_the_files_gene():
+    """A record file can hold a variant from an overlapping gene. ClinVar files TP53's
+    antisense neighbour WRAP53 under TP53's hgnc_id, so keying RMC on the id reaches
+    the wrong gene and finds nothing. collect() already derives the authoritative gene
+    from the HGVS name into gene_symbol, and that is what must be keyed on.
+
+    Verified live: gene_rmc("WRAP53") recovers o/e 0.97007 on WRAP53's own MANE
+    transcript ENST00000396463 for the variant at 17:7689619 — the same figure the old
+    positional route found, but reported as the gene's own region rather than a guess
+    flagged on_mane=False."""
+    import inspect
+    from sugivariant import collect
+    src = inspect.getsource(collect.attach_enrichment)
+    assert "EN.gene_rmc(rec.get(\"gene_symbol\")" in src, (
+        "RMC is keyed on something other than the variant's true gene symbol")
+
+
+def test_gene_rmc_caches_per_gene_so_a_file_pays_once(monkeypatch):
+    """The whole point of the gene-level route is one fetch per gene instead of one
+    positional lookup per missense variant (measured 0.36 upstream calls each)."""
+    from sugivariant import enrich as EN
+    calls = {"map": 0, "mane": 0}
+
+    def fake_map(ident, chain, cap=None):
+        calls["map"] += 1
+        return [{"id": "E:1", "transcript": "E", "oe": "0.5", "constrained": "true"}]
+
+    monkeypatch.setattr(EN, "map_all", fake_map)
+    monkeypatch.setattr(EN, "mane_select",
+                        lambda g: (calls.__setitem__("mane", calls["mane"] + 1),
+                                   {"enst": "E"})[1])
+    monkeypatch.setattr(EN, "_interval_attrs",
+                        lambda i, ds, c: {"start": 1, "end": 1000, "oe_chisq_p": "0.01"})
+    cache = {}
+    for _ in range(50):
+        regions = EN.gene_rmc("TP53", cache)
+        assert EN.rmc_for("17:500", regions)["oe"] == 0.5
+    assert calls["map"] == 1, f"the gene was fetched {calls['map']} times, not once"
+    assert calls["mane"] == 1, f"MANE resolved {calls['mane']} times, not once"
+    # a second gene in the same file costs exactly one more
+    for _ in range(20):
+        EN.gene_rmc("WRAP53", cache)
+    assert calls["map"] == 2, calls

@@ -204,8 +204,16 @@ def attach_enrichment(rec, ctx=None):
     pos = coord or EN.position_key(rec)
     rec["gnocchi"] = (EN.gnocchi_for(pos, ctx.setdefault("gnocchi_cache", {}))
                       if EN.is_noncoding(rec) else None)
-    rec["rmc"] = (EN.rmc_for(pos, (ctx.get("mane") or {}).get("enst"),
-                             ctx.setdefault("rmc_cache", {}))
+    # Regional missense constraint is now fetched once per GENE (one map chain plus one
+    # entry() per region) and assigned locally, instead of a positional interval lookup
+    # per variant. Keyed on the variant's OWN hgnc rather than the file's gene, because
+    # an overlapping gene's variants share a record file and their constraint belongs to
+    # their own transcript — see gene_rmc.
+    # Keyed on gene_symbol, not hgnc_id: the symbol comes from the HGVS name and is the
+    # variant's true gene, while ClinVar's hgnc_id can be the overlapping host gene's
+    # (a WRAP53 missense is filed under TP53's id). See gene_rmc.
+    rec["rmc"] = (EN.rmc_for(pos, EN.gene_rmc(rec.get("gene_symbol") or rec.get("hgnc_id"),
+                                              ctx.setdefault("rmc_cache", {})))
                   if EN.is_missense(rec) else None)
     rec["saprot"] = saprot
     rec["spliceai"] = EN.spliceai_for(coord, ctx.get("spliceai") or {})

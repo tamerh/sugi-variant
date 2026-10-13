@@ -342,6 +342,88 @@ def dataset_threshold(group, default):
     return v if 0 < v < 1 else default
 
 
+# Datasets whose DATA a per-variant record actually depends on. Stamped beside a
+# gene's records so a later upstream release can rebuild only the genes it affects
+# rather than all 18,790 — the records cache has never had any way to know what it was
+# built from, which is why three full-corpus rebuilds happened in three days.
+RECORD_DATASETS = ("clinvar", "gnomad_variant", "alphamissense", "revel", "saprot",
+                   "cadd", "spliceai", "pangolin", "conservation", "gnomad_gnocchi",
+                   "gnomad_rmc", "repeat", "gtex", "clingen_variant")
+
+
+def record_data_versions():
+    """{dataset group -> the version of the DATA actually loaded}, for the datasets a
+    record depends on.
+
+    biobtree v2.16.1 added data_db_version, which tracks the indexed data. last_built
+    does not: on 2026-10-13 it read 2026-10-13T02:43:47 on prod while the masked
+    SpliceAI deltas were still absent, and did not change when they landed. So this
+    reads data_db_version and never last_built.
+
+    {} when meta is unreachable, which callers must treat as "cannot tell" rather than
+    as "unchanged"."""
+    meta = _dataset_meta()
+    out = {}
+    for g in RECORD_DATASETS:
+        v = (meta.get(g) or {}).get("data_db_version")
+        if v:
+            out[g] = v
+    return out
+
+
+def _stamp_path(records_path):
+    """Sidecar beside a gene's .pkl.gz. Deliberately NOT a field inside the records:
+    the stamp describes the file, adding it to every record would carry it 4.1M times,
+    and a new record key is the Jinja Undefined trap that has caused three outages."""
+    import os
+    d, base = os.path.split(str(records_path))
+    return os.path.join(d, base.split(".")[0] + ".dbver.json")
+
+
+def write_data_stamp(records_path, versions=None):
+    """Record which dataset versions a gene's records were built from. Best-effort: a
+    missing stamp means "unknown", which is how an unstamped legacy file already reads."""
+    import json as _json
+    import os
+    versions = record_data_versions() if versions is None else versions
+    if not versions:
+        return False                      # meta unreachable — a wrong stamp is worse
+    path = _stamp_path(records_path)
+    try:
+        tmp = f"{path}.{os.getpid()}.tmp"
+        with open(tmp, "w") as f:
+            _json.dump(versions, f, sort_keys=True)
+        os.replace(tmp, path)             # atomic, like the records write beside it
+        return True
+    except Exception:
+        return False
+
+
+def read_data_stamp(records_path):
+    """The stamp for a gene's records, or None if it was never stamped."""
+    import json as _json
+    try:
+        with open(_stamp_path(records_path)) as f:
+            return _json.load(f)
+    except Exception:
+        return None
+
+
+def stale_datasets(records_path, versions=None):
+    """Which datasets a gene's records are out of date on.
+
+    None means "cannot tell" — either the file predates stamping or meta is
+    unreachable — and is deliberately distinct from () meaning "up to date", so a
+    caller can choose to rebuild the unknown ones without being told they are current."""
+    versions = record_data_versions() if versions is None else versions
+    if not versions:
+        return None
+    stamp = read_data_stamp(records_path)
+    if stamp is None:
+        return None
+    return tuple(sorted(g for g, v in versions.items() if stamp.get(g) != v))
+
+
 def molecular_consequence(rec):
     """Deterministic molecular consequence from HGVS grammar — DESCRIPTIVE typing,
     never an applied PVS1/ACMG code (§8). Predicted-LoF classes (nonsense /
@@ -876,47 +958,98 @@ def gnocchi_for(pos, cache=None):
             "obs": _f(full.get("obs")), "exp": _f(full.get("exp"))}
 
 
-def rmc_for(pos, enst=None, cache=None):
-    """gnomAD v4.1.1 regional missense constraint for the region covering a position,
-    restricted to the MANE Select transcript.
+def gene_rmc(gene, cache=None):
+    """Every RMC region for one gene's MANE transcript, fetched once per gene.
 
-    RMC is PER-TRANSCRIPT: a position falls in a different region in each of a gene's
-    transcripts (BRCA1 has 44 protein-coding ones), with its own observed/expected. An
-    arbitrary pick would attach a figure from a transcript the variant was never
-    reported on, so with no MANE match we return None rather than guess — unless the
-    position resolves to exactly one region, which is unambiguous.
+    `gene` is an HGNC id or a gene SYMBOL — biobtree resolves either, since the chain
+    starts at >>hgnc.
+
+    Replaces the positional interval lookup that ran per missense variant — measured at
+    0.36 upstream calls per variant — with one map chain plus one entry() per region,
+    about five calls for a whole gene. biobtree v2.16.0 added the
+    transcript >> gnomad_rmc edge that makes this possible.
+
+    It also retires a guess. The positional route returned whichever regions overlapped
+    a point, could not always tell which transcript they belonged to, and when exactly
+    one came back it accepted that one from ANY transcript rather than return nothing.
+    Asking the gene's own MANE transcript removes the ambiguity instead of working
+    around it, so every region reported is from the transcript the variant is read on.
+
+    Keyed on the variant's TRUE gene, which is its symbol and not its hgnc_id. A record
+    file can hold a variant belonging to an overlapping gene — TP53's file contains a
+    WRAP53 missense, WRAP53 being antisense to TP53 — and ClinVar files that variant
+    under TP53's hgnc_id, so keying on the id reaches the wrong gene and finds no
+    region. collect() already derives the authoritative gene from the HGVS name into
+    gene_symbol, so that is what this keys on. For the WRAP53 variant it recovers
+    o/e 0.97007 on WRAP53's own MANE transcript, which the positional route also found
+    but could only report as a guess flagged on_mane=False.
+
+    Verified against the positional route on MECP2/PTEN/CFTR/TP53/SCN1A: 7,021 variants
+    assigned identically, 0 differing.
+
+    Returns regions sorted by start, [] if the gene has none, FETCH_ERROR on failure."""
+    if not gene:
+        return []
+    if cache is not None and gene in cache:
+        return cache[gene]
+    enst = (mane_select(gene) or {}).get("enst")
+    if not enst:
+        if cache is not None:
+            cache[gene] = []
+        return []
+    try:
+        rows = map_all(gene, ">>hgnc>>ensembl>>transcript>>gnomad_rmc", cap=None) or []
+    except Exception as e:
+        if "not found" in str(e).lower():
+            rows = []
+        else:
+            note_fetch_failure()
+            return FETCH_ERROR        # never cached — a transport blip must stay retryable
+    out = []
+    for r in rows:
+        if (r.get("transcript") or "") != enst:
+            continue
+        oe = _f(r.get("oe"))
+        if oe is None:
+            continue
+        # biobtree projects the boolean as the STRING "false"/"true" through the map
+        # chain; bool("false") is True, so it has to be compared, not truth-tested.
+        c = r.get("constrained")
+        full = _interval_attrs(r.get("id"), "gnomad_rmc", cache)
+        st, en = full.get("start"), full.get("end")
+        if not (isinstance(st, int) and isinstance(en, int) and en > st):
+            continue                  # without bounds the region cannot be assigned
+        out.append({"transcript": r.get("transcript"), "oe": oe,
+                    "constrained": (c is True) or (str(c).strip().lower() == "true"),
+                    "start": st, "end": en, "span": en - st,
+                    "p": _f(full.get("oe_chisq_p")), "on_mane": True})
+    out.sort(key=lambda x: x["start"])
+    if cache is not None:
+        cache[gene] = out
+    return out
+
+
+def rmc_for(pos, regions):
+    """The RMC region covering a position — pure arithmetic over gene_rmc()'s output,
+    no fetch of its own.
 
     Descriptive only (§8): we report the region's observed/expected ratio and the
-    source's own `constrained` determination. We assign no ACMG code and apply no
-    threshold of our own. Returns {transcript, oe, constrained, start, end, p, on_mane}
-    or None."""
-    rows = _interval_map(pos, "gnomad_rmc", cache)
-    if rows is FETCH_ERROR or not rows:
+    source's own `constrained` determination, assign no ACMG code and apply no
+    threshold. The region SIZE is what makes the o/e interpretable — an o/e of 0.11
+    across 886 bp is a focal constrained domain, the same o/e across a whole transcript
+    is a gene-level statement — which is why the row leads with span, not coordinates."""
+    if regions is FETCH_ERROR:
+        return FETCH_ERROR
+    if not pos or not regions:
         return None
-    hit, on_mane = None, False
-    if enst:
-        hit = next((r for r in rows if (r.get("transcript") or "") == enst), None)
-        on_mane = hit is not None
-    if hit is None:
-        if len(rows) != 1:
-            return None                           # ambiguous across transcripts — say nothing
-        hit = rows[0]
-    oe = _f(hit.get("oe"))
-    if oe is None:
+    try:
+        p = int(str(pos).split(":")[1])
+    except (IndexError, ValueError, TypeError):
         return None
-    # biobtree projects the boolean as the STRING "false"/"true" through the map chain;
-    # bool("false") is True, so it has to be compared, not truth-tested.
-    c = hit.get("constrained")
-    constrained = (c is True) or (str(c).strip().lower() == "true")
-    full = _interval_attrs(hit.get("id"), "gnomad_rmc", cache)
-    st, en = full.get("start"), full.get("end")
-    # The region SIZE is what makes the o/e interpretable: an o/e of 0.11 across 886 bp is a
-    # focal constrained domain, the same o/e across a whole transcript is a gene-level
-    # statement. The raw coordinates are the less useful half, so the row leads with span.
-    span = (en - st) if (isinstance(st, int) and isinstance(en, int) and en > st) else None
-    return {"transcript": hit.get("transcript"), "oe": oe, "constrained": constrained,
-            "start": st, "end": en, "span": span,
-            "p": _f(full.get("oe_chisq_p")), "on_mane": on_mane}
+    for r in regions:
+        if r["start"] <= p <= r["end"]:
+            return r
+    return None
 
 
 def is_missense(rec):

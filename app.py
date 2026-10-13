@@ -220,6 +220,12 @@ def _records(gene):
                 with gzip.open(tmp, "wb") as f:
                     pickle.dump(recs, f)
                 tmp.replace(path)    # atomic
+                # Stamp which upstream DATA versions these records were built from, so
+                # the next release can rebuild only the genes it affects. Written after
+                # the records, never before: a stamp without its records would claim a
+                # gene is current when it is not.
+                from sugivariant.enrich import write_data_stamp
+                write_data_stamp(path)
             except Exception:
                 pass
     return recs
