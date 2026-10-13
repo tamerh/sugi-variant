@@ -1314,6 +1314,7 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
     cls = (classification or "").lower()
     clinvar_path = "pathogenic" in cls and "conflict" not in cls
     clinvar_vus = "uncertain" in cls
+    clinvar_benign = "benign" in cls and "conflict" not in cls
     lines, flags, agree, total, consensus = [], [], 0, 0, None
     am_call, abstained = None, []
 
@@ -1385,9 +1386,26 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
                 summary = f"{alln}{scoring} predictors call this tolerated"
             else:
                 summary = f"{n_dmg}/{len(preds)} damaging — mixed"
+            # `unanimous` says the predictors agree WITH EACH OTHER. It must not drive
+            # the styling on its own: a unanimous "tolerated" against a Likely pathogenic
+            # ClinVar call was rendered in the agreement colour, which reads as "all fine"
+            # on exactly the page where the evidence conflicts. `stance` is the relation
+            # to the clinical call, which is what a reader takes a colour to mean.
+            unanimous = n_dmg in (0, len(preds))
+            lean_damaging = n_dmg == len(preds)
+            if not unanimous:
+                stance = "mixed"
+            elif clinvar_path:
+                stance = "concordant" if lean_damaging else "discordant"
+            elif clinvar_benign:
+                stance = "concordant" if not lean_damaging else "discordant"
+            else:
+                # VUS or conflicting: ClinVar has made no settled call, so there is
+                # nothing for the predictors to be concordant WITH.
+                stance = "neutral"
             consensus = {"n_damaging": n_dmg, "total": len(preds),
                          "names": names, "summary": summary,
-                         "unanimous": n_dmg in (0, len(preds)),
+                         "unanimous": unanimous, "stance": stance,
                          "abstained": abstained}
             tail = ("; " + ", ".join(f"{n} ambiguous" for n in abstained)) if abstained else ""
             lines.append(f"→ **In-silico consensus:** {summary} ({names}){tail}")

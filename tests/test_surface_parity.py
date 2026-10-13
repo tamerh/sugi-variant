@@ -1518,3 +1518,49 @@ def test_no_surface_lowercases_a_dataset_or_field_name():
     for name, surface in (("HTML", html), (".md", md)):
         for wrong in ("gnomad v4.1", "(an ", "Spliceai", "Alphamissense", "Clinvar"):
             assert wrong not in surface, f"{name} contains {wrong!r}"
+
+
+# ── colour must encode the stance toward ClinVar, not internal unanimity ─────
+def test_a_unanimous_tolerated_call_against_a_pathogenic_one_is_not_styled_as_agreement():
+    """`unanimous` means the predictors agree WITH EACH OTHER. Styling on it alone put
+    the agreement colour on "both scoring predictors call this tolerated" beneath a
+    Likely pathogenic classification — green on exactly the page where the evidence
+    conflicts, and the one a reader most needs to read as a conflict."""
+    from sugivariant.enrich import concordance
+    c = concordance("Likely pathogenic", _AMB, None, None, None, _REVEL_BENIGN, _SAPROT_TOL)
+    cons = c["consensus"]
+    assert cons["unanimous"] is True, "the predictors do agree with each other"
+    assert cons["stance"] == "discordant", "...but they contradict the clinical call"
+
+
+def test_stance_covers_every_clinvar_direction():
+    from sugivariant.enrich import concordance
+    dmg = ({"class": "likely_pathogenic", "score": "0.97"},
+           {"score": 0.9, "band": "strongly pathogenic-leaning", "direction": "pathogenic"},
+           {"llr": -12.0, "damaging": True})
+    tol = (_AMB, _REVEL_BENIGN, _SAPROT_TOL)
+    cases = [("Pathogenic", dmg, "concordant"), ("Pathogenic", tol, "discordant"),
+             ("Benign", tol, "concordant"), ("Benign", dmg, "discordant"),
+             ("Uncertain significance", dmg, "neutral"),
+             ("Conflicting classifications of pathogenicity", tol, "neutral")]
+    for cls, (am, rv, sp), want in cases:
+        got = concordance(cls, am, None, None, None, rv, sp)["consensus"]["stance"]
+        assert got == want, f"{cls} + {'damaging' if am is not _AMB else 'tolerated'}: {got} != {want}"
+
+
+def test_the_rendered_page_does_not_paint_a_discordant_consensus_green():
+    rec = next(_records(limit_genes=500, want=lambda r: (
+        (r.get("alphamissense") or {}).get("class") == "ambiguous"
+        and "athogenic" in (r.get("classification") or "")
+        and "onflict" not in (r.get("classification") or "")
+        and r.get("revel") and r.get("saprot"))), None)
+    if rec is None:
+        pytest.skip("no ambiguous-AM pathogenic record in the sampled genes")
+    html, _, _, _ = _both(rec)
+    import re
+    m = re.search(r'<p class="vd-consensus([^"]*)">(.*?)</p>', html, re.S)
+    assert m, "consensus paragraph not rendered"
+    klass, text = m.group(1), m.group(2)
+    if "tolerated" in text:
+        assert "is-agree" not in klass, f"discordant consensus painted as agreement: {klass!r}"
+        assert "is-flag" in klass, klass

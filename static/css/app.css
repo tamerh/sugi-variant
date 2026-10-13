@@ -267,6 +267,7 @@
 .vd-num{font-family:ui-monospace,monospace;font-weight:600;white-space:nowrap;padding-right:.7rem !important}
 .vd-consensus{font-size:.9rem;margin-top:.6rem;padding-top:.5rem;border-top:1px dashed var(--border,#e5e7eb)}
 .vd-consensus.is-agree{color:var(--ok)}
+.vd-consensus.is-flag{color:var(--flag)}
 .vd-dl{display:grid;grid-template-columns:auto 1fr;gap:.25rem .8rem;margin:0;font-size:.86rem}
 .vd-dl dt{color:var(--muted,#6b7280);font-weight:600}.vd-dl dd{margin:0}
 .vd-chips{display:flex;flex-wrap:wrap;gap:.3rem}
