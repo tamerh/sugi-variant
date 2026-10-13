@@ -163,6 +163,33 @@ def _label(v):
     return core + (f" ({c})" if p and c else "")
 
 
+def page_title(v):
+    """The page <title>: the label plus the rsID when the variant has one.
+
+    2,720,253 records (68.7%) carry an rsID and it appeared in no ranking-weighted
+    field — not the title, not the H1, not the meta description — while rsID queries
+    convert at the highest rate of any query shape in the search data (46% CTR, on
+    almost no impressions). Kept separate from _label() because that also feeds
+    declarative(), where an accession would be noise in a plain-language sentence.
+    """
+    rs = (v.get("rsid") or "").strip()
+    label = _label(v)
+    return f"{label} {rs}" if rs else label
+
+
+def meta_description(v):
+    """The search snippet. Leads with the notation people actually type.
+
+    It used to be the plain-language sentence alone, which carries no notation at all:
+    a result for "rs2519708540" or "c.1543C>T" showed neither, so nothing in the snippet
+    could match — or bold against — the query that surfaced it.
+    """
+    rs = (v.get("rsid") or "").strip()
+    lead = _label(v) + (f", {rs}" if rs else "")
+    plain = (v.get("plain") or "").strip()
+    return f"{lead}. {plain}" if plain else lead
+
+
 def declarative(v):
     """Answer-first lead — the self-contained factual block an assistant lifts to
     answer 'is GENE pChange pathogenic?'. Includes the in-silico + population

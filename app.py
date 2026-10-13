@@ -23,6 +23,8 @@ from sugibiobtree import map_all                          # noqa: E402
 from sugivariant.build import enriched_records            # noqa: E402
 from sugivariant.collect import collect                   # noqa: E402
 from sugivariant.render import _label as variant_label    # noqa: E402
+from sugivariant.render import meta_description as _meta_desc  # noqa: E402
+from sugivariant.render import page_title as _page_title  # noqa: E402
 from sugivariant.slug import _norm, _norm_hgvs            # noqa: E402
 from sugivariant.enrich import refresh_record as _refresh  # noqa: E402
 from sugivariant.present import evidence_groups, evidence_view  # noqa: E402
@@ -63,7 +65,8 @@ def stars(review_status):
 
 
 from sugivariant.render import short_hgvs as _short_hgvs   # noqa: E402
-env.globals.update(label=variant_label, cls_class=cls_class, stars=stars, hgvs_disp=_short_hgvs)
+env.globals.update(label=variant_label, cls_class=cls_class, stars=stars, hgvs_disp=_short_hgvs,
+                   page_title=_page_title, meta_description=_meta_desc)
 from sugivariant import links as _links   # noqa: E402
 env.globals["atlas_gene"] = lambda sym: _links.gene_url(symbol=sym)
 env.globals["atlas_disease"] = lambda name: _links.disease_url(name=name)

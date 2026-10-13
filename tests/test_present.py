@@ -308,3 +308,48 @@ def test_the_sources_table_names_the_conservation_alignment():
     assert row, "conservation missing from DATA_SOURCES"
     assert "470-way" in row[0][1] and "Hiller" in row[0][1], row[0]
     assert "Zoonomia" not in row[0][1], "that is the 447-way track"
+
+
+# ── rsID in the ranking-weighted fields ──────────────────────────────────────
+def test_the_title_and_description_carry_the_rsid():
+    """2,720,253 records (68.7%) carry an rsID and it was in no ranking-weighted field:
+    not the title, not the H1, not the meta description. rsID queries convert at the
+    highest rate of any shape in the search data, on almost no impressions — a coverage
+    problem, not a quality one."""
+    from sugivariant.render import meta_description, page_title
+    v = {"gene_symbol": "OTUD5", "hgvs_p": "p.Arg515Trp", "hgvs_c": "c.1543C>T",
+         "rsid": "rs2519708540", "plain": "This is a change in the OTUD5 gene."}
+    t = page_title(v)
+    assert t == "OTUD5 p.Arg515Trp (c.1543C>T) rs2519708540", t
+    d = meta_description(v)
+    # the snippet must lead with what people type, then the plain sentence
+    assert d.startswith("OTUD5 p.Arg515Trp (c.1543C>T), rs2519708540."), d
+    assert v["plain"] in d
+
+
+def test_a_variant_without_an_rsid_is_unchanged():
+    from sugivariant.render import _label, meta_description, page_title
+    v = {"gene_symbol": "OTUD5", "hgvs_p": "p.Arg515Trp", "hgvs_c": "c.1543C>T",
+         "plain": "A change."}
+    assert page_title(v) == _label(v)
+    assert meta_description(v) == "OTUD5 p.Arg515Trp (c.1543C>T). A change."
+    assert "None" not in meta_description(v) and "rs" not in page_title(v)
+
+
+def test_the_plain_sentence_is_still_the_body_of_the_description():
+    """The notation is a prefix, not a replacement — the human-readable sentence is
+    what makes the snippet worth clicking once the notation has matched."""
+    from sugivariant.render import meta_description
+    v = {"gene_symbol": "TP53", "hgvs_p": "p.Arg175His", "rsid": "rs28934578",
+         "plain": "This is a change in the TP53 gene that is considered disease-causing."}
+    d = meta_description(v)
+    assert d.index("rs28934578") < d.index("This is a change")
+
+
+def test_declarative_does_not_gain_the_accession():
+    """page_title is deliberately separate from _label, which also feeds declarative() —
+    an rsID is noise in a plain-language sentence an assistant lifts verbatim."""
+    from sugivariant.render import declarative
+    v = {"gene_symbol": "OTUD5", "hgvs_p": "p.Arg515Trp", "hgvs_c": "c.1543C>T",
+         "rsid": "rs2519708540", "classification": "Likely pathogenic"}
+    assert "rs2519708540" not in declarative(v)
