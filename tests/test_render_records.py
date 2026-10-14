@@ -48,8 +48,7 @@ def test_every_cached_record_renders_both_surfaces():
         n += 1
         slug = rec.get("canonical_slug")
         try:
-            app._render("variant.html", v=rec, canonical=slug, nav="variant",
-                        disagreement=disagreement_flag(rec))
+            app._render("variant.html", v=rec, canonical=slug, nav="variant")
         except Exception as e:
             failures.append(f"HTML {gene} {slug}: {type(e).__name__}: {e}")
         try:
@@ -79,7 +78,7 @@ def test_gnomad_fallback_shape_renders_a_frequency():
         if not (isinstance(g, dict) and g.get("source") == "dbSNP/gnomAD" and not g.get("absent")):
             continue
         html = app._render("variant.html", v=rec, canonical=rec.get("canonical_slug"),
-                           nav="variant", disagreement=disagreement_flag(rec))
+                           nav="variant")
         m = row.search(html)
         if not m:
             continue
@@ -113,7 +112,7 @@ def test_faf95_is_surfaced_and_is_the_named_ba1_bs1_input():
         if not isinstance(g, dict) or g.get("absent") or faf95 is None:
             continue
         html = app._render("variant.html", v=rec, canonical=rec.get("canonical_slug"),
-                           nav="variant", disagreement=disagreement_flag(rec))
+                           nav="variant")
         m = row.search(html)
         if m:
             assert "FAF95" in m.group(1), f"{rec.get('canonical_slug')}: FAF95 missing from the row"
@@ -133,8 +132,7 @@ def _freq_render(rec):
     from sugivariant.enrich import disagreement_flag
     g, pops = app._freq_ctx(rec)
     return app._render("variant.html", v=rec, canonical=rec.get("canonical_slug"),
-                       nav="variant", jsonld="", disagreement=disagreement_flag(rec),
-                       freq_g=g, freq_pops=pops), g, pops
+                       nav="variant", jsonld="", freq_g=g, freq_pops=pops), g, pops
 
 
 def _mk(gnomad):

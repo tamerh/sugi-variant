@@ -45,8 +45,7 @@ def _both(rec):
     refresh_concordance(rec)          # what app.py does before rendering
     g, pops = app._freq_ctx(rec)
     html = app._render("variant.html", v=rec, canonical=rec.get("canonical_slug"),
-                       nav="variant", jsonld="", disagreement=disagreement_flag(rec),
-                       freq_g=g, freq_pops=pops)
+                       nav="variant", jsonld="", freq_g=g, freq_pops=pops)
     return html, render_body(rec), g, pops
 
 
@@ -1497,7 +1496,7 @@ def test_both_surfaces_say_we_did_not_look_rather_than_not_assessed():
     refresh_record(rec)
     g, pops = app._freq_ctx(rec)
     html = app._render("variant.html", v=rec, canonical=rec.get("canonical_slug"), nav="variant",
-                       jsonld="", disagreement=disagreement_flag(rec), freq_g=g, freq_pops=pops)
+                       jsonld="", freq_g=g, freq_pops=pops)
     md = render_body(rec)
     assert "not looked up on this page" in html
     assert "not looked up on this page" in md

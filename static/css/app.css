@@ -58,12 +58,6 @@
 .vd-similar .vv-stars{font-size:.9rem}
 .vd-similar-flag{color:var(--flag,#b45309);font-size:.9rem;cursor:help}
 .vd-similar-rel{margin-left:auto;color:var(--muted,#6b7280);font-size:.76rem;white-space:nowrap}
-.vv-meta{color:var(--muted,#6b7280);font-size:.86rem}
-.vv-concordance{display:flex;align-items:baseline;gap:.5rem;font-size:.98rem;margin:.4rem 0;
-  padding:.5rem .7rem;border-radius:9px;background:var(--bg,#fff)}
-.vv-concordance.is-ok{color:var(--ok)}.vv-concordance.is-flag{color:var(--flag)}
-.vv-concordance .vv-rarity{color:var(--ink,#111);font-weight:400}
-.vv-conc-icon{font-size:1.05rem}
 .vv-lead{margin:.6rem 0 .9rem;font-size:1.02rem}
 .vv-jump{display:flex;flex-wrap:wrap;gap:.5rem}
 .vv-jump-pill{font-size:.85rem;padding:.32rem .75rem;border:1px solid var(--border,#e5e7eb);
@@ -80,13 +74,11 @@
 .vv-panel p{margin:.3rem 0;font-size:.94rem}
 .vv-num{font-family:ui-monospace,monospace;font-weight:600}
 .vv-band-common{color:var(--flag);font-weight:600}
-.vv-band-rare{color:var(--ink,#111)}
 .vv-mini{margin:.3rem 0 0;padding-left:1.1rem;font-size:.9rem}
 .vv-mini li{margin:.15rem 0}
 
 /* ── Mechanism & patient ───────────────────────────────────────────────── */
 .vv-mech-lead{font-size:1rem;line-height:1.5}
-.vv-go{font-size:.92rem;color:var(--ink,#111)}
 .vv-sum{cursor:pointer;font-weight:600;margin:.4rem 0}
 .vv-ident{display:grid;grid-template-columns:auto 1fr;gap:.3rem 1rem;margin:.5rem 0;font-size:.94rem}
 .vv-ident dt{font-weight:600;color:var(--muted,#6b7280)}
@@ -109,8 +101,6 @@
   border:1px solid color-mix(in srgb,var(--accent,#2563eb) 18%,transparent);border-radius:10px;padding:.75rem .95rem}
 [data-theme="dark"] .vv-patient-facts{background:color-mix(in srgb,var(--bg,#111) 45%,transparent)}
 .vv-src{margin-top:2rem;border-top:1px solid var(--border,#e5e7eb);padding-top:.8rem}
-.vv-consensus{margin-top:.5rem;padding-top:.45rem;border-top:1px dashed var(--border,#e5e7eb);font-size:.9rem}
-.vv-consensus.is-agree{color:var(--ok);font-weight:500}
 
 /* ── disagreement browse view (benchmark 2026-07) ──────────────────────────── */
 .dz-tone-flag{--dz:var(--flag);--dz-soft:var(--lpath-soft)}
@@ -172,7 +162,7 @@
 /* gene hub — variant list */
 .gh-list{list-style:none;padding:0;margin:0;display:grid;
   grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.3rem .9rem}
-.gh-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem;padding:.28rem 0;border-bottom:1px solid var(--line2,#eef1f4);font-size:.92rem}
+.gh-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem;padding:.28rem 0;border-bottom:1px solid var(--border);font-size:.92rem}
 .gh-row>a:first-child{font-family:ui-monospace,monospace;text-decoration:none;color:var(--accent,#2563eb);min-width:0;overflow-wrap:anywhere;word-break:break-word}
 .gh-row>a:first-child:hover{text-decoration:underline}
 .gh-stars{color:var(--path,#c0392b);font-size:.75rem;letter-spacing:-1px}
@@ -195,7 +185,7 @@
   border-radius:10px;box-shadow:0 8px 28px rgba(20,26,32,.16);overflow:hidden;max-height:min(60vh,420px);
   overflow-y:auto}
 .ac-item{display:flex;align-items:baseline;gap:.55rem;padding:.5rem .7rem;text-decoration:none;
-  color:inherit;border-bottom:1px solid var(--line2,#eef1f4);font-size:.92rem}
+  color:inherit;border-bottom:1px solid var(--border);font-size:.92rem}
 .ac-item:last-child{border-bottom:0}
 .ac-item.ac-sel,.ac-item:hover{background:var(--vus-soft,#f2f3f4)}
 .ac-kind{font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;
@@ -232,7 +222,7 @@
 .vd-head-verdict{display:flex;gap:.5rem;align-items:center}
 .vd-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;margin:1rem 0 1.1rem}
 .vd-tile{border:1px solid var(--border,#e5e7eb);border-radius:11px;padding:.6rem .8rem;background:var(--bg,#fff)}
-.vd-tile .lab{font-size:.62rem;text-transform:uppercase;letter-spacing:.07em;color:var(--faint,#8b93a1)}
+.vd-tile .lab{font-size:.62rem;text-transform:uppercase;letter-spacing:.07em;color:var(--fg-soft)}
 .vd-tile .val{font-size:1.02rem;font-weight:650;margin-top:.15rem;line-height:1.25}
 .vd-tile .sub{font-size:.76rem;color:var(--muted,#6b7280);margin-top:.1rem}
 .vd-grid{display:grid;grid-template-columns:1fr;gap:1.1rem;align-items:start}
@@ -273,11 +263,9 @@
 .vd-card p{margin:.4rem 0;line-height:1.5;font-size:.92rem}
 .vd-side .vd-card{font-size:.86rem}
 .vd-side .vd-card p{font-size:.85rem;margin:.3rem 0}
-.vd-verdict{font-weight:600;margin:.2rem 0 1rem;font-size:.98rem}
-.vd-verdict.is-flag{color:var(--flag)}.vd-verdict.is-ok{color:var(--ok)}
 .vd-preds{width:100%;border-collapse:collapse;font-size:.9rem}
 .vd-preds th{text-align:left;font-weight:600;color:var(--fg-muted,#475569);white-space:nowrap;padding:.32rem .7rem .32rem 0;vertical-align:baseline;width:1%}
-.vd-preds td{padding:.32rem 0;vertical-align:baseline;border-top:1px solid var(--line2,#eef1f4)}
+.vd-preds td{padding:.32rem 0;vertical-align:baseline;border-top:1px solid var(--border)}
 .vd-preds tr:first-child td,.vd-preds tr:first-child th{border-top:0}
 .vd-num{font-family:ui-monospace,monospace;font-weight:600;white-space:nowrap;padding-right:.7rem !important}
 .vd-consensus{font-size:.9rem;margin-top:.6rem;padding-top:.5rem;border-top:1px dashed var(--border,#e5e7eb)}
@@ -301,13 +289,10 @@
 /* ── VIEW 3 · datasheet ─────────────────────────────────────────────────────── */
 .ds-head{border-left:4px solid var(--cls,var(--vus));padding:.2rem 0 .5rem .9rem;margin:.4rem 0 1rem}
 .ds-title{font-size:1.55rem;font-weight:700;margin:0 0 .4rem}
-.ds-verdict{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
-.ds-conc{margin:.5rem 0 0;font-weight:600;font-size:.92rem}
-.ds-conc.is-flag{color:var(--flag)}.ds-conc.is-ok{color:var(--ok)}
 .ds-table{width:100%;border-collapse:collapse;font-size:.9rem}
 .ds-table th{text-align:left;vertical-align:baseline;white-space:nowrap;width:1%;
   padding:.42rem 1rem .42rem 0;color:var(--muted,#6b7280);font-weight:600;font-size:.82rem}
-.ds-table td{vertical-align:baseline;padding:.42rem 0;line-height:1.5;border-top:1px solid var(--line2,#eef1f4)}
+.ds-table td{vertical-align:baseline;padding:.42rem 0;line-height:1.5;border-top:1px solid var(--border)}
 .ds-table tr:first-child>*{border-top:0}
 .ds-chips{display:flex;flex-wrap:wrap;gap:.3rem}
 .ds .vv-sum,.vd-card .vv-sum{font-size:.82rem;color:var(--accent,#2563eb);cursor:pointer}
@@ -319,7 +304,7 @@
 .set-table td,.set-table th{white-space:nowrap}
 .set-table td:last-child,.set-table td:nth-child(5){white-space:normal}
 .set-flagged{background:color-mix(in srgb, var(--flag) 7%, transparent)}
-.set-table tbody tr{border-top:1px solid var(--line2,#eef1f4)}
+.set-table tbody tr{border-top:1px solid var(--border)}
 
 /* ── autocomplete: per-row action buttons (Add a variant / Open) ── */
 .ac-item{align-items:center;text-decoration:none}          /* div rows: no link underline */
@@ -559,6 +544,6 @@ table.pf-tbl tr.is-max td{color:var(--fg,#0f172a);background:rgba(63,127,212,.07
    BioBTree preprint page — neutral left rule, soft ground, constrained to the paper's
    own text column rather than the wide container it sits in. */
 .method-note{max-width:68em;margin:1.1rem auto 1.5rem;padding:.75rem 1rem;
-  background:var(--bg-soft,#f6f7f8);border-left:4px solid var(--ink,#111);
+  background:var(--bg-soft,#f6f7f8);border-left:4px solid var(--fg);
   color:var(--fg,#111);font-size:.88rem;line-height:1.55}
 .method-note p{margin:0}
