@@ -26,16 +26,36 @@ CREATE TABLE IF NOT EXISTS variant(
   classification TEXT, review_status TEXT, stars INTEGER, rsid TEXT, coordinate TEXT,
   primary_condition TEXT, flag TEXT);
 CREATE TABLE IF NOT EXISTS alias(key TEXT, vcv INTEGER, PRIMARY KEY(key, vcv));
-CREATE INDEX IF NOT EXISTS ix_alias ON alias(key);
+-- No index on alias(key): PRIMARY KEY(key, vcv) already indexes key as its leftmost
+-- column, and every read filters on key alone, so the planner uses the PK as a COVERING
+-- index. The separate ix_alias(key) it replaces was 599 MB of a 2.9 GB file, maintained
+-- across 23M inserts and chosen by nothing.
+-- alias(vcv) IS needed: index_gene deletes a gene's aliases by vcv before reinserting
+-- them, and with no index that DELETE is a full SCAN of 23M rows -- once per gene, and
+-- slower as the table grows. It measured 0.99s per gene at full size, i.e. hours of
+-- scanning across a full build.
+CREATE INDEX IF NOT EXISTS ix_alias_vcv ON alias(vcv);
 CREATE INDEX IF NOT EXISTS ix_gene  ON variant(gene);
 CREATE INDEX IF NOT EXISTS ix_flag  ON variant(flag);
 CREATE TABLE IF NOT EXISTS gene_meta(gene TEXT PRIMARY KEY, n INTEGER);
 """
 
 
-def open_db(path, check_same_thread=True):
+def open_db(path, check_same_thread=True, bulk=False):
+    """A writable connection, schema applied.
+
+    bulk=True tunes it for a full rebuild into a THROWAWAY file: WAL plus
+    synchronous=OFF skips an fsync per commit, and index_gene commits once per gene.
+    Only ever pass it for a build-and-swap, never for the live file -- it trades
+    crash-durability for speed, which is free when the output is verified against the
+    current index before it replaces anything, and reckless otherwise."""
     conn = sqlite3.connect(path, check_same_thread=check_same_thread)
     conn.row_factory = sqlite3.Row
+    if bulk:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=OFF")
+        conn.execute("PRAGMA cache_size=-262144")      # 256 MB page cache
+        conn.execute("PRAGMA temp_store=MEMORY")
     conn.executescript(SCHEMA)
     return conn
 
@@ -152,19 +172,49 @@ def reconcile_gene_meta(conn, log=None):
     return phantom, added, fixed
 
 
-def build_index(genes, db_path, skip_done=True, log_every=200):
+def _records_from_pickle(gene):
+    """A gene's stored records, or None if it has no pickle.
+
+    The index needs twelve plain ClinVar columns plus `flag`, and flag is re-derived
+    from the stored concordance by refresh_record() inside index_gene -- which reads a
+    pickled record exactly as well as a freshly fetched one. So re-deriving a gene costs
+    an AlphaMissense, SpliceAI, conservation, exon-model and gnomAD round trip per
+    variant to fill columns that never touch them: measured 80x slower, with identical
+    output over 30 genes (every variant row, alias and flag equal)."""
+    import glob
+    import gzip
+    import pickle
+    base = os.environ.get("CACHE_DIR", "cache")
+    hits = glob.glob(os.path.join(base, "records", f"{gene}.pkl.gz"))
+    if not hits:
+        return None
+    try:
+        with gzip.open(hits[0], "rb") as f:
+            recs = pickle.load(f)
+        return recs if isinstance(recs, list) else None
+    except Exception:
+        return None
+
+
+def build_index(genes, db_path, skip_done=True, log_every=200,
+                from_records=False, bulk=False):
     """Full/partial build over a gene list. RESUMABLE: genes already in gene_meta are
     skipped (idempotent + survives interruption). Per-gene failures are recorded as
-    n=-1 and skipped, not fatal — re-run after deleting the -1 rows to retry them."""
+    n=-1 and skipped, not fatal — re-run after deleting the -1 rows to retry them.
+
+    from_records indexes each gene from its pickle, falling back to a live derivation
+    for a gene that has none (which is how a gene whose records now arrive under an
+    overlapping locus still gets indexed)."""
     import time
-    conn = open_db(db_path)
+    conn = open_db(db_path, bulk=bulk)
     done = ({r["gene"] for r in conn.execute("SELECT gene FROM gene_meta")} if skip_done else set())
     todo = [g.upper() for g in genes if g.upper() not in done]
     total, failed, t0 = 0, 0, time.time()
     print(f"  {len(done)} already done, {len(todo)} to build", flush=True)
     for i, g in enumerate(todo, 1):
         try:
-            total += index_gene(conn, g)
+            recs = _records_from_pickle(g) if from_records else None
+            total += index_gene(conn, g, recs=recs)
         except Exception as e:
             failed += 1
             conn.execute("INSERT OR REPLACE INTO gene_meta VALUES(?,?)", (g, -1))
@@ -373,6 +423,11 @@ if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser(description="Build the resolution index (resumable).")
     ap.add_argument("--genes-file", help="one gene symbol per line")
+    ap.add_argument("--from-records", action="store_true",
+                    help="index each gene from its records/*.pkl.gz instead of "
+                         "re-deriving it from biobtree (~80x faster, identical output)")
+    ap.add_argument("--bulk", action="store_true",
+                    help="tune the DB for a full build into a throwaway file")
     ap.add_argument("--db", default=os.environ.get("INDEX_DB", "cache/index.db"))
     ap.add_argument("genes", nargs="*", help="gene symbols (or use --genes-file)")
     a = ap.parse_args()
@@ -380,6 +435,6 @@ if __name__ == "__main__":
     if a.genes_file:
         genes = [ln.strip() for ln in open(a.genes_file) if ln.strip() and not ln.startswith("#")]
     print(f"building {a.db} over {len(genes)} genes (resumable)…", flush=True)
-    build_index(genes, a.db)
+    build_index(genes, a.db, from_records=a.from_records, bulk=a.bulk)
     sz = os.path.getsize(a.db) / 1024 / 1024
     print(f"-> {a.db} ({sz:.1f} MB) | {stats(open_db(a.db))}")
