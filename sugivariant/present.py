@@ -110,8 +110,20 @@ def consensus_view(c):
     # a grand word for a small fact, and the 0/2 above already carries it — whereas WHICH
     # two is the thing a reader cannot otherwise recover from a tile.
     sub = cons.get("names") or ""
-    if abstained:
-        sub += " · " + ", ".join(abstained) + " no call"
+    # Same distinction as the consensus summary: a tool with an indeterminate SCORE is
+    # not a silent one, and the tile sits directly above the card row that shows its
+    # value. `abstained` is the union and stays the fallback for a readout pickled
+    # before the split (every serve site calls refresh_concordance first, so that is
+    # belt-and-braces rather than the normal path).
+    ind, uns = cons.get("indeterminate"), cons.get("unscored")
+    if ind is None and uns is None:
+        if abstained:
+            sub += " · " + ", ".join(abstained) + " no call"
+    else:
+        parts = ([", ".join(ind) + " indeterminate"] if ind else []) + \
+                ([", ".join(uns) + " no call"] if uns else [])
+        if parts:
+            sub += " · " + " · ".join(parts)
     return _el(cons.get("stance") or "neutral",
                f"{cons.get('n_damaging')}/{cons.get('total')} damaging", sub,
                summary=cons.get("summary"), abstained=abstained)

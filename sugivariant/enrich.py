@@ -1463,6 +1463,23 @@ def conservation_note(p, weighted):
     return "not a conserved position (phyloP < 0.1, ACGS BP7 cut)"
 
 
+def _not_voting(indeterminate, unscored):
+    """Phrase why predictors are out of the vote, keeping the two reasons apart.
+
+    "is indeterminate" for a tool that returned a score pointing neither way, "makes no
+    call" only for a tool with no score at all. The distinction is visible to the reader:
+    an indeterminate tool still has a value on the card, so describing it as silent
+    contradicts the row right above."""
+    bits = []
+    if indeterminate:
+        bits.append(f"{_and_list(indeterminate)} "
+                    f"{'is' if len(indeterminate) == 1 else 'are'} indeterminate")
+    if unscored:
+        bits.append(f"{_and_list(unscored)} "
+                    f"make{'s' if len(unscored) == 1 else ''} no call")
+    return " and ".join(bits)
+
+
 def _and_list(xs):
     """["a"] -> "a"; ["a","b"] -> "a and b"; ["a","b","c"] -> "a, b and c"."""
     xs = list(xs)
@@ -1482,7 +1499,7 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
     clinvar_vus = "uncertain" in cls
     clinvar_benign = "benign" in cls and "conflict" not in cls
     lines, flags, agree, total, consensus, verdict_kind = [], [], 0, 0, None, None
-    am_call, abstained = None, []
+    am_call, abstained, indeterminate, unscored = None, [], [], []
 
     if am:
         amclass, amscore = am.get("class"), am.get("score")
@@ -1544,10 +1561,19 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
         # consensus, while the note under the card still told the reader SaProt was one of
         # the agreement signals. Named here, a silent third tool can never pass for a
         # consenting one.
-        abstained += [n for n, out in (("AlphaMissense", am_call is None),
-                                      ("REVEL", bool(revel) and revel["direction"] == "indeterminate"),
-                                      ("SaProt", not saprot))
-                     if out]
+        # TWO different claims, which must not render as one phrase. AlphaMissense and
+        # REVEL are only ever listed here when they DID score the variant and the score
+        # points neither way (AM class 'ambiguous'; REVEL inside its indeterminate band) --
+        # both branches above are already inside `if am:` / `if revel:`. SaProt is listed
+        # when there is no score at all. Calling all three "makes no call" put "REVEL
+        # makes no call" in the consensus tile directly above a card row reading
+        # "REVEL 0.636 (indeterminate)": the reader can see both and only one can be true.
+        # Found on ush2a-p-pro1490his.
+        indeterminate += [n for n, out in (("AlphaMissense", am_call is None),
+                                           ("REVEL", bool(revel) and revel["direction"] == "indeterminate"))
+                          if out]
+        unscored += ["SaProt"] if not saprot else []
+        abstained += indeterminate + unscored
         if len(preds) >= 2:
             n_dmg = sum(1 for _, d in preds if d)
             names = ", ".join(n for n, _ in preds)
@@ -1567,8 +1593,7 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
                 summary = (f"{dmg} call{'s' if n_dmg == 1 else ''} this damaging; "
                            f"{tol} do{'es' if n_tol == 1 else ''} not")
             if abstained:
-                summary += (f"; {_and_list(abstained)} "
-                            f"make{'s' if len(abstained) == 1 else ''} no call")
+                summary += "; " + _not_voting(indeterminate, unscored)
             # `unanimous` says the predictors agree WITH EACH OTHER. It must not drive
             # the styling on its own: a unanimous "tolerated" against a Likely pathogenic
             # ClinVar call was rendered in the agreement colour, which reads as "all fine"
@@ -1589,7 +1614,8 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
             consensus = {"n_damaging": n_dmg, "total": len(preds),
                          "names": names, "summary": summary,
                          "unanimous": unanimous, "stance": stance,
-                         "abstained": abstained}
+                         "abstained": abstained,
+                         "indeterminate": indeterminate, "unscored": unscored}
             lines.append(f"→ **In-silico consensus:** {summary}")
     else:
         lines.append("**Missense predictors (AlphaMissense/REVEL/SaProt) do not apply** to this "
@@ -1666,8 +1692,7 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
         # declining to call, which is a materially different thing.
         # _and_list, not " and ".join: now that SaProt is named, three tools can go quiet
         # at once and "AlphaMissense and REVEL and SaProt" is not a sentence.
-        who = _and_list(abstained)
-        verdict = (f"{who} make{'s' if len(abstained) == 1 else ''} no call here — "
+        verdict = (f"{_not_voting(indeterminate, unscored)} here — "
                    "the available evidence is described below")
     elif total == 0:
         verdict = None

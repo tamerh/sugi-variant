@@ -1101,7 +1101,9 @@ def test_the_consensus_says_which_predictors_it_is_speaking_for():
     # scoring predictors call this tolerated" was true but left the reader to work out
     # which two, from a card of up to thirteen rows.
     assert "REVEL and SaProt" in summary, summary
-    assert "AlphaMissense makes no call" in summary, summary
+    # It SCORED the variant ('ambiguous'); it is indeterminate, not silent.
+    assert "AlphaMissense is indeterminate" in summary, summary
+    assert "AlphaMissense makes no call" not in summary, summary
     assert "AlphaMissense" not in summary.split(";")[0], "an abstainer is not a speaker"
 
 
@@ -1258,7 +1260,7 @@ def test_when_both_calibrated_tools_abstain_the_page_says_which():
     assert c["consensus"] is None, "one remaining tool is not a consensus"
     # the verdict must not go silent: a missing verdict reads as missing DATA, which is
     # a different claim from a tool declining to call.
-    assert c["verdict"] == ("AlphaMissense and REVEL make no call here — "
+    assert c["verdict"] == ("AlphaMissense and REVEL are indeterminate here — "
                             "the available evidence is described below"), c["verdict"]
 
 
@@ -1322,7 +1324,7 @@ def test_the_page_and_the_md_both_name_an_abstaining_predictor():
         assert "all 3 predictors" not in surface, f"{name}: counts an abstaining tool"
     assert "ambiguous" in html
     # the HTML tile must disclose which tool went quiet, not just the surviving tally
-    assert "AlphaMissense no call" in html, "the consensus tile hides the abstention"
+    assert "AlphaMissense indeterminate" in html, "the consensus tile hides the abstention"
     assert "no call either way" in md
 
 
@@ -1362,7 +1364,10 @@ def test_three_quiet_predictors_still_read_as_a_sentence():
     c = concordance("Likely pathogenic", _AMB, None,
                     revel={"score": 0.5, "band": "indeterminate",
                            "direction": "indeterminate"}, saprot=None)
-    assert c["verdict"].startswith("AlphaMissense, REVEL and SaProt make no call here"), c["verdict"]
+    # Two reasons, kept apart: AM and REVEL returned scores that point neither way,
+    # SaProt returned nothing at all.
+    assert c["verdict"].startswith(
+        "AlphaMissense and REVEL are indeterminate and SaProt makes no call here"), c["verdict"]
 
 
 def test_the_page_shows_a_saprot_row_even_when_saprot_is_dark():
@@ -1995,3 +2000,74 @@ def test_scoping_the_divergence_pass_leaves_other_accessions_exactly_as_they_wer
             continue
         assert (r.get("saprot"), r.get("saprot_misaligned")) == settled[r["canonical_slug"]], \
             f"{r['canonical_slug']} moved although it was out of scope"
+
+
+# ── rule: a predictor the page SHOWS a score for is not a predictor that stayed silent ──
+# The consensus tile sits directly above the evidence card, so a reader sees both at
+# once. "REVEL no call" over a card row reading "REVEL 0.636 (indeterminate)" is a
+# contradiction on one screen, and only one of the two can be true. Three states, not
+# two: scored-and-directional (votes), scored-but-indeterminate (named, does not vote),
+# unscored (named, does not vote). Found by the user on ush2a-p-pro1490his, where
+# AlphaMissense + SaProt read 2/2 damaging and the tile called REVEL silent.
+def test_an_indeterminate_predictor_is_not_described_as_silent():
+    rec = next(_records(limit_genes=400,
+                        want=lambda r: (r.get("revel") or {}).get("direction") == "indeterminate"
+                        and (r.get("alphamissense") or {}).get("class")
+                        in ("likely_pathogenic", "likely_benign")
+                        and r.get("saprot")), None)
+    if rec is None:
+        pytest.skip("no indeterminate-REVEL record in the sampled genes")
+    html, md, _, _ = _both(rec)
+    score = str((rec["revel"])["score"])
+    for name, surface in (("HTML", html), (".md", md)):
+        if score not in surface:
+            continue                      # that surface does not show the value at all
+        assert "REVEL no call" not in surface, \
+            f"{name}: tile calls REVEL silent while showing REVEL {score}"
+        assert "REVEL makes no call" not in surface, \
+            f"{name}: readout calls REVEL silent while showing REVEL {score}"
+
+
+def test_the_two_reasons_a_predictor_does_not_vote_are_phrased_differently():
+    """One tool returned a score pointing neither way, the other returned nothing.
+    Both are out of the tally; they are not the same claim, and the readout that
+    mentions them must not merge them into one."""
+    from sugivariant.enrich import concordance
+    c = concordance("Pathogenic", {"class": "ambiguous", "score": "0.44"}, None,
+                    revel={"score": 0.636, "band": "indeterminate",
+                           "direction": "indeterminate"},
+                    saprot=None)
+    assert "AlphaMissense and REVEL are indeterminate" in c["verdict"], c["verdict"]
+    assert "SaProt makes no call" in c["verdict"], c["verdict"]
+    assert "REVEL makes no call" not in c["verdict"], c["verdict"]
+    # and REVEL's actual value is still on the card, which is why calling it silent
+    # would contradict what the reader can see
+    assert any("REVEL 0.636" in ln for ln in c["lines"]), c["lines"]
+
+
+def test_a_lone_voting_predictor_does_not_claim_the_others_were_silent():
+    """AlphaMissense alone agreeing is reported as one predictor, and the indeterminate
+    REVEL beside it keeps its value on the card rather than being called silent."""
+    from sugivariant.enrich import concordance
+    c = concordance("Pathogenic", {"class": "likely_pathogenic", "score": "0.91"}, None,
+                    revel={"score": 0.636, "band": "indeterminate",
+                           "direction": "indeterminate"},
+                    saprot=None)
+    assert c["consensus"] is None, "one voting tool is not a consensus"
+    assert any("REVEL 0.636" in ln for ln in c["lines"]), c["lines"]
+    joined = " ".join(c["lines"] + [c.get("verdict") or ""])
+    assert "REVEL makes no call" not in joined, joined
+
+
+def test_an_indeterminate_and_an_unscored_tool_are_both_still_named():
+    """Splitting the phrasing must not drop either from the readout."""
+    from sugivariant.enrich import concordance
+    c = concordance("Pathogenic", {"class": "likely_pathogenic", "score": "0.91"}, None,
+                    revel={"score": 0.5, "band": "indeterminate",
+                           "direction": "indeterminate"},
+                    saprot={"llr": -12.0, "damaging": True})
+    cons = c["consensus"]
+    assert cons["total"] == 2 and cons["n_damaging"] == 2
+    assert cons["indeterminate"] == ["REVEL"] and cons["unscored"] == []
+    assert set(cons["abstained"]) == {"REVEL"}, "the union must still list it"
+    assert "REVEL is indeterminate" in cons["summary"], cons["summary"]
