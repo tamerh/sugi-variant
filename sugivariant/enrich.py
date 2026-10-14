@@ -1418,8 +1418,17 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
             preds.append(("REVEL", revel["direction"] == "pathogenic"))
         if saprot:
             preds.append(("SaProt", saprot["damaging"]))
+        # SaProt goes dark for a whole PROTEIN, not just a variant: it is structure-aware,
+        # and AlphaFold DB's human proteome release excluded sequences longer than 2,700
+        # residues, so 182 genes with scored missense -- TTN, BRCA2, ATM, APC, RYR1, DMD --
+        # have no SaProt at all (289,227 variants, 11.9% of the AlphaMissense-covered set).
+        # Omitted from this list it was INVISIBLE: no table row, no mention in the
+        # consensus, while the note under the card still told the reader SaProt was one of
+        # the agreement signals. Named here, a silent third tool can never pass for a
+        # consenting one.
         abstained += [n for n, out in (("AlphaMissense", am_call is None),
-                                      ("REVEL", bool(revel) and revel["direction"] == "indeterminate"))
+                                      ("REVEL", bool(revel) and revel["direction"] == "indeterminate"),
+                                      ("SaProt", not saprot))
                      if out]
         if len(preds) >= 2:
             n_dmg = sum(1 for _, d in preds if d)
@@ -1537,7 +1546,9 @@ def concordance(classification, am, gnomad, spliceai=None, conservation=None, re
         # predictors remain to state agreement, so name the tools that went quiet —
         # omitting the verdict silently reads as missing data rather than as a tool
         # declining to call, which is a materially different thing.
-        who = " and ".join(abstained)
+        # _and_list, not " and ".join: now that SaProt is named, three tools can go quiet
+        # at once and "AlphaMissense and REVEL and SaProt" is not a sentence.
+        who = _and_list(abstained)
         verdict = (f"{who} make{'s' if len(abstained) == 1 else ''} no call here — "
                    "the available evidence is described below")
     elif total == 0:

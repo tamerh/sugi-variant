@@ -1326,6 +1326,73 @@ def test_the_page_and_the_md_both_name_an_abstaining_predictor():
     assert "no call either way" in md
 
 
+# ── rule: SaProt goes dark for whole PROTEINS, and that must be visible ──
+# SaProt is structure-aware, and AlphaFold DB's human proteome release excluded
+# sequences longer than 2,700 residues. So 182 genes with scored missense -- TTN,
+# BRCA2, ATM, APC, RYR1, DMD -- have NO SaProt score for any variant (289,227
+# variants, 11.9% of the AlphaMissense-covered set). Before this, the row simply
+# vanished, the consensus never named it, and the note under the card still told the
+# reader SaProt was one of the agreement signals. Found on brca2-p-arg2336his.
+def test_a_dark_saprot_is_named_as_abstaining():
+    from sugivariant.enrich import concordance
+    c = concordance("Pathogenic", {"class": "likely_pathogenic", "score": "0.91"}, None,
+                    revel={"score": 0.8, "band": "damaging", "direction": "pathogenic"},
+                    saprot=None)
+    cons = c["consensus"]
+    assert "SaProt" in cons["abstained"], f"a silent SaProt passed unmentioned: {cons}"
+    assert "SaProt makes no call" in cons["summary"], cons["summary"]
+    # and it must not be counted as a consenting voice
+    assert cons["total"] == 2 and "SaProt" not in cons["names"]
+
+
+def test_a_scoring_saprot_is_not_reported_as_abstaining():
+    from sugivariant.enrich import concordance
+    c = concordance("Pathogenic", {"class": "likely_pathogenic", "score": "0.91"}, None,
+                    revel={"score": 0.8, "band": "damaging", "direction": "pathogenic"},
+                    saprot={"llr": -12.0, "damaging": True})
+    cons = c["consensus"]
+    assert cons["abstained"] == [] and cons["total"] == 3
+    assert "no call" not in cons["summary"], cons["summary"]
+
+
+def test_three_quiet_predictors_still_read_as_a_sentence():
+    """With SaProt named, all three can go quiet at once; the verdict used
+    " and ".join, which produced "A and B and C"."""
+    from sugivariant.enrich import concordance
+    c = concordance("Likely pathogenic", _AMB, None,
+                    revel={"score": 0.5, "band": "indeterminate",
+                           "direction": "indeterminate"}, saprot=None)
+    assert c["verdict"].startswith("AlphaMissense, REVEL and SaProt make no call here"), c["verdict"]
+
+
+def test_the_page_shows_a_saprot_row_even_when_saprot_is_dark():
+    """An absent predictor must be stated, like SpliceAI's snv_only/absent rows —
+    not omitted, which is indistinguishable from a page that never looked."""
+    rec = next(_records(limit_genes=600,
+                        want=lambda r: (r.get("alphamissense") or {}).get("class")
+                        and not r.get("saprot")), None)
+    if rec is None:
+        pytest.skip("every sampled AlphaMissense-scored record has a SaProt score")
+    html, _md, _g, _p = _both(rec)
+    assert "SaProt" in html, "a structureless protein drops SaProt off the page entirely"
+    assert "not scored" in html, "SaProt's absence is not stated"
+    assert "2,700 residues" in html, "the page does not say WHY SaProt is silent"
+    # and the note must not claim a tool that never spoke is an agreement signal
+    assert "REVEL and SaProt are independent agreement signals" not in html, \
+        "the note credits a SaProt that made no call"
+
+
+def test_the_note_still_credits_saprot_when_it_did_score():
+    rec = next(_records(limit_genes=600,
+                        want=lambda r: (r.get("alphamissense") or {}).get("class")
+                        and r.get("saprot") and r.get("revel")), None)
+    if rec is None:
+        pytest.skip("no record with AlphaMissense, REVEL and SaProt in the sample")
+    html, _md, _g, _p = _both(rec)
+    assert "REVEL and SaProt are independent agreement signals" in html
+    assert "not scored" not in html.split("Splicing")[0], "a scored SaProt rendered as absent"
+
+
 @pytest.mark.skipif(not os.environ.get("SUGI_CORPUS_INVARIANTS"),
                     reason="corpus sweep; set SUGI_CORPUS_INVARIANTS=1")
 def test_no_cached_record_renders_a_false_agreement_claim():
