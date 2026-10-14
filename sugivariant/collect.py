@@ -194,8 +194,23 @@ def attach_enrichment(rec, ctx=None):
     # so cache once per gene in ctx (works on the empty-ctx fast path too, just one call).
     # Resolved HERE, ahead of regional missense constraint, which needs its ENST to pick
     # the right transcript's region; on the fast path ctx starts empty.
-    if "mane" not in ctx:
-        ctx["mane"] = EN.mane_select(rec.get("hgnc_id"))
+    # Keyed on the variant's OWN gene symbol, not on ClinVar's hgnc_id. ClinVar files an
+    # overlapping gene's variant under the HOST gene's id, so keying on hgnc_id returned
+    # the host's MANE Select and then labelled the variant's REAL one as the deviation:
+    # a pathogenic ATM frameshift read "MANE Select NM_152587 · reported on NM_000051",
+    # where NM_152587 is C11orf65's MANE and NM_000051 IS ATM's. 59,805 pages stated it
+    # backwards, 3,669 of them P/LP. gene_rmc was fixed for exactly this reason and takes
+    # either form, since biobtree resolves a symbol through >>hgnc.
+    # Cached per gene rather than per file: one record file holds the host gene's
+    # variants AND the overlapping genes', so a single file-level value is wrong for all
+    # but the first gene in it.
+    _g = rec.get("gene_symbol") or rec.get("hgnc_id")
+    _mane_cache = ctx.setdefault("mane_cache", {})
+    if _g not in _mane_cache:
+        # No fallback to hgnc_id when the symbol does not resolve: showing nothing beats
+        # showing another gene's reference transcript.
+        _mane_cache[_g] = EN.mane_select(_g)
+    ctx["mane"] = _mane_cache[_g]
     # Regional constraint — interval-indexed, so reached by map chain, not by coordinate
     # (entry(chr:pos) raises for both datasets). Each is gated to the variant class it
     # was built for: regional MISSENSE constraint only for missense, and Gnocchi's

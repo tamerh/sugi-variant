@@ -1746,3 +1746,46 @@ def test_the_page_says_withheld_not_absent():
     assert "numbering disagrees past residue 150" in html
     assert "not scored" not in html.split("Splicing")[0], \
         "withheld and never-scored must not render identically"
+
+
+# ── rule: a gene-level figure must be keyed on the VARIANT's gene, not ClinVar's id ──
+# ClinVar files an overlapping gene's variant under the HOST gene's hgnc_id. Keying MANE
+# Select on hgnc_id therefore returned the host gene's transcript AND then labelled the
+# variant's real MANE as the deviation: a pathogenic ATM frameshift read "MANE Select
+# NM_152587 · reported on NM_000051", where NM_152587 is C11orf65's and NM_000051 IS
+# ATM's. 59,805 pages stated it backwards, 3,669 of them P/LP. gene_rmc was fixed for
+# this exact reason ("ClinVar's hgnc_id can be the overlapping host gene's");
+# mane_select was missed.
+def test_mane_select_is_keyed_on_the_variants_own_gene():
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parent.parent
+           / "sugivariant" / "collect.py").read_text(encoding="utf-8")
+    assert 'EN.mane_select(rec.get("hgnc_id"))' not in src, \
+        "MANE keyed on ClinVar's hgnc_id returns the HOST gene's transcript"
+    assert 'rec.get("gene_symbol") or rec.get("hgnc_id")' in src, \
+        "MANE must resolve from the variant's own gene symbol first"
+
+
+def test_mane_is_cached_per_gene_not_per_record_file():
+    """One record file holds the host gene's variants AND the overlapping genes', so a
+    single file-level MANE is wrong for every gene in it but the first."""
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parent.parent
+           / "sugivariant" / "collect.py").read_text(encoding="utf-8")
+    assert 'if "mane" not in ctx' not in src, \
+        "a file-level MANE cache gives the first gene's transcript to all the others"
+    assert "mane_cache" in src
+
+
+def test_every_gene_level_lookup_keys_on_the_gene_not_the_hgnc_id():
+    """The general rule behind both: any per-gene fetch reached from a record must
+    prefer the variant's own symbol. Catches the next one added."""
+    import pathlib, re
+    src = (pathlib.Path(__file__).resolve().parent.parent
+           / "sugivariant" / "collect.py").read_text(encoding="utf-8")
+    offenders = [ln.strip() for ln in src.splitlines()
+                 if re.search(r'EN\.\w+\(\s*rec\.get\("hgnc_id"\)\s*\)', ln)
+                 and not ln.strip().startswith("#")]
+    assert not offenders, (
+        "gene-level lookups keyed on ClinVar's hgnc_id, which can be the overlapping "
+        "host gene's: " + "; ".join(offenders))
