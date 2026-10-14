@@ -260,7 +260,10 @@ def attach_enrichment(rec, ctx=None):
     # Batch 3 — per-variant derived (in-memory from the per-gene caches)
     am_map = ctx.get("am") or {}          # per-gene AM distribution (for the percentile)
     rec["am_percentile"] = (EN.am_percentile(am["score"], am_map) if (am and am_map) else None)
-    rec["structural"] = EN.structural_context(rec.get("hgvs_p"), (ctx.get("structure") or {}).get("intervals"))
+    rec["structural"] = EN.structural_context(
+        rec.get("hgvs_p"), (ctx.get("structure") or {}).get("intervals"),
+        # proof that ClinVar's residue numbering and UniProt's disagree here
+        rec.get("am_isoform_mismatch"))
     rec["similar"] = EN.similar_variants(rec, ctx.get("recs") or [])
     rec["timeline"] = EN.submission_timeline(rec.get("submissions") or [])
     # patient digest routed via the VARIANT's own condition (audit P1) — cached

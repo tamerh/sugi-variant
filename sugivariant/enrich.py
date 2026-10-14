@@ -2350,20 +2350,90 @@ def condition_links(mondo_id, cache):
     return out
 
 
+_AA3 = {"ala":"A","arg":"R","asn":"N","asp":"D","cys":"C","gln":"Q","glu":"E","gly":"G",
+        "his":"H","ile":"I","leu":"L","lys":"K","met":"M","phe":"F","pro":"P","ser":"S",
+        "thr":"T","trp":"W","tyr":"Y","val":"V"}
+
+# UniProt records a disulfide bond, and a two-residue cross-link, as the PAIR of bonded
+# residues -- begin and end are the two partners, NOT the span between them. Treating
+# them as a range made every residue in between "a disulfide bond": NGF p.Arg221Trp
+# (Likely pathogenic, HSAN5) was told it sits on the 179<->229 bond, 42 residues from
+# either cysteine, and DUOX2 p.Tyr413Asn on a 124<->1162 bond.
+_UF_ENDPOINT_TYPES = {"disulfide bond", "cross-link"}
+
+# Residues a feature REQUIRES by chemistry. A contradiction with the variant's own
+# reference residue is proof the position is being read in the wrong sequence's
+# numbering -- the feature belongs to some other residue entirely.
+_UF_REQUIRES = (
+    ("phosphoserine", "S"), ("phosphothreonine", "T"), ("phosphotyrosine", "Y"),
+    ("sulfotyrosine", "Y"), ("n6-acetyllysine", "K"), ("n6-methyllysine", "K"),
+    ("n6,n6-dimethyllysine", "K"), ("n6,n6,n6-trimethyllysine", "K"),
+    ("n6-succinyllysine", "K"), ("n6-malonyllysine", "K"), ("n6-glutaryllysine", "K"),
+    ("omega-n-methylarginine", "R"), ("symmetric dimethylarginine", "R"),
+    ("asymmetric dimethylarginine", "R"), ("citrulline", "R"),
+    ("s-nitrosocysteine", "C"), ("s-palmitoyl cysteine", "C"),
+    ("s-glutathionyl cysteine", "C"), ("4-hydroxyproline", "P"),
+    ("3-hydroxyproline", "P"), ("4-carboxyglutamate", "E"),
+    ("pyrrolidone carboxylic acid", "Q"),
+)
+
+
+def _ref_residue(hgvs_p):
+    """One-letter reference residue from a p. HGVS ('p.Pro309Ala' -> 'P'), or None."""
+    m = re.search(r"p\.([A-Za-z]{3})\d+", hgvs_p or "")
+    return _AA3.get(m.group(1).lower()) if m else None
+
+
+def _required_residue(ftype, desc):
+    """The residue a feature cannot describe without, or None."""
+    if ftype in _UF_ENDPOINT_TYPES:
+        return "C" if ftype == "disulfide bond" else None
+    d = (desc or "").lower()
+    for token, aa in _UF_REQUIRES:
+        if token in d:
+            return aa
+    return None
+
+
 # ── Batch 3: per-variant derived (mostly in-memory, no new calls) ────────────
-def structural_context(hgvs_p, intervals):
-    """UniProt features overlapping the variant's residue → human phrases."""
+def structural_context(hgvs_p, intervals, mismatch=None):
+    """UniProt features overlapping the variant's residue → human phrases.
+
+    The intervals are numbered on the UniProt CANONICAL sequence; `hgvs_p` is numbered
+    on ClinVar's transcript. Nothing guarantees those are the same sequence, and when
+    they are not every feature reported here belongs to a different residue:
+    kat5-p-asn150thr claimed "a modified residue (n6-acetyllysine)" -- an acetyl-LYSINE
+    site on an ASPARAGINE -- because KAT5's ClinVar transcript is 546aa while UniProt
+    Q92993 is 513aa, putting the real residue at 117.
+
+    Two guards, both self-contained:
+      `mismatch` (the record's am_isoform_mismatch) is proof that ClinVar's numbering
+      and the UniProt-space numbering AlphaMissense uses disagree for this variant.
+      A feature whose chemistry contradicts the variant's own reference residue proves
+      the same thing, and invalidates every feature at that position, not just itself.
+    Either way we report nothing rather than a confident claim about the wrong residue."""
     pos = protein_position(hgvs_p)
     if pos is None or not intervals:
         return None
+    if mismatch:
+        return None
+    ref = _ref_residue(hgvs_p)
     out, seen = [], set()
     for f in intervals:
-        if f["begin"] <= pos <= f["end"]:
+        ftype = f["type"]
+        if ftype in _UF_ENDPOINT_TYPES:
+            hit = pos == f["begin"] or pos == f["end"]
+        else:
+            hit = f["begin"] <= pos <= f["end"]
+        if hit:
             # Strip a foreign dbSNP id from the feature description — it's the rsID of the
             # UniProt-catalogued variant at this residue, not OUR variant (benchmark 2026-07:
             # ACADVL R459Q surfaced R459W's rs766742117).
             desc = re.sub(r"[;,]?\s*dbsnp:rs\d+\.?", "", f["desc"] or "", flags=re.I).strip(" ;.")
-            phrase = _UF_KEEP[f["type"]].replace("{d}", desc or f["type"])
+            need = _required_residue(ftype, desc)
+            if need and ref and need != ref:
+                return None          # the numbering is wrong; withhold the whole block
+            phrase = _UF_KEEP[ftype].replace("{d}", desc or ftype)
             if phrase not in seen:                      # dedup UniProt's duplicate curations
                 seen.add(phrase)
                 out.append(phrase)

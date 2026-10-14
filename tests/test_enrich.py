@@ -722,3 +722,57 @@ def test_collapse_tolerates_an_unreadable_file(tmp_path):
     p = tmp_path / "BAD.pkl.gz"
     p.write_bytes(b"not a gzip pickle")
     assert EN.records_collapsed(p, 1) is None
+
+
+# ── rule: a UniProt feature must describe THIS residue ──
+# The intervals are numbered on the UniProt canonical sequence, hgvs_p on ClinVar's
+# transcript. kat5-p-asn150thr claimed "a modified residue (n6-acetyllysine)" -- an
+# acetyl-LYSINE site on an ASPARAGINE -- because KAT5's ClinVar transcript is 546aa
+# against UniProt Q92993's 513aa. 270,474 variants take the position from a transcript
+# matching no UniProt accession of their gene (22,838 P/LP).
+def test_a_feature_whose_chemistry_contradicts_the_residue_is_withheld():
+    from sugivariant.enrich import structural_context
+    iv = [{"type": "modified residue", "begin": 150, "end": 150,
+           "desc": "N6-acetyllysine"}]
+    assert structural_context("p.Asn150Thr", iv) is None, \
+        "an acetyl-lysine site asserted for an asparagine"
+    got = structural_context("p.Lys150Thr", iv)
+    assert got and got["features"] == ["a modified residue (N6-acetyllysine)"]
+
+
+def test_one_contradiction_withholds_every_feature_at_that_residue():
+    """A chemistry contradiction proves the POSITION is in the wrong numbering, so the
+    other features at it are equally untrustworthy."""
+    from sugivariant.enrich import structural_context
+    iv = [{"type": "domain", "begin": 100, "end": 200, "desc": "Bromo"},
+          {"type": "modified residue", "begin": 150, "end": 150,
+           "desc": "Phosphoserine"}]
+    assert structural_context("p.Asn150Thr", iv) is None
+    assert structural_context("p.Ser150Thr", iv)["features"][0] == "the Bromo domain"
+
+
+def test_an_isoform_mismatch_withholds_the_block():
+    from sugivariant.enrich import structural_context
+    iv = [{"type": "domain", "begin": 300, "end": 320, "desc": "Kinase"}]
+    assert structural_context("p.Pro309Ala", iv) is not None
+    assert structural_context("p.Pro309Ala", iv, {"am": "P284A"}) is None
+
+
+# ── rule: a disulfide bond is a PAIR of residues, not the span between them ──
+# NGF p.Arg221Trp (Likely pathogenic, HSAN5) was told it sits on the 179<->229 bond.
+def test_only_the_bonded_residues_are_on_a_disulfide_bond():
+    from sugivariant.enrich import structural_context
+    iv = [{"type": "disulfide bond", "begin": 179, "end": 229, "desc": ""}]
+    assert structural_context("p.Arg221Trp", iv) is None, \
+        "a residue BETWEEN the two cysteines is not on the bond"
+    for endpoint in ("p.Cys179Tyr", "p.Cys229Tyr"):
+        got = structural_context(endpoint, iv)
+        assert got and got["features"] == ["a disulfide bond"], endpoint
+
+
+def test_a_range_feature_still_matches_across_its_span():
+    """The endpoint rule must not leak into ordinary interval features."""
+    from sugivariant.enrich import structural_context
+    iv = [{"type": "domain", "begin": 100, "end": 200, "desc": "Kinase"}]
+    for p in ("p.Ala100Ser", "p.Ala150Ser", "p.Ala200Ser"):
+        assert structural_context(p, iv), p
