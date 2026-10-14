@@ -2453,7 +2453,10 @@ def structural_context(hgvs_p, intervals, mismatch=None, canonical_pos=None):
     # The number shown is not the one in the variant's own p. name when it came from
     # AlphaMissense, so say which sequence it belongs to rather than let the reader
     # assume they match.
-    return {"position": pos, "features": out, "uniprot_numbering": uniprot_numbering}
+    got = {"position": pos, "features": out}
+    if uniprot_numbering:
+        got["uniprot_numbering"] = True      # only when true: an extra key on every
+    return got                                # record would rewrite the whole corpus
 
 
 _AM_SHORT = re.compile(r"^([A-Z])(\d+)([A-Z])$")

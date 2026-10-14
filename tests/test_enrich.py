@@ -804,4 +804,6 @@ def test_an_unmismatched_record_is_never_relabelled():
     from sugivariant.enrich import structural_context
     iv = [{"type": "domain", "begin": 300, "end": 320, "desc": "Kinase"}]
     got = structural_context("p.Pro309Ala", iv)
-    assert got["position"] == 309 and got["uniprot_numbering"] is False
+    assert got["position"] == 309 and not got.get("uniprot_numbering")
+    assert "uniprot_numbering" not in got, \
+        "an extra key on every record rewrites the whole corpus for nothing"
