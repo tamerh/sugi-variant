@@ -1624,7 +1624,12 @@ def test_the_rendered_page_does_not_paint_a_discordant_consensus_green():
         (r.get("alphamissense") or {}).get("class") == "ambiguous"
         and "athogenic" in (r.get("classification") or "")
         and "onflict" not in (r.get("classification") or "")
-        and r.get("revel") and r.get("saprot"))), None)
+        # REVEL must actually SPEAK: with AlphaMissense abstaining, an indeterminate
+        # REVEL leaves SaProt alone and a consensus of one is correctly not rendered.
+        # Without this the test picked whichever record the sample happened to yield and
+        # failed on correct behaviour (pigo-p-leu957phe) after the record set changed.
+        and (r.get("revel") or {}).get("direction") not in (None, "indeterminate")
+        and r.get("saprot"))), None)
     if rec is None:
         pytest.skip("no ambiguous-AM pathogenic record in the sampled genes")
     html, _, _, _ = _both(rec)
