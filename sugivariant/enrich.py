@@ -437,6 +437,48 @@ def stale_datasets(records_path, versions=None):
     return tuple(sorted(g for g, v in versions.items() if stamp.get(g) != v))
 
 
+def stored_record_count(records_path):
+    """How many records a gene's .pkl.gz already holds, or None if it has none yet.
+
+    Cheap enough to call before every persist: the file is read, not re-enriched."""
+    import gzip
+    import pickle
+    try:
+        with gzip.open(records_path, "rb") as f:
+            recs = pickle.load(f)
+        return len(recs) if isinstance(recs, list) else None
+    except Exception:
+        return None
+
+
+# A rebuild may legitimately shrink a gene -- ClinVar does retire and reclassify
+# variants -- but not by half in one release. Below this many stored records the
+# ratio is noise, so small genes are left to the plain "no records" guard.
+COLLAPSE_MIN_STORED = 10
+COLLAPSE_RATIO = 0.5
+
+
+def records_collapsed(records_path, n_new):
+    """Would persisting n_new records destroy a materially larger stored set?
+
+    Returns the stored count when the write would collapse the gene, else None.
+
+    This is the "no records" guard generalised to PARTIAL loss. An upstream gap does
+    not always present as zero: a missing hgnc>>clinvar link returned ONE record for
+    PALS1 (91 stored) and SOX10 (537 stored), which `if recs:` happily wrote. That
+    destroys the records AND, because the resolver indexes the pickles, deletes those
+    pages at the next index build -- the same failure as reporting missing data as a
+    finding, one layer down. Refusing the write leaves the previous records in place,
+    which is the only safe default: they are stale at worst, whereas the collapsed
+    file is wrong AND unrecoverable."""
+    if n_new is None:
+        return None
+    prev = stored_record_count(records_path)
+    if prev is None or prev < COLLAPSE_MIN_STORED:
+        return None
+    return prev if n_new < prev * COLLAPSE_RATIO else None
+
+
 def molecular_consequence(rec):
     """Deterministic molecular consequence from HGVS grammar — DESCRIPTIVE typing,
     never an applied PVS1/ACMG code (§8). Predicted-LoF classes (nonsense /

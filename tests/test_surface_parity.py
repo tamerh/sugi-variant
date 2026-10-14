@@ -1571,3 +1571,24 @@ def test_the_rendered_page_does_not_paint_a_discordant_consensus_green():
     if "tolerated" in text:
         assert "is-agree" not in klass, f"discordant consensus painted as agreement: {klass!r}"
         assert "is-flag" in klass, klass
+
+
+def test_every_record_persist_site_guards_against_collapse():
+    """Any code that writes a gene's .pkl.gz must consult records_collapsed() first.
+
+    `if recs:` only rejects an EMPTY rebuild. Staging is missing the hgnc>>clinvar link
+    for ~0.5% of genes, which returns ONE record for a gene with hundreds — SOX10 (537
+    stored) and PALS1 (91) were written that way on 2026-10-10. The write is
+    unrecoverable: the good records are gone, and because the resolver indexes the
+    pickles, the next index build drops those pages to 404. The guard has to sit at the
+    write, not the caller, so a new build script inherits it."""
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parent.parent
+    offenders = []
+    for f in list(root.glob("*.py")) + list((root / "sugivariant").glob("*.py")):
+        src = f.read_text()
+        writes = [ln for ln in src.splitlines()
+                  if "pickle.dump(" in ln and not ln.strip().startswith("#")]
+        if writes and "records_collapsed" not in src:
+            offenders.append(f"{f.name}: pickle.dump of records without a collapse guard")
+    assert not offenders, "\n".join(offenders)

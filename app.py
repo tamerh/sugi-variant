@@ -27,6 +27,7 @@ from sugivariant.render import meta_description as _meta_desc  # noqa: E402
 from sugivariant.render import page_title as _page_title  # noqa: E402
 from sugivariant.slug import _norm, _norm_hgvs            # noqa: E402
 from sugivariant.enrich import refresh_record as _refresh  # noqa: E402
+from sugivariant.enrich import records_collapsed  # noqa: E402
 from sugivariant.present import evidence_groups, evidence_view  # noqa: E402
 from sugivariant.enrich import (review_stars, review_tier, tier_label,  # noqa: E402
                                 missense_short, disagreement_flag,
@@ -226,7 +227,14 @@ def _records(gene):
                 r["_degraded"] = True
             return recs
         _cache_put(g, recs)
-        if recs:                     # don't persist empty/invalid-gene results
+        # Don't persist empty/invalid-gene results, nor a set that COLLAPSES against
+        # what is already stored: an upstream gap can return one record for a gene with
+        # hundreds, and that write is unrecoverable (see records_collapsed).
+        collapsed = records_collapsed(path, len(recs)) if recs else None
+        if collapsed:
+            print(f"refusing to persist {g}: {len(recs)} records would replace "
+                  f"{collapsed} stored", file=sys.stderr, flush=True)
+        if recs and not collapsed:
             try:
                 _RECORDS_DIR.mkdir(parents=True, exist_ok=True)
                 # PID-scoped tmp: _gene_lock is per-process but all workers share

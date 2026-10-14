@@ -3,6 +3,7 @@ submitter consensus, and the cross-source concordance verdict. Pure functions â€
 no biobtree. These gate the derived claims before any regen."""
 from sugivariant.enrich import (missense_short, protein_position, _freq_band,
                                   submitter_consensus, concordance, residue_hotspot)
+from sugivariant import enrich as EN
 
 
 def test_missense_short_and_position():
@@ -652,3 +653,72 @@ def test_lof_context_keeps_the_caveat_only_when_undetermined():
     without = lof_context(rec, exons=None)
     if without and without.get("nmd_caveat") is not None:
         assert without.get("nmd") is None
+
+
+# ---------------------------------------------------------------------------
+# records_collapsed -- the guard that stops an upstream gap from destroying a
+# gene's stored records. Staging lost the hgnc>>clinvar link for ~0.5% of genes,
+# which returns ONE record for a gene with hundreds; `if recs:` wrote that, and
+# because the resolver indexes the pickles it also deleted those pages.
+# ---------------------------------------------------------------------------
+def _write_recs(tmp_path, n, name="GENE"):
+    import gzip
+    import pickle
+    p = tmp_path / f"{name}.pkl.gz"
+    with gzip.open(p, "wb") as f:
+        pickle.dump([{"canonical_slug": f"s{i}"} for i in range(n)], f)
+    return p
+
+
+def test_stored_record_count_reads_the_file(tmp_path):
+    assert EN.stored_record_count(_write_recs(tmp_path, 7)) == 7
+
+
+def test_stored_record_count_is_none_when_absent(tmp_path):
+    assert EN.stored_record_count(tmp_path / "NOPE.pkl.gz") is None
+
+
+def test_collapse_blocks_the_sox10_shape(tmp_path):
+    """The real case: 537 stored, upstream returns 1."""
+    p = _write_recs(tmp_path, 537)
+    assert EN.records_collapsed(p, 1) == 537
+
+
+def test_collapse_blocks_the_pals1_shape(tmp_path):
+    """91 stored, upstream returns 1 -- passed the old `if recs:` guard."""
+    p = _write_recs(tmp_path, 91)
+    assert EN.records_collapsed(p, 1) == 91
+
+
+def test_collapse_allows_a_plausible_shrink(tmp_path):
+    """ClinVar does retire variants; a modest shrink must still persist."""
+    p = _write_recs(tmp_path, 100)
+    assert EN.records_collapsed(p, 80) is None
+
+
+def test_collapse_allows_growth(tmp_path):
+    p = _write_recs(tmp_path, 100)
+    assert EN.records_collapsed(p, 140) is None
+
+
+def test_collapse_is_at_the_ratio_boundary(tmp_path):
+    p = _write_recs(tmp_path, 100)
+    assert EN.records_collapsed(p, 50) is None        # exactly half is allowed
+    assert EN.records_collapsed(p, 49) == 100
+
+
+def test_collapse_ignores_small_genes(tmp_path):
+    """Below COLLAPSE_MIN_STORED the ratio is noise -- the plain empty guard covers it."""
+    p = _write_recs(tmp_path, 9)
+    assert EN.records_collapsed(p, 1) is None
+
+
+def test_collapse_is_none_for_a_first_build(tmp_path):
+    """Nothing stored yet, so nothing can be destroyed."""
+    assert EN.records_collapsed(tmp_path / "NEW.pkl.gz", 1) is None
+
+
+def test_collapse_tolerates_an_unreadable_file(tmp_path):
+    p = tmp_path / "BAD.pkl.gz"
+    p.write_bytes(b"not a gzip pickle")
+    assert EN.records_collapsed(p, 1) is None
