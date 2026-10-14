@@ -65,8 +65,8 @@
 .vv-jump-patient{border-color:var(--accent,#2563eb)}
 
 /* ── Evidence panels (Zone B) ──────────────────────────────────────────── */
-.vv-panels{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:.4rem 0 2rem}
-@media(max-width:760px){.vv-panels{grid-template-columns:1fr}}
+.vv-panels{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1rem;margin:.4rem 0 2rem}
+@media(max-width:760px){.vv-panels{grid-template-columns:minmax(0,1fr)}}
 .vv-panel{border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:1rem 1.1rem;background:var(--bg,#fff)}
 .vv-panel-h{margin:0 0 .55rem;font-size:1.02rem;display:flex;align-items:center;gap:.5rem}
 .vv-panel-src{font-size:.72rem;font-weight:600;color:var(--muted,#6b7280);
@@ -80,7 +80,7 @@
 /* ── Mechanism & patient ───────────────────────────────────────────────── */
 .vv-mech-lead{font-size:1rem;line-height:1.5}
 .vv-sum{cursor:pointer;font-weight:600;margin:.4rem 0}
-.vv-ident{display:grid;grid-template-columns:auto 1fr;gap:.3rem 1rem;margin:.5rem 0;font-size:.94rem}
+.vv-ident{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.3rem 1rem;margin:.5rem 0;font-size:.94rem}
 .vv-ident dt{font-weight:600;color:var(--muted,#6b7280)}
 .vv-ident dd{margin:0}
 .vv-chip{display:inline-block;margin:.15rem .3rem .15rem 0;padding:.2rem .6rem;font-size:.85rem;
@@ -225,7 +225,7 @@
 .vd-tile .lab{font-size:.62rem;text-transform:uppercase;letter-spacing:.07em;color:var(--fg-soft)}
 .vd-tile .val{font-size:1.02rem;font-weight:650;margin-top:.15rem;line-height:1.25}
 .vd-tile .sub{font-size:.76rem;color:var(--muted,#6b7280);margin-top:.1rem}
-.vd-grid{display:grid;grid-template-columns:1fr;gap:1.1rem;align-items:start}
+.vd-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:1.1rem;align-items:start}
 @media(min-width:920px){.vd-grid{grid-template-columns:minmax(0,1.95fr) minmax(0,1fr)}}
 /* Dashboard v2: one coherent centred column (header, tiles, lead, cards share a width) */
 .vd-container{max-width:1000px}
@@ -264,6 +264,10 @@
 .vd-side .vd-card{font-size:.86rem}
 .vd-side .vd-card p{font-size:.85rem;margin:.3rem 0}
 .vd-preds{width:100%;border-collapse:collapse;font-size:.9rem}
+/* Numeric cells stay nowrap (a split number reads as two numbers), so on the
+   narrowest phones the table can still exceed the screen. Scroll the TABLE, not
+   the page -- the same containment .sources-table-wrap uses. */
+.vd-preds-wrap{overflow-x:auto;min-width:0;max-width:100%;-webkit-overflow-scrolling:touch}
 .vd-preds th{text-align:left;font-weight:600;color:var(--fg-muted,#475569);white-space:nowrap;padding:.32rem .7rem .32rem 0;vertical-align:baseline;width:1%}
 .vd-preds td{padding:.32rem 0;vertical-align:baseline;border-top:1px solid var(--border)}
 .vd-preds tr:first-child td,.vd-preds tr:first-child th{border-top:0}
@@ -282,7 +286,7 @@
 .vd-preds tbody tr.vd-grp:first-child>td{padding-top:.1rem}
 .vd-note>td{padding:.5rem 0 .2rem;font-size:.86rem}
 .vd-note>td.vd-consensus{margin:0;border-top:0;padding-top:.45rem}
-.vd-dl{display:grid;grid-template-columns:auto 1fr;gap:.25rem .8rem;margin:0;font-size:.86rem}
+.vd-dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.25rem .8rem;margin:0;font-size:.86rem}
 .vd-dl dt{color:var(--muted,#6b7280);font-weight:600}.vd-dl dd{margin:0}
 .vd-chips{display:flex;flex-wrap:wrap;gap:.3rem}
 
@@ -493,6 +497,25 @@ body > main { padding-bottom: 2.5rem; }
             border:5px solid transparent;border-top-color:var(--fg,#10151d);
             opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s ease}
 .ti:hover::after,.ti:focus-visible::after,.ti:hover::before,.ti:focus-visible::before{opacity:1;visibility:visible}
+
+/* A HIDDEN tooltip must not sit in the layout. `visibility:hidden` keeps the box,
+   so a 275px bubble (max-width:min(22rem,70vw)) anchored left:0 to a trigger near
+   the right edge pushed the PAGE sideways on a phone: 630px of scroll width on a
+   393px screen with nothing visible to explain it, and worse the more tooltips a
+   variant had. Every result page was affected; the homepage, which has none, was not.
+   display:none takes them out of flow entirely. The fade is kept where the browser
+   supports discrete transitions, and simply does not animate where it does not --
+   a 0.12s fade is not worth a sideways-scrolling page. */
+.ti::after,.ti::before{display:none}
+.ti:hover::after,.ti:focus-visible::after,
+.ti:hover::before,.ti:focus-visible::before{display:block}
+@supports (transition-behavior:allow-discrete){
+  .ti::after,.ti::before{transition:opacity .12s ease,display .12s allow-discrete}
+  @starting-style{
+    .ti:hover::after,.ti:focus-visible::after,
+    .ti:hover::before,.ti:focus-visible::before{opacity:0}
+  }
+}
 /* right-aligned cells: anchor the bubble to the right edge so it cannot overflow */
 .pf-tbl th.n .ti::after{left:auto;right:0}
 .pf-tbl th.n .ti::before{left:auto;right:.9rem}
@@ -518,7 +541,7 @@ table.pf-tbl tr.is-max td{color:var(--fg,#0f172a);background:rgba(63,127,212,.07
 @supports (background:color-mix(in srgb,red 7%,transparent)){
   table.pf-tbl tr.is-max td{background:color-mix(in srgb, var(--accent,#3f7fd4) 8%, transparent)}}
 .pf-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:1.1rem 2rem;align-items:start}
-@media (max-width:720px){.pf-split{grid-template-columns:1fr}}
+@media (max-width:720px){.pf-split{grid-template-columns:minmax(0,1fr)}}
 
 /* The preprint page is prose with URLs in it. overflow-wrap:anywhere only breaks a
    token that would otherwise overflow, so running text is untouched. */
@@ -530,6 +553,20 @@ table.pf-tbl tr.is-max td{color:var(--fg,#0f172a);background:rgba(63,127,212,.07
    get clipped out of reach). Labels wrap here instead; the numeric cells keep
    nowrap because a split number reads as two numbers. */
 @media (max-width:720px){
+  /* The 11.5rem label column left ~155px for the value on a 393px phone, and an
+     ancestry line ("European (non-Finnish) · 19,201/1,614,088") needs ~175px, so
+     the frequency block pushed the page sideways. Stack instead, like .pf-split. */
+  .pf-key{grid-template-columns:minmax(0,1fr)}
+  /* Badges beside the title must be allowed onto their own line. */
+  .vd-head-verdict{flex-wrap:wrap}
+  /* A nowrap badge inside the ancestry table ('not grpmax-eligible', 119px) set
+     that table's minimum width to 338px inside a 238px column. Numbers keep
+     nowrap; prose badges do not need it. */
+  .pf-badge{white-space:normal}
+  /* Similar-variants rows: the relation label's nowrap plus a monospace HGVS
+     set the list's minimum width above the column. */
+  .vd-similar-rel{white-space:normal}
+  .vd-similar a{overflow-wrap:anywhere;word-break:break-word}
   .vd-preds th{white-space:normal}
   .sources-table .src-name-cell{white-space:normal}
   .ds-table th{white-space:normal}
