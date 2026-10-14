@@ -14,7 +14,7 @@ import re
 import threading
 from collections import Counter
 
-from sugibiobtree import map_all
+from sugibiobtree import map_all, rows, search
 
 _AA3to1 = {"Ala": "A", "Arg": "R", "Asn": "N", "Asp": "D", "Cys": "C", "Gln": "Q",
            "Glu": "E", "Gly": "G", "His": "H", "Ile": "I", "Leu": "L", "Lys": "K",
@@ -636,12 +636,57 @@ def clinvar_transcript(name):
     return m.group(1) if m else None
 
 
+def _approved_symbols(hgnc_id):
+    """The symbols HGNC records for an id (approved symbol first), or ()."""
+    from sugibiobtree import entry
+    try:
+        attrs = (entry(hgnc_id, "hgnc") or {}).get("Attributes") or {}
+        return tuple((attrs.get("Hgnc") or {}).get("symbols") or ())
+    except Exception:
+        return ()
+
+
+def hgnc_for_symbol(symbol):
+    """The HGNC id for a gene SYMBOL, preferring an exact APPROVED-symbol match.
+
+    Any chain that starts at `>>hgnc` resolves a symbol by SEARCH, and HGNC keeps
+    PREVIOUS symbols, so the first hit is routinely another gene: "MET" returns
+    HGNC:20709 ahead of MET's own HGNC:7029, "BAP1" returns HGNC:950 only third, "OPA1"
+    returns HGNC:11957 before HGNC:8140. Handing a bare symbol to map_all therefore
+    fetches a DIFFERENT gene's transcript or constraint and states it as this gene's.
+    build._hgnc_id already guarded the record build against this (the FLG/FGFR1 case);
+    the per-gene lookups below did not, so the guard lives here where both can reach it.
+
+    Falls back to the first HGNC hit when no candidate's approved symbol matches, which
+    keeps a symbol that only exists as an alias resolvable."""
+    want = (symbol or "").strip().upper()
+    if not want:
+        return None
+    if want.startswith("HGNC:"):
+        return symbol
+    first = None
+    for r in rows(search(symbol, source="hgnc")):
+        rid = r.get("id", "")
+        if not rid.startswith("HGNC:"):
+            continue
+        if first is None:
+            first = rid
+        syms = _approved_symbols(rid)
+        if syms and syms[0].upper() == want:
+            return rid
+    return first
+
+
 def mane_select(hgnc_id):
     """MANE Select transcript for a gene, read the way sugi-atlas reads it — the
     is_mane_select flag lives on the RefSeq relation, not the Ensembl-transcript one:
     map_all(hgnc, '>>hgnc>>ensembl>>refseq[is_mane_select==true]'). Returns
     {mrna, protein} (RefSeq accessions, no version) or None. MANE Select is the single
     NCBI+EMBL-EBI-agreed reference transcript for clinical reporting."""
+    if not hgnc_id:
+        return None
+    # A bare symbol must be resolved to its OWN id first -- see hgnc_for_symbol.
+    hgnc_id = hgnc_for_symbol(hgnc_id)
     if not hgnc_id:
         return None
     rows = map_all(hgnc_id, ">>hgnc>>ensembl>>refseq[is_mane_select==true]") or []
@@ -1074,13 +1119,22 @@ def gene_rmc(gene, cache=None):
         return []
     if cache is not None and gene in cache:
         return cache[gene]
-    enst = (mane_select(gene) or {}).get("enst")
+    # Resolve a bare symbol to its OWN id before any >>hgnc chain. The chain resolves a
+    # symbol by SEARCH and HGNC ranks previous symbols first, so "MET" reaches
+    # HGNC:20709 rather than MET's HGNC:7029 and every region returned would belong to
+    # another gene -- stated as this one's constraint. See hgnc_for_symbol.
+    hgnc = hgnc_for_symbol(gene)
+    if not hgnc:
+        if cache is not None:
+            cache[gene] = []
+        return []
+    enst = (mane_select(hgnc) or {}).get("enst")
     if not enst:
         if cache is not None:
             cache[gene] = []
         return []
     try:
-        rows = map_all(gene, ">>hgnc>>ensembl>>transcript>>gnomad_rmc", cap=None) or []
+        rows = map_all(hgnc, ">>hgnc>>ensembl>>transcript>>gnomad_rmc", cap=None) or []
     except Exception as e:
         if "not found" in str(e).lower():
             rows = []

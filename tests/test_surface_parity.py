@@ -1789,3 +1789,40 @@ def test_every_gene_level_lookup_keys_on_the_gene_not_the_hgnc_id():
     assert not offenders, (
         "gene-level lookups keyed on ClinVar's hgnc_id, which can be the overlapping "
         "host gene's: " + "; ".join(offenders))
+
+
+# ── rule: a bare SYMBOL must never be handed to a `>>hgnc` chain ──
+# The chain resolves a symbol by SEARCH, and HGNC ranks PREVIOUS symbols first, so the
+# first hit is routinely another gene: MET returns HGNC:20709 before MET's own
+# HGNC:7029, BAP1 returns HGNC:950 only third, OPA1 returns HGNC:11957 before
+# HGNC:8140. Fixing the MANE keying by passing gene_symbol straight into mane_select
+# reintroduced the FLG/FGFR1 bug on 88,939 records before this guard was added.
+def test_a_symbol_is_resolved_to_its_own_hgnc_id_before_any_chain():
+    import pathlib, re
+    src = (pathlib.Path(__file__).resolve().parent.parent
+           / "sugivariant" / "enrich.py").read_text(encoding="utf-8")
+    bad = [ln.strip() for ln in src.splitlines()
+           if re.search(r'map_all\(\s*(gene|symbol)\s*,\s*">>hgnc', ln)
+           and not ln.strip().startswith("#")]
+    assert not bad, ("a bare symbol reaches a >>hgnc chain, which resolves previous "
+                     "symbols first: " + "; ".join(bad))
+
+
+def test_hgnc_for_symbol_prefers_the_approved_symbol():
+    """Pins the behaviour rather than the implementation: an id passes through, and a
+    symbol whose search ranks another gene first still resolves to its own."""
+    from sugivariant.enrich import hgnc_for_symbol
+    assert hgnc_for_symbol("HGNC:7029") == "HGNC:7029", "an id must pass through"
+    assert hgnc_for_symbol(None) is None
+    assert hgnc_for_symbol("") is None
+
+
+@pytest.mark.skipif(not os.environ.get("CACHE_DIR"), reason="needs upstream")
+def test_the_colliding_symbols_resolve_to_their_own_gene():
+    from sugivariant.enrich import hgnc_for_symbol
+    for sym, want in (("MET", "HGNC:7029"), ("BAP1", "HGNC:950"),
+                      ("OPA1", "HGNC:8140"), ("FLG", "HGNC:3748")):
+        got = hgnc_for_symbol(sym)
+        if got is None:
+            pytest.skip("upstream unavailable")
+        assert got == want, f"{sym} resolved to {got}, not its own {want}"
