@@ -94,7 +94,10 @@ def test_coordinate_matches_clinvars_own_vcf_fields(vid, coord, start):
 # (coordinate, expected gnomAD v4.1 AF or None when genuinely absent)
 GNOMAD_CASES = [
     ("X-154097616-T-TCGC", 3.668244011591651e-05),   # an INDEL with a real frequency
-    ("X-154032491-C-T", 9.111351650794692e-07),      # exome-only -> denominator fix
+    # Exome-only. gnomAD's own AF uses the JOINT denominator: the genome callset called
+    # 114,170 alleles at this site and found none, which is evidence the estimate needs,
+    # not padding. 8.25e-07, not the observing-callset 9.11e-07.
+    ("X-154032491-C-T", 8.252854249642239e-07),
     ("X-154032202-C-T", None),
     ("10-87894028-T-G", None),
     ("10-87894058-C-A", None),
@@ -114,12 +117,17 @@ def test_frequency_and_absence_match_gnomad(vid, expect_af):
         assert v is None, f"{vid}: we claim absence but gnomAD has it: {v}"
         return
     assert v, f"{vid}: gnomAD no longer has a variant we report a frequency for"
-    obs_ac = obs_an = 0.0
+    # The JOINT denominator, which is what gnomAD's own page reports and what our page
+    # must match: every callset's AN counts, including one that observed no copies,
+    # because gnomAD's AN is alleles CALLED at this site. Summing only the observing
+    # callsets (which this test used to do) over-reports an exome-only variant and
+    # leaves the headline figure on a different denominator from grpmax and FAF95.
+    tot_ac = tot_an = 0.0
     for s in (v.get("exome"), v.get("genome")):
-        if s and s.get("ac"):
-            obs_ac += s["ac"]
-            obs_an += s["an"]
-    got = obs_ac / obs_an if obs_an else None
+        if s and s.get("an"):
+            tot_ac += s.get("ac") or 0
+            tot_an += s["an"]
+    got = tot_ac / tot_an if tot_an else None
     assert got == pytest.approx(expect_af, rel=1e-9), f"{vid}: gnomAD now {got}"
 
 

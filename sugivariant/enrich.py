@@ -194,23 +194,28 @@ def gnomad_frequency(rec):
             popmax = _f(g.get("af_grpmax"))
             anc = g.get("grpmax_ancestry")
             pops = {k[3:]: g[k] for k in g if k.startswith("af_") and k not in ("af_grpmax", "af_exomes", "af_genomes") and g.get(k)}
-            # Correct the AF denominator: the combined `af` adds a callset's AN even when the
-            # variant is absent from it, so exome-only / genome-only variants under-report
-            # (COL4A1 P484A: combined 3.72e-6 vs gnomAD's exome-only 4.10e-6). Recompute from the
-            # per-callset AC/AN, summing only callsets that actually observed the variant (ac>0).
-            ace, ane = _f(g.get("ac_exomes")), _f(g.get("an_exomes"))
-            acg, ang = _f(g.get("ac_genomes")), _f(g.get("an_genomes"))
-            obs_ac = obs_an = 0.0
-            if ace:
-                obs_ac += ace; obs_an += (ane or 0)
-            if acg:
-                obs_ac += acg; obs_an += (ang or 0)
-            if obs_an:                       # per-callset available → corrected AF + honest AC/AN
-                af, ac, an = obs_ac / obs_an, int(obs_ac), int(obs_an)
-            else:                            # fall back to the combined values
-                af = _f(g.get("af"))
-                ac = int(_f(g.get("ac"))) if _f(g.get("ac")) is not None else None
-                an = int(_f(g.get("an"))) if _f(g.get("an")) is not None else None
+            # ONE denominator for the whole block: the JOINT one upstream publishes.
+            #
+            # A previous pass recomputed `af` from the observing callset only, on the
+            # theory that adding the other callset's AN under-reports. That is wrong, and
+            # it made the block self-contradictory. gnomAD's AN is SITE-SPECIFIC coverage
+            # -- alleles actually called at that position, not a fixed sample count
+            # (measured: 4,951 distinct AN values across 10,466 sampled variants, range
+            # 61,784-1,614,278). So the other callset's AN is not padding; it is alleles
+            # that WERE examined and came back reference, which is exactly the evidence a
+            # frequency estimate needs. TAS2R40 V204D: genomes found 1 copy in 152,100
+            # alleles while exomes called 1,461,876 at the same site and found none, so the
+            # frequency is 1/1,613,976 = 6.2e-07 -- gnomAD's own `af` -- not 6.57e-06.
+            #
+            # Keeping a per-callset `af` beside a JOINT grpmax, per-ancestry breakdown and
+            # FAF95 produced 28,334 pages whose subgroup AN exceeded the total AN, and an
+            # "Overall" a median 7.8x (max 1,424x) above the highest ancestry group. FAF95
+            # joint is ClinGen's designated BA1/BS1 input and cannot be recomputed per
+            # callset, so the joint convention is the only one the whole block can share.
+            # The per-callset figures are surfaced separately instead, as gnomAD does.
+            af = _f(g.get("af"))
+            ac = int(_f(g.get("ac"))) if _f(g.get("ac")) is not None else None
+            an = int(_f(g.get("an"))) if _f(g.get("an")) is not None else None
             no_count = af is None and ac is None and popmax is None
             return {"af": af, "popmax": popmax, "ancestry": anc,
                     # FAF95 (JOINT, i.e. exomes+genomes combined) is ClinGen's designated
@@ -224,6 +229,12 @@ def gnomad_frequency(rec):
                     "faf95_exomes": _f(g.get("faf95_exomes")),
                     "faf99_exomes": _f(g.get("faf99_exomes")),
                     "ac": ac, "an": an,
+                    # Per-callset, shown as their own labelled figures rather than mixed
+                    # into the headline: a reader comparing against gnomAD's variant page
+                    # sees the same three numbers there.
+                    "af_exomes": _f(g.get("af_exomes")), "af_genomes": _f(g.get("af_genomes")),
+                    "ac_exomes": _f(g.get("ac_exomes")), "an_exomes": _f(g.get("an_exomes")),
+                    "ac_genomes": _f(g.get("ac_genomes")), "an_genomes": _f(g.get("an_genomes")),
                     "ac_grpmax": _f(g.get("ac_grpmax")), "an_grpmax": _f(g.get("an_grpmax")),
                     "populations": pops,
                     # A gnomAD row carrying AN but NO allele count at all. The shape is

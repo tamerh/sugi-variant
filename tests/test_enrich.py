@@ -807,3 +807,29 @@ def test_an_unmismatched_record_is_never_relabelled():
     assert got["position"] == 309 and not got.get("uniprot_numbering")
     assert "uniprot_numbering" not in got, \
         "an extra key on every record rewrites the whole corpus for nothing"
+
+
+# ── rule: one denominator for the whole frequency block ──
+# gnomAD's AN is SITE-SPECIFIC coverage, so another callset's AN is alleles that were
+# examined and came back reference -- evidence, not padding. Recomputing the headline AF
+# from the observing callset alone left it on a different denominator from grpmax, the
+# per-ancestry breakdown and FAF95 (which cannot be recomputed per callset and is
+# ClinGen's BA1/BS1 input): 28,334 pages showed a subgroup with MORE alleles than the
+# total, and an "Overall" a median 7.8x above the highest ancestry group.
+def test_the_headline_af_shares_the_denominator_with_grpmax_and_faf():
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parent.parent
+           / "sugivariant" / "enrich.py").read_text(encoding="utf-8")
+    assert "obs_ac / obs_an" not in src, \
+        "headline AF recomputed on the observing callset while grpmax/FAF stay joint"
+    assert 'af = _f(g.get("af"))' in src
+
+
+def test_per_callset_frequencies_are_surfaced_separately():
+    """Dropping the per-callset recomputation must not lose the per-callset NUMBERS --
+    gnomAD shows exome, genome and total, and so should we."""
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parent.parent
+           / "sugivariant" / "enrich.py").read_text(encoding="utf-8")
+    for k in ("af_exomes", "af_genomes", "an_exomes", "an_genomes"):
+        assert f'"{k}"' in src, f"{k} is no longer carried onto the record"

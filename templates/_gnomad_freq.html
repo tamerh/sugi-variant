@@ -69,7 +69,8 @@
   <div class="pf-key">
     <span class="pf-key-l">Overall</span>
     <span><span class="pf-key-v">{% if g.af is not none %}{{ '%.3g'|format(g.af*100) }}%{% else %}—{% endif %}</span>
-      <span class="pf-key-x">{% if g.ac is not none and g.an %}{{ "{:,}".format(g.ac) }}/{{ "{:,}".format(g.an) }} alleles{% endif %}{% if g.band %} · {{ g.band.split(' (')[0] }}{% endif %}</span></span>
+      <span class="pf-key-x">{% if g.ac is not none and g.an %}{{ "{:,}".format(g.ac) }}/{{ "{:,}".format(g.an) }} alleles{% endif %}{% if g.band %} · {{ g.band.split(' (')[0] }}{% endif %}</span>
+      {% if g.an_exomes and g.an_genomes %}<span class="pf-key-x">exomes {% if g.ac_exomes %}{{ "{:,}".format(g.ac_exomes|int) }}{% else %}0{% endif %}/{{ "{:,}".format(g.an_exomes|int) }} · genomes {% if g.ac_genomes %}{{ "{:,}".format(g.ac_genomes|int) }}{% else %}0{% endif %}/{{ "{:,}".format(g.an_genomes|int) }} · <span class="ti" tabindex="0" data-tip="gnomAD reports two callsets. AN is the number of alleles CALLED at this position in each, so a callset that observed no copies still contributes its AN -- those alleles were examined and came back reference. The overall figure, the grpmax group and FAF95 all use that joint denominator, which is what gnomAD's own variant page shows." aria-label="gnomAD reports two callsets. AN is the number of alleles CALLED at this position in each, so a callset that observed no copies still contributes its AN -- those alleles were examined and came back reference. The overall figure, the grpmax group and FAF95 all use that joint denominator, which is what gnomAD's own variant page shows.">joint denominator</span></span>{% endif %}</span>
   </div>
 </div>
 {% endmacro %}
