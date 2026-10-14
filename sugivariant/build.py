@@ -146,6 +146,10 @@ def enriched_records(symbol, hgnc=None):
     }
     for rec in recs:
         VC.attach_enrichment(rec, ctx)
+    # Gene-level pass: a SaProt score fetched with AlphaMissense's position can land on
+    # the wrong residue when the two were computed on different isoforms. Needs all the
+    # gene's lookups to locate the divergence, so it runs here, not per variant.
+    EN.drop_misaligned_saprot(recs)
     return recs
 
 

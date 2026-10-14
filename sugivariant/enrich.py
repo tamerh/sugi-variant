@@ -2289,6 +2289,57 @@ def structural_context(hgvs_p, intervals):
     return {"position": pos, "features": out} if out else None
 
 
+_AM_SHORT = re.compile(r"^([A-Z])(\d+)([A-Z])$")
+
+
+def drop_misaligned_saprot(recs):
+    """Withhold SaProt LLRs that describe a DIFFERENT residue than the variant.
+
+    SaProt is keyed `uniprot:refPosAlt` with the position taken from AlphaMissense.
+    For ~170 accessions the two were computed on DIFFERENT isoforms of the same
+    accession, so from the point where the sequences diverge our key lands on the
+    wrong residue -- and it still RESOLVES whenever the shifted position happens to
+    carry the same reference letter. MEN1/O00255 is the worked case: SaProt is on the
+    610aa canonical, AlphaMissense on the 615aa Long isoform, identical to residue 149
+    and +5 from 150 on. Those coincidental hits are not gaps, they are plausible
+    numbers attached to the wrong amino acid, and they moved real triage flags.
+
+    The divergence point is derivable from the lookups we already made, with no
+    upstream manifest: a MISS at a position BELOW the accession's highest HIT cannot
+    be explained by coverage -- the dataset reaches that far -- so only a
+    reference-letter mismatch explains it. D is the lowest such miss; every score at
+    or above it is suspect. Scores below D are in the aligned prefix and are kept
+    (MEN1 keeps 374, withholds 112). Verified equivalent to the same rule driven by
+    the upstream sequence manifest: identical 8,055 withheld over identical 173 genes.
+
+    Mutates recs in place and returns the number withheld."""
+    by_acc = {}
+    for r in recs:
+        am = r.get("alphamissense") or {}
+        u = am.get("uniprot")
+        m = _AM_SHORT.match(am.get("short") or "")
+        if u and m:
+            by_acc.setdefault(u, []).append((int(m.group(2)), r))
+    dropped = 0
+    for items in by_acc.values():
+        hits = [p for p, r in items if r.get("saprot")]
+        if not hits:
+            continue
+        top = max(hits)
+        below = [p for p, r in items if not r.get("saprot") and p < top]
+        if not below:
+            continue
+        d = min(below)
+        for p, r in items:
+            if p >= d and r.get("saprot"):
+                r["saprot"] = None
+                # Why it is absent, so the page can say "withheld" rather than
+                # "never scored" -- a withheld value must not read as a missing one.
+                r["saprot_misaligned"] = d
+                dropped += 1
+    return dropped
+
+
 def am_percentile(score, am_map):
     """The variant's AlphaMissense percentile within the gene's full modeled set
     ('top 3% most-pathogenic-predicted of N'), or None."""

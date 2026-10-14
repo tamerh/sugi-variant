@@ -1658,3 +1658,91 @@ def test_every_record_persist_site_guards_against_collapse():
         if writes and "records_collapsed" not in src:
             offenders.append(f"{f.name}: pickle.dump of records without a collapse guard")
     assert not offenders, "\n".join(offenders)
+
+
+# ── rule: a WITHHELD SaProt score must not read as a score that never existed ──
+# SaProt is keyed on AlphaMissense's residue number. For ~170 accessions the two were
+# computed on different isoforms, so past the divergence point our key lands on the
+# wrong residue -- and still RESOLVES when the shifted position carries the same
+# reference letter. MEN1/O00255: aligned to 149, +5 from 150 on. 8,055 such scores were
+# live, and 523 triage flags were built on them. Found via brca2-p-arg2336his.
+def _men1_like():
+    """A gene whose accession is scored on a 5-shorter isoform: aligned to 149,
+    coincidental hits after it."""
+    recs = []
+    def rec(pos, scored, slug):
+        r = {"canonical_slug": slug, "gene_symbol": "MEN1",
+             "alphamissense": {"class": "likely_benign", "score": "0.1",
+                               "uniprot": "O00255", "short": f"G{pos}E"}}
+        if scored:
+            r["saprot"] = {"llr": -7.0, "damaging": False}
+        return r
+    for pos in (2, 100, 149):
+        recs.append(rec(pos, True, f"men1-aligned-{pos}"))      # real scores
+    for pos in (150, 151, 300):
+        recs.append(rec(pos, False, f"men1-miss-{pos}"))        # key missed
+    for pos in (162, 391):
+        recs.append(rec(pos, True, f"men1-coincidence-{pos}"))  # WRONG residue
+    return recs
+
+
+def test_a_coincidental_saprot_hit_past_the_divergence_is_withheld():
+    from sugivariant.enrich import drop_misaligned_saprot
+    recs = _men1_like()
+    n = drop_misaligned_saprot(recs)
+    assert n == 2, f"expected the two coincidental hits withheld, got {n}"
+    by = {r["canonical_slug"]: r for r in recs}
+    for slug in ("men1-coincidence-162", "men1-coincidence-391"):
+        assert by[slug].get("saprot") is None, f"{slug} kept a wrong-residue LLR"
+        assert by[slug]["saprot_misaligned"] == 150, "the divergence residue is not recorded"
+    # the aligned prefix is CORRECT and must survive -- this is not a blanket drop
+    for slug in ("men1-aligned-2", "men1-aligned-100", "men1-aligned-149"):
+        assert by[slug]["saprot"] is not None, f"{slug} lost a valid score"
+
+
+def test_a_fully_covered_accession_is_untouched():
+    from sugivariant.enrich import drop_misaligned_saprot
+    recs = [r for r in _men1_like() if r.get("saprot")]      # hits only, no misses
+    assert drop_misaligned_saprot(recs) == 0
+    assert all(r.get("saprot") for r in recs)
+
+
+def test_a_fully_dark_accession_is_untouched():
+    """No hits at all (no AlphaFold model) -- there is no divergence to infer and
+    nothing to withhold; the page already says 'not scored'."""
+    from sugivariant.enrich import drop_misaligned_saprot
+    recs = [r for r in _men1_like() if not r.get("saprot")]
+    assert drop_misaligned_saprot(recs) == 0
+    assert not any(r.get("saprot_misaligned") for r in recs)
+
+
+def test_misses_above_the_top_hit_do_not_invent_a_divergence():
+    """A miss past the end of the scored sequence is ordinary coverage, not a
+    mismatch, and must not withhold the scores below it."""
+    from sugivariant.enrich import drop_misaligned_saprot
+    recs = _men1_like()
+    recs = [r for r in recs
+            if int(r["alphamissense"]["short"][1:-1]) <= 149
+            or not r.get("saprot")]
+    recs = [r for r in recs if int(r["alphamissense"]["short"][1:-1]) not in (150, 151)]
+    # now: hits at 2/100/149, a single miss at 300 which is ABOVE the top hit
+    assert drop_misaligned_saprot(recs) == 0
+    assert all(r.get("saprot") for r in recs
+               if int(r["alphamissense"]["short"][1:-1]) <= 149)
+
+
+def test_the_page_says_withheld_not_absent():
+    """The two reasons are different claims and must not render the same."""
+    os.environ.setdefault("BASE_PATH", "/variant")
+    rec = next(_records(limit_genes=600,
+                        want=lambda r: (r.get("alphamissense") or {}).get("class")
+                        and not r.get("saprot")), None)
+    if rec is None:
+        pytest.skip("no AlphaMissense-scored record without SaProt in the sample")
+    rec = dict(rec)
+    rec["saprot_misaligned"] = 150
+    html, _md, _g, _p = _both(rec)
+    assert "withheld" in html, "a withheld score renders as if it never existed"
+    assert "numbering disagrees past residue 150" in html
+    assert "not scored" not in html.split("Splicing")[0], \
+        "withheld and never-scored must not render identically"
