@@ -26,11 +26,41 @@ _CLASS_ORDER = ["Pathogenic", "Likely pathogenic", "Pathogenic/Likely pathogenic
                 "Conflicting classifications of pathogenicity"]
 
 
+def _approved_symbols(hgnc_id):
+    """The symbols HGNC records for an id (approved symbol first), or ()."""
+    from sugibiobtree.client import entry
+    try:
+        attrs = (entry(hgnc_id, "hgnc") or {}).get("Attributes") or {}
+        return tuple((attrs.get("Hgnc") or {}).get("symbols") or ())
+    except Exception:
+        return ()
+
+
 def _hgnc_id(symbol):
+    """The HGNC id for a gene SYMBOL, preferring an exact approved-symbol match.
+
+    Taking the first search hit is wrong, because HGNC keeps PREVIOUS symbols and the
+    search ranks by relevance across all of them. "FLG" returns FGFR1 first -- FLG was
+    its previous symbol, from "FMS-like gene" -- and filaggrin only second. So a build
+    keyed on the first hit rebuilt FLG from FGFR1's variants: FLG's pickle came back
+    holding 1,295 FGFR1 records and 201 of its own, against 2,147 FLG pages in the
+    index before it. Nothing wrong was ever displayed, because collect() takes
+    gene_symbol from the HGVS transcript, but FLG lost most of its corpus.
+
+    Falls back to the first HGNC hit when no candidate's approved symbol matches, which
+    keeps a symbol that only exists as an alias resolvable."""
+    want = (symbol or "").strip().upper()
+    first = None
     for r in rows(search(symbol, source="hgnc")):
-        if r.get("id", "").startswith("HGNC:"):
-            return r["id"]
-    return None
+        rid = r.get("id", "")
+        if not rid.startswith("HGNC:"):
+            continue
+        if first is None:
+            first = rid
+        syms = _approved_symbols(rid)
+        if syms and syms[0].upper() == want:
+            return rid
+    return first
 
 
 def _frontmatter(meta, description, identifier, aliases, entity_type="variant"):
