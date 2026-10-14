@@ -1871,3 +1871,21 @@ def test_no_surface_still_claims_a_pathogenic_only_corpus():
             if phrase in t:
                 bad.append(f"{f.name}: {phrase}")
     assert not bad, "stale corpus-scope claims: " + "; ".join(bad)
+
+
+def test_the_md_discloses_saprots_dark_states_like_the_html():
+    """96317f5 fixed this for the HTML and left the .md silent: 97,584 AM-scored pages
+    said nothing about SaProt while the footer called it an agreement signal, and 7,794
+    withheld scores were flattened into 'makes no call'."""
+    rec = next(_records(limit_genes=600,
+                        want=lambda r: (r.get("alphamissense") or {}).get("class")
+                        and not r.get("saprot")), None)
+    if rec is None:
+        pytest.skip("no AlphaMissense-scored record without SaProt in the sample")
+    html, md, _g, _p = _both(rec)
+    assert "SaProt" in html
+    assert "SaProt" in md, "the .md does not mention SaProt at all"
+    if rec.get("saprot_misaligned"):
+        assert "withheld" in md, "a withheld score must not read as an abstention"
+    else:
+        assert "not scored" in md

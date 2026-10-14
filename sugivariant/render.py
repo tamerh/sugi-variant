@@ -563,6 +563,24 @@ def render_body(v, jsonld_tag=""):
             # still carry it; drop it here so the .md does not state the frequency twice
             # (once in the old format, once in the population-frequency bullet below).
             L += [f"- {ln}" for ln in conc.get("lines", []) if "gnomAD" not in ln]
+        # SaProt's three states, matching the HTML row. Without this the .md said NOTHING
+        # about SaProt on 97,584 AlphaMissense-scored pages while the methods footer went
+        # on calling it one of the agreement signals -- verbatim the defect 96317f5 fixed
+        # for the HTML. And on 7,794 pages a WITHHELD score was flattened into "makes no
+        # call", which is a different claim: one is a number we refuse to show because it
+        # describes the wrong residue, the other is a tool declining to call.
+        # A scored SaProt already appears in conc["lines"], so only the dark states here.
+        _am = v.get("alphamissense") or {}
+        if _am.get("class") and not v.get("saprot"):
+            if v.get("saprot_misaligned"):
+                L.append("- **SaProt:** withheld — SaProt scored this protein on a different "
+                         "isoform than AlphaMissense numbered the variant on, and the two "
+                         f"diverge from residue {v['saprot_misaligned']}, so a score under this "
+                         "position number would describe a different residue.")
+            else:
+                L.append("- **SaProt:** not scored — SaProt is structure-aware and AlphaFold DB "
+                         "has no model for this protein. That is a property of the dataset, not "
+                         "of the variant, and is not evidence either way.")
         mm = v.get("am_isoform_mismatch")
         if mm:
             L.append(f"- ⚠ **Isoform check:** AlphaMissense is numbered on a different transcript "

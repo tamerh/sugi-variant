@@ -893,3 +893,24 @@ def test_blank_classifications_do_not_manufacture_a_disagreement():
     assert t["n"] == 4
     subs.append({"date": "2021-06-01", "classification": "Likely pathogenic"})
     assert submission_timeline(subs)["stable"] is False, "a real disagreement must survive"
+
+
+def test_a_stored_mito_absence_is_corrected_at_serve_time():
+    """gnomad_frequency() only runs at build time, so fixing it there would leave the
+    3,072 records already on disk asserting absence until a rebuild. refresh_frequency()
+    is pure and runs per request, so the correction lands immediately."""
+    from sugivariant.enrich import refresh_frequency
+    rec = {"coordinate": "MT:11984:T:C",
+           "gnomad": {"absent": True, "unknown": False, "is_common": False,
+                      "popmax": None, "band": "absent from gnomAD v4.1",
+                      "source": "gnomAD v4.1"}}
+    g = refresh_frequency(rec)
+    assert g["absent"] is False and g["unknown"] is True
+    assert "mitochondrial callset" in g["band"]
+    # a nuclear absence is a real finding and must survive untouched
+    nuc = {"coordinate": "13:32346896:G:A",
+           "gnomad": {"absent": True, "unknown": False, "is_common": False,
+                      "popmax": None, "band": "absent from gnomAD v4.1",
+                      "source": "gnomAD v4.1"}}
+    gn = refresh_frequency(nuc)
+    assert gn["absent"] is True and gn["band"] == "absent from gnomAD v4.1"

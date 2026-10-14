@@ -1732,6 +1732,16 @@ def refresh_frequency(rec):
     g["_freq_fresh"] = True
     src, freq = g.get("source"), g.get("frequency")
     no_count = not g.get("af") and not g.get("ac") and g.get("popmax") is None
+    # A chrM record that says "absent" is stating OUR gap as the variant's absence:
+    # gnomAD v4.1 has a mitochondrial callset, with its own schema, that our release does
+    # not carry. Corrected here rather than only in gnomad_frequency() so the 3,072 pages
+    # already on disk stop asserting it without waiting for a rebuild. MT-ND4 m.11984T>C
+    # is the worked case: gnomAD has it at ac_hom 55, ac_het 1 in 56,431 alleles.
+    if g.get("absent") and _is_mito(rec.get("coordinate") or rec.get("chromosome")):
+        g["absent"] = False
+        g["unknown"] = True
+        g["band"] = "gnomAD v4.1's mitochondrial callset is not in our release"
+        return g
     if src == "gnomAD v4.1" and not g.get("absent") and no_count:
         an = g.get("an")
         g["unknown"] = True
