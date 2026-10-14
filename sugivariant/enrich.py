@@ -740,8 +740,35 @@ def saprot_for(uniprot, protein_variant):
     Youden-optimal cut is -10.0 (sens 0.80, spec 0.94) vs the old heuristic -7.5
     (sens 0.91, spec 0.69 — over-called benign). See tools/eval/saprot_calibration.py.
     Unsupervised → a genuinely orthogonal predictor next to supervised AlphaMissense/
-    REVEL. Covers ~98.6% of the proteome; the ~1.4% without an AlphaFold structure
-    fall back to AlphaMissense (SaProt simply returns None here)."""
+    REVEL.
+
+    COVERAGE, measured 2026-10-14 over all 4.20M records rather than quoted from
+    upstream. 2.13M of 2.42M AlphaMissense-scored variants get an LLR (88.1%). The
+    shortfall is NOT the "~1.4% of the proteome" the upstream note implies: that figure
+    counts proteins, and the uncovered ones are the LONGEST proteins, so by VARIANT it
+    is 11.9%. Three distinct causes, which must not be conflated:
+
+    1. NO ALPHAFOLD MODEL — 239 accessions, 268,951 variants, including BRCA2, TTN,
+       ATM, APC, RYR1, RYR2, FBN1, DMD, USH2A. SaProt is structure-aware and the
+       upstream build fetched per-accession AFDB models, which do not exist for these;
+       recovering them needs AFDB's fragmented bulk predictions. Returns None, and the
+       page states it ("not scored"), because silence here reads as "no prediction".
+    2. ISOFORM-SHIFTED NUMBERING — ~170 accessions. The LLRs are keyed on the sequence
+       the upstream build scored; the position we hand it comes from AlphaMissense. Where
+       UniProt has changed which isoform is canonical the two differ, so past the
+       divergence point the key lands on a DIFFERENT residue -- and still resolves when
+       the shifted position happens to carry the same reference letter. 8,055 such
+       coincidental hits were live before drop_misaligned_saprot() withheld them; see
+       that function for the detection, which needs no upstream metadata.
+    3. KEYED UNDER AN ISOFORM ID — 95 accessions, 109,379 variants. The LLR key prefix
+       is sometimes `ACC-N` (`Q14315-2`) rather than the bare accession, because the
+       AFDB model existed only for a non-canonical isoform. AlphaMissense gives us the
+       bare accession, so we never ask the right key and read zero hits as "no model".
+       NOT detectable from our side -- this is the one case that needs the upstream
+       sequence manifest, which lists the key prefix per accession.
+
+    Absence is therefore never evidence about the variant, and the three cases are
+    different claims. AlphaMissense and REVEL are unaffected by all of them."""
     if not (uniprot and protein_variant):
         return None
     a = _coord_entry(f"{uniprot}:{protein_variant}", "saprot")
