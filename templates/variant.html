@@ -48,6 +48,7 @@
        snippets and lives in the .md twin for machine/plain-language consumers. #}
 
 
+    {% if v._partial %}<p class="section-sub" style="color:var(--flag)">⚠ Built without this gene's context — gene constraint and dosage, protein structure, pathways, panels and related-variant links were not looked up for this page. <span class="ti" tabindex="0" data-tip="ClinVar files this variant under an overlapping gene, so its own gene's record set does not contain it and the page is assembled from the variant alone. The gene-level layers are fetched once per gene and are therefore not available here: they are absent from this page, not absent from the data. Everything shown IS looked up per variant." aria-label="ClinVar files this variant under an overlapping gene, so its own gene's record set does not contain it and the page is assembled from the variant alone. The gene-level layers are fetched once per gene and are therefore not available here: they are absent from this page, not absent from the data. Everything shown IS looked up per variant.">why</span></p>{% endif %}
     <div class="vd-stack">
       {# A ClinGen expert-panel curation is a human classification with the criteria the
          panel actually applied, so it outranks every computational score on the page and

@@ -1889,3 +1889,34 @@ def test_the_md_discloses_saprots_dark_states_like_the_html():
         assert "withheld" in md, "a withheld score must not read as an abstention"
     else:
         assert "not scored" in md
+
+
+# ── rule: a page built without its gene's context must say so ──
+# _collect_one() sets rec["_partial"] for a variant ClinVar files under an overlapping
+# gene, so the page is built with ctx={} and loses gene constraint, dosage, structure,
+# pathways, panels, hotspot, similar-variants and the AlphaMissense percentile. The flag
+# was set and read NOWHERE: 67,186 pages served the thinner set silently. SpliceAI
+# already discloses its own absence this way.
+def test_a_partial_page_discloses_what_was_not_looked_up():
+    os.environ.setdefault("BASE_PATH", "/variant")
+    rec = next(_records(limit_genes=40), None)
+    if rec is None:
+        pytest.skip("no cached records")
+    rec = dict(rec)
+    rec["_partial"] = True
+    html, md, _g, _p = _both(rec)
+    for name, surface in (("HTML", html), (".md", md)):
+        assert "without this gene's context" in surface, f"{name}: no disclosure"
+        assert "not looked up" in surface, f"{name}: does not say what is missing"
+
+
+def test_a_normal_page_carries_no_such_note():
+    os.environ.setdefault("BASE_PATH", "/variant")
+    rec = next(_records(limit_genes=40), None)
+    if rec is None:
+        pytest.skip("no cached records")
+    rec = dict(rec)
+    rec.pop("_partial", None)
+    html, md, _g, _p = _both(rec)
+    assert "without this gene's context" not in html
+    assert "without this gene's context" not in md

@@ -509,6 +509,18 @@ def render_body(v, jsonld_tag=""):
     if jsonld_tag:
         L += ["", jsonld_tag]
 
+    # A page built by the single-variant fallback carries none of the gene-level layers,
+    # and said so nowhere: 67,186 pages served a thinner evidence set with no signal that
+    # anything was missing. SpliceAI already discloses its own absence this way ("not
+    # looked up on this page ... a gap in this page, not in the data"); this applies the
+    # same standard to the other nine.
+    if v.get("_partial"):
+        L += ["", "> **Built without this gene's context.** ClinVar files this variant under an "
+                  "overlapping gene, so its own gene's record set does not contain it and this "
+                  "page is assembled from the variant alone. Gene constraint and dosage, protein "
+                  "structure, pathways, panels and related-variant links were not looked up — "
+                  "absent from this page, not from the data."]
+
     # Patient zone — high on the page (high human value + citable)
     L += _patient_zone(v)
 
