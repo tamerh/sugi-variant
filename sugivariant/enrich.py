@@ -2396,7 +2396,7 @@ def _required_residue(ftype, desc):
 
 
 # ── Batch 3: per-variant derived (mostly in-memory, no new calls) ────────────
-def structural_context(hgvs_p, intervals, mismatch=None):
+def structural_context(hgvs_p, intervals, mismatch=None, canonical_pos=None):
     """UniProt features overlapping the variant's residue → human phrases.
 
     The intervals are numbered on the UniProt CANONICAL sequence; `hgvs_p` is numbered
@@ -2415,8 +2415,19 @@ def structural_context(hgvs_p, intervals, mismatch=None):
     pos = protein_position(hgvs_p)
     if pos is None or not intervals:
         return None
+    uniprot_numbering = False
     if mismatch:
-        return None
+        # ClinVar's number is not the features' number. AlphaMissense's is -- but only
+        # where that has been PROVEN for this variant: a SaProt LLR exists only because
+        # AlphaMissense's position resolved against the AlphaFold model of the CURRENT
+        # canonical sequence, which is the sequence the features are numbered on. With
+        # that proof, read the features at AlphaMissense's residue instead of dropping
+        # them; without it (no SaProt, or SaProt withheld because AlphaMissense itself
+        # diverges from canonical) report nothing.
+        if canonical_pos is None:
+            return None
+        pos = canonical_pos
+        uniprot_numbering = True
     ref = _ref_residue(hgvs_p)
     out, seen = [], set()
     for f in intervals:
@@ -2437,7 +2448,12 @@ def structural_context(hgvs_p, intervals, mismatch=None):
             if phrase not in seen:                      # dedup UniProt's duplicate curations
                 seen.add(phrase)
                 out.append(phrase)
-    return {"position": pos, "features": out} if out else None
+    if not out:
+        return None
+    # The number shown is not the one in the variant's own p. name when it came from
+    # AlphaMissense, so say which sequence it belongs to rather than let the reader
+    # assume they match.
+    return {"position": pos, "features": out, "uniprot_numbering": uniprot_numbering}
 
 
 _AM_SHORT = re.compile(r"^([A-Z])(\d+)([A-Z])$")

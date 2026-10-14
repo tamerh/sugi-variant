@@ -776,3 +776,32 @@ def test_a_range_feature_still_matches_across_its_span():
     iv = [{"type": "domain", "begin": 100, "end": 200, "desc": "Kinase"}]
     for p in ("p.Ala100Ser", "p.Ala150Ser", "p.Ala200Ser"):
         assert structural_context(p, iv), p
+
+
+def test_a_proven_canonical_position_recovers_the_features():
+    """Where ClinVar's numbering is wrong, AlphaMissense's can stand in -- but only with
+    proof it is canonical (a SaProt score). 117,671 variants carry that proof; without
+    it the block stays withheld rather than guessing."""
+    from sugivariant.enrich import structural_context
+    iv = [{"type": "domain", "begin": 110, "end": 130, "desc": "Chromo"}]
+    mm = {"am": "N117T", "clinvar": "N150T"}
+    # ClinVar's 150 is outside the domain and its numbering is known bad -> nothing
+    assert structural_context("p.Asn150Thr", iv, mm) is None
+    # with the canonical position proven, the real feature comes back, flagged
+    got = structural_context("p.Asn150Thr", iv, mm, 117)
+    assert got and got["features"] == ["the Chromo domain"]
+    assert got["position"] == 117 and got["uniprot_numbering"] is True
+
+
+def test_a_recovered_position_is_still_chemistry_checked():
+    from sugivariant.enrich import structural_context
+    iv = [{"type": "modified residue", "begin": 117, "end": 117,
+           "desc": "N6-acetyllysine"}]
+    assert structural_context("p.Asn150Thr", iv, {"am": "N117T"}, 117) is None
+
+
+def test_an_unmismatched_record_is_never_relabelled():
+    from sugivariant.enrich import structural_context
+    iv = [{"type": "domain", "begin": 300, "end": 320, "desc": "Kinase"}]
+    got = structural_context("p.Pro309Ala", iv)
+    assert got["position"] == 309 and got["uniprot_numbering"] is False

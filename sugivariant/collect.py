@@ -7,9 +7,12 @@ the linked conditions and (when the gene has a ClinGen VCEP) the expert-panel
 ACMG assertion. Positional in-silico predictions (AlphaMissense/SpliceAI) are
 optional annotations, joined by substitution/position — never page generators.
 """
+import re
 from sugibiobtree import entry, map_all
 from sugivariant.slug import parse_hgvs, variant_slugs, name_gene
 from sugivariant import enrich as EN
+
+_AM_SHORT_POS = re.compile(r"^[A-Z](\d+)[A-Z]$")
 
 # Classifications we build pages for. Phase 2 (2026-07) widens the gate toward the
 # HARD interpretation cases where an integrated substrate is differentiated: VUS is
@@ -260,10 +263,17 @@ def attach_enrichment(rec, ctx=None):
     # Batch 3 — per-variant derived (in-memory from the per-gene caches)
     am_map = ctx.get("am") or {}          # per-gene AM distribution (for the percentile)
     rec["am_percentile"] = (EN.am_percentile(am["score"], am_map) if (am and am_map) else None)
+    # Where ClinVar's numbering disagrees with UniProt's, AlphaMissense's position can
+    # stand in -- but only with proof that IT is canonical, which a SaProt score is (see
+    # structural_context). 117,671 variants carry that proof.
+    _canon = None
+    if rec.get("am_isoform_mismatch") and rec.get("saprot"):
+        _m = _AM_SHORT_POS.match(((rec.get("alphamissense") or {}).get("short")) or "")
+        if _m:
+            _canon = int(_m.group(1))
     rec["structural"] = EN.structural_context(
         rec.get("hgvs_p"), (ctx.get("structure") or {}).get("intervals"),
-        # proof that ClinVar's residue numbering and UniProt's disagree here
-        rec.get("am_isoform_mismatch"))
+        rec.get("am_isoform_mismatch"), _canon)
     rec["similar"] = EN.similar_variants(rec, ctx.get("recs") or [])
     rec["timeline"] = EN.submission_timeline(rec.get("submissions") or [])
     # patient digest routed via the VARIANT's own condition (audit P1) — cached
