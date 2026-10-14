@@ -196,6 +196,56 @@ def _records_from_pickle(gene):
         return None
 
 
+def dedupe_slugs(conn, apply=True):
+    """One URL, one row.
+
+    A protein slug collides when two ClinVar variations share a protein consequence but
+    differ in their coding change: ABCD1 p.Ala364= is BOTH c.1092C>T (Likely benign) and
+    c.1092C>G (Conflicting). Both variations get an index row carrying the same slug, so
+    the gene hub lists p.Ala364= twice -- and BOTH rows link to /abcd1-p-ala364, which
+    serves only the c.1092C>T record. Clicking the "Conflicting" row opens a page reading
+    "Likely benign". The per-class totals on the hub are inflated by the duplicates too.
+
+    No URL is missing: every colliding variation already has its own c-form key in
+    `alias` and resolves correctly (verified: both VCVs alias-reachable in 400/400
+    sampled collisions). So the repair is to LIST the loser under a key it already owns,
+    not to mint a new one. The row kept at the contested slug is the one the page
+    actually serves -- the lowest VCV, matching the record build's first-wins dedup.
+
+    Runs as a pass over the finished index rather than per row: `variant` has no slug
+    index, so a per-insert lookup would scan the table once per record. Returns the
+    number of rows moved; `apply=False` only counts them.
+    """
+    # ONE scan. `variant` has no index on slug -- resolution goes through `alias`, whose
+    # PRIMARY KEY(key, vcv) covers it -- so a per-collision "WHERE slug=?" would scan 4M
+    # rows each time (measured: the pass did not finish in 10 minutes). Build the whole
+    # slug->vcvs map in memory instead, then touch only the losers.
+    cur = conn.cursor()
+    by_slug = {}
+    for vcv, slug in cur.execute("SELECT vcv, slug FROM variant"):
+        by_slug.setdefault(slug, []).append(vcv)
+    taken = set(by_slug)
+    moved = 0
+    for slug, vcvs in by_slug.items():
+        if len(vcvs) < 2:
+            continue
+        for vcv in sorted(vcvs)[1:]:              # lowest VCV keeps the contested slug
+            alt = None
+            for (k,) in cur.execute("SELECT key FROM alias WHERE vcv=?", (vcv,)):
+                # prefer the most specific free key it ALREADY owns (the c-form)
+                if k != slug and k not in taken and (alt is None or len(k) > len(alt)):
+                    alt = k
+            if alt is None:
+                continue                          # nothing free that it already owns
+            taken.add(alt)
+            moved += 1
+            if apply:
+                cur.execute("UPDATE variant SET slug=? WHERE vcv=?", (alt, vcv))
+    if apply:
+        conn.commit()
+    return moved
+
+
 def build_index(genes, db_path, skip_done=True, log_every=200,
                 from_records=False, bulk=False):
     """Full/partial build over a gene list. RESUMABLE: genes already in gene_meta are

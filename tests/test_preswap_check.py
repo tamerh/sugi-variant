@@ -206,3 +206,43 @@ def test_rename_detection_needs_a_single_destination(tmp_path):
            [(i, "B", f"b-v{i}", "Uncertain significance") for i in range(10, 20)])
     c = PS._open(_db(tmp_path / "cur.db", old), _db(tmp_path / "new.db", new))
     assert PS._renamed_to(c, "X") is None
+
+
+# ── rule: one URL, one index row ──
+def test_dedupe_slugs_moves_the_loser_to_a_key_it_already_owns():
+    """Two ClinVar variations can share a protein consequence with different coding
+    changes (ABCD1 p.Ala364= is c.1092C>T Likely benign AND c.1092C>G Conflicting). Both
+    got an index row with the same slug, so the gene hub listed it twice and BOTH rows
+    opened the page serving only one of them."""
+    import sqlite3
+    from sugivariant.index import dedupe_slugs, SCHEMA
+    c = sqlite3.connect(":memory:")
+    c.executescript(SCHEMA)
+    c.executemany("INSERT INTO variant VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", [
+        (763226, "ABCD1", "abcd1-p-ala364", "p.Ala364=", "c.1092C>T",
+         "Likely benign", "criteria provided, single submitter", 1, None, None, None, None),
+        (913632, "ABCD1", "abcd1-p-ala364", "p.Ala364=", "c.1092C>G",
+         "Conflicting classifications of pathogenicity", "criteria provided, conflicting classifications", 1, None, None, None, None),
+    ])
+    c.executemany("INSERT INTO alias VALUES(?,?)", [
+        ("abcd1-p-ala364", 763226), ("abcd1-c-1092c-t", 763226),
+        ("abcd1-p-ala364", 913632), ("abcd1-c-1092c-g", 913632)])
+    assert dedupe_slugs(c) == 1
+    got = dict(c.execute("SELECT vcv, slug FROM variant").fetchall())
+    assert got[763226] == "abcd1-p-ala364", "the lowest VCV keeps the contested slug"
+    assert got[913632] == "abcd1-c-1092c-g", "the loser takes a key it already owns"
+
+
+def test_dedupe_slugs_leaves_a_row_alone_when_it_owns_no_free_key():
+    """Minting a URL the variant does not already resolve on would be worse than a
+    duplicate listing."""
+    import sqlite3
+    from sugivariant.index import dedupe_slugs, SCHEMA
+    c = sqlite3.connect(":memory:")
+    c.executescript(SCHEMA)
+    c.executemany("INSERT INTO variant VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", [
+        (1, "G", "g-p-x", None, None, "Benign", "x", 1, None, None, None, None),
+        (2, "G", "g-p-x", None, None, "Pathogenic", "x", 1, None, None, None, None)])
+    c.executemany("INSERT INTO alias VALUES(?,?)", [("g-p-x", 1), ("g-p-x", 2)])
+    assert dedupe_slugs(c) == 0
+    assert [r[0] for r in c.execute("SELECT slug FROM variant")] == ["g-p-x", "g-p-x"]
