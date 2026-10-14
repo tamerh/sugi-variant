@@ -92,6 +92,25 @@ SOURCE_REFS = {
 }
 
 
+# ClinGen dosage: 0-3 is the EVIDENCE scale, but 30 and 40 are category codes, not
+# points on it. 30 means "gene associated with a recessive phenotype" -- i.e.
+# haploinsufficiency is NOT the mechanism -- so printing it as a score on a 0-3 scale
+# does not merely look odd, it inverts the meaning: a reader (or a language model) takes
+# 30 for maximal haploinsufficiency evidence. The HTML had this map; the .md twin did
+# not, and printed "haploinsufficiency 30 ... (0-3 scale)" on 459,525 pages.
+HI_CATEGORY = {"30": "gene assoc. with recessive phenotype",
+               "40": "dosage-sensitivity unlikely"}
+
+
+def hi_display(h):
+    """A ClinGen dosage value as a reader should see it: a category code by name, a
+    score as a score. Shared by both surfaces so they cannot drift apart again."""
+    if h is None or str(h).strip() == "":
+        return "—"
+    k = str(h).strip()
+    return HI_CATEGORY.get(k, f"{k}/3")
+
+
 def source_refs():
     """[(name, citation, url)] for the About sources table."""
     return [(name, *SOURCE_REFS.get(name, ("", ""))) for name, _lic, _grp in DATA_SOURCES]
@@ -284,7 +303,9 @@ def _gene_context_zone(v):
     if con and con.get("loeuf"):
         bits.append(f"LOEUF {con['loeuf']}, pLI {con.get('pli')}, missense-Z {con.get('mis_z')}")
     if dos and (dos.get("haplo") or dos.get("triplo")):
-        bits.append(f"ClinGen dosage — haploinsufficiency {dos.get('haplo')}, triplosensitivity {dos.get('triplo')} (0–3 scale)")
+        bits.append("ClinGen dosage — haploinsufficiency "
+                    f"{hi_display(dos.get('haplo'))}, "
+                    f"triplosensitivity {hi_display(dos.get('triplo'))}")
     if bits:
         L.append(f"**{v.get('gene_symbol')}** population constraint: " + "; ".join(bits)
                  + ". *Lower LOEUF and higher pLI indicate a gene that tolerates loss-of-function "

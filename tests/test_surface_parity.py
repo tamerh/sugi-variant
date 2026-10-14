@@ -1826,3 +1826,48 @@ def test_the_colliding_symbols_resolve_to_their_own_gene():
         if got is None:
             pytest.skip("upstream unavailable")
         assert got == want, f"{sym} resolved to {got}, not its own {want}"
+
+
+# ── rule: the machine-readable surface must not outrun the corrections ──
+# refresh_frequency() strips a stored gnomAD band that asserts an absence the data cannot
+# support. The JSON-LD was built ABOVE that call, so 187,493 pages (84,456 P/LP) served
+# HTML saying "no allele count reported in gnomAD v4.1" beside structured data saying "is
+# absent from gnomAD v4.1" -- manufacturing PM2-supporting rarity on the surface search
+# engines and language models quote.
+def test_the_jsonld_is_built_after_the_record_is_refreshed():
+    import pathlib, re
+    src = (pathlib.Path(__file__).resolve().parent.parent / "app.py").read_text(encoding="utf-8")
+    body = src[src.index("def variant_page"):]
+    body = body[:body.index("\n@app.") if "\n@app." in body else len(body)]
+    i_refresh = body.find("_refresh(rec)")
+    i_jsonld = body.find("as_script_tag(")
+    assert i_refresh != -1 and i_jsonld != -1, "variant_page no longer has both calls"
+    assert i_refresh < i_jsonld, \
+        "JSON-LD is built before _refresh(rec): it will carry an absence claim the page retracted"
+
+
+def test_benign_likely_benign_is_not_coloured_as_uncertain():
+    """The only ClinVar call that merges benign and likely-benign evidence fell through
+    cls_class's default and rendered in the VUS grey on 73,495 variants."""
+    os.environ.setdefault("BASE_PATH", "/variant")
+    import app
+    assert app.cls_class("Benign/Likely benign") == "ben"
+    assert app.cls_class("Pathogenic/Likely pathogenic") == "path"
+    assert app.cls_class("Uncertain significance") == "vus"
+
+
+def test_no_surface_still_claims_a_pathogenic_only_corpus():
+    """The build gate now produces VUS and benign too. Telling a reader their variant has
+    'no pathogenic-gated page' invites a clinical inference from a stale build note."""
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parent.parent / "templates"
+    bad = []
+    for f in root.glob("*.html"):
+        if "disagreements" in f.name:
+            continue                      # dead templates; the routes 308-redirect
+        t = f.read_text(encoding="utf-8")
+        for phrase in ("pathogenic-gated",
+                       "Pathogenic / Likely-pathogenic / Conflicting only"):
+            if phrase in t:
+                bad.append(f"{f.name}: {phrase}")
+    assert not bad, "stale corpus-scope claims: " + "; ".join(bad)

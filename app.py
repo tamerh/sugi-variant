@@ -53,6 +53,10 @@ _CLS_CLASS = {
     "pathogenic/likely pathogenic": "path",
     "conflicting classifications of pathogenicity": "conflict",
     "uncertain significance": "vus", "likely benign": "lben", "benign": "ben",
+    # Without this the only call that MERGES benign and likely-benign evidence fell
+    # through to the default and rendered in the VUS grey -- the same colour as
+    # "uncertain" -- on 73,495 variants, their gene-hub pills and their /set tiles.
+    "benign/likely benign": "ben",
 }
 
 
@@ -93,10 +97,11 @@ env.globals["spliceai_scored"] = _spliceai_scored
 from sugivariant.render import _ucfirst as _uc1  # noqa: E402
 env.filters["ucfirst"] = _uc1
 
-# ClinGen dosage haploinsufficiency: 0–3 is the evidence scale; 30/40 are category codes
-# (not points on the scale), so don't render them as "30/3".
-_HI_CATEGORY = {"30": "gene assoc. with recessive phenotype", "40": "dosage-sensitivity unlikely"}
-env.globals["hi_display"] = lambda h: _HI_CATEGORY.get(str(h).strip(), f"{h}/3")
+# ClinGen dosage: 0-3 is the evidence scale; 30/40 are category codes. One definition,
+# in render.py, so the HTML and the .md twin cannot drift apart (they did: the .md showed
+# "haploinsufficiency 30 ... (0-3 scale)" on 459,525 pages).
+from sugivariant.render import hi_display as _hi_display  # noqa: E402
+env.globals["hi_display"] = _hi_display
 
 # Inline markdown-bold in generated verdict text: **x** → <strong>x</strong>.
 # `mdbold` returns safe HTML (rest escaped); `mdstrip` yields plain text (for
@@ -889,16 +894,26 @@ def variant_page(slug: str, view: str = ""):
     # so old bookmarks/links still resolve to the same page instead of 404ing.
     # schema.org structured data: jsonld.py was written and tested but never wired in, so
     # every page shipped without it. Defensive — a schema error must never break a page.
+    freq_g, freq_pops = _freq_ctx(rec)
+    # Re-derive the pickled readouts from the record's own fields before ANYTHING reads
+    # them (pure, no lookups). Explicit rather than relying on disagreement_flag()'s side
+    # effect, which happens to run first today.
+    #
+    # This must precede the JSON-LD. refresh_frequency() exists to strip a stored gnomAD
+    # band that asserts an absence the data cannot support, and the JSON-LD used to be
+    # built ABOVE it -- so 187,493 pages (84,456 of them P/LP) served HTML saying "no
+    # allele count reported in gnomAD v4.1 (AN 1,383,496)" beside structured data saying
+    # "is absent from gnomAD v4.1". The machine-readable surface is the one search engines
+    # and language models quote, so it was manufacturing PM2-supporting rarity on exactly
+    # the pages where the human-readable one had already withdrawn the claim.
+    _refresh(rec)
+    # schema.org structured data: jsonld.py was written and tested but never wired in, so
+    # every page shipped without it. Defensive — a schema error must never break a page.
     try:
         from sugivariant.jsonld import as_script_tag
         jsonld = as_script_tag(rec, {"generated_at": _index_lastmod()})
     except Exception:
         jsonld = ""
-    freq_g, freq_pops = _freq_ctx(rec)
-    # Re-derive the pickled readouts from the record's own fields before the template
-    # reads them (pure, no lookups). Explicit rather than relying on disagreement_flag()'s
-    # side effect, which happens to run first today.
-    _refresh(rec)
     html = _render("variant.html", v=rec, canonical=rec["canonical_slug"], nav="variant",
                    jsonld=jsonld, freq_g=freq_g, freq_pops=freq_pops)
     if rec.get("_degraded"):

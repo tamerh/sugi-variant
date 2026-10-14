@@ -177,6 +177,13 @@ def _coord_entry(coord, dataset):
     return v if isinstance(v, dict) else None
 
 
+def _is_mito(coord):
+    """Is this coordinate on the mitochondrial genome? ClinVar writes the contig as MT;
+    chrM and M appear in other sources."""
+    c = (str(coord or "").split(":") or [""])[0].strip().upper()
+    return c in ("MT", "M", "CHRM")
+
+
 def gnomad_frequency(rec):
     """gnomAD v4.1 per-variant frequency — the ACMG BA1/BS1/PM2 layer. Looked up
     by coordinate via entry() (NOT map — that returns 0; audit Tier 1 false-Absent
@@ -259,6 +266,17 @@ def gnomad_frequency(rec):
         # triplet resolves 67% of the time — good enough to REPORT a hit, not good
         # enough to assert a miss. Non-SNVs therefore keep the dbSNP fallback they
         # had when they could not be keyed at all, and claim nothing.
+        # gnomAD v4.1 DOES have a mitochondrial callset -- it is simply a separate dataset
+        # with a different schema (ac_hom / ac_het / an / max_heteroplasmy) that our
+        # release does not carry. A chrM miss is therefore OUR gap, never an absence.
+        # MT-ND4 m.11984T>C rendered "absent from gnomAD v4.1" while gnomAD reports
+        # ac_hom 55, ac_het 1 in 56,431 alleles. 3,072 mitochondrial pages asserted that,
+        # and they are the pages least able to afford a false negative: the mito class
+        # also has no conservation and no CADD, so this line carries the whole section.
+        if _is_mito(coord):
+            return {"absent": False, "unknown": True, "is_common": False, "popmax": None,
+                    "band": "gnomAD v4.1's mitochondrial callset is not in our release",
+                    "source": "gnomAD v4.1"}
         if coord_is_snv(coord) is not True:
             return gnomad_for(rec.get("rsid"))
         return {"absent": True, "unknown": False, "is_common": False, "popmax": None,
@@ -2603,8 +2621,16 @@ def submission_timeline(submissions):
     years = sorted(int(s["date"][:4]) for s in dated if (s.get("date") or "")[:4].isdigit())
     if not years:
         return None
-    calls = {(s.get("classification") or "").split("/")[0].strip().lower() for s in submissions}
-    return {"first": years[0], "last": years[-1], "n": len(submissions),
+    # Only submissions that actually CARRY a classification can disagree about one. An
+    # empty string counted as a distinct call, so a variant with 4 unanimous Benign calls
+    # and 43 submissions carrying no classification read "classifications have differed
+    # over time" -- directly contradicting the "unanimous (4/4 Benign)" line above it.
+    # 20,002 records said that on the strength of empty strings alone.
+    calls = {(s.get("classification") or "").split("/")[0].strip().lower()
+             for s in submissions if (s.get("classification") or "").strip()}
+    # `n` is reported next to a year span those undated rows cannot support, so count the
+    # same set the span is drawn from.
+    return {"first": years[0], "last": years[-1], "n": len(dated),
             "stable": len(calls) <= 1}
 
 

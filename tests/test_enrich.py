@@ -833,3 +833,63 @@ def test_per_callset_frequencies_are_surfaced_separately():
            / "sugivariant" / "enrich.py").read_text(encoding="utf-8")
     for k in ("af_exomes", "af_genomes", "an_exomes", "an_genomes"):
         assert f'"{k}"' in src, f"{k} is no longer carried onto the record"
+
+
+# ── rule: our gap is never the variant's absence ──
+# gnomAD v4.1 HAS a mitochondrial callset; it is a separate dataset with a different
+# schema that our release does not carry. 3,072 mito pages read "absent from gnomAD
+# v4.1" while gnomAD reports e.g. MT-ND4 m.11984T>C at ac_hom 55 in 56,431 alleles --
+# and those pages have no conservation and no CADD either.
+def test_a_mitochondrial_miss_is_unknown_not_absent():
+    from sugivariant.enrich import _is_mito
+    for c in ("MT:11984:T:C", "chrM:3243:A:G", "M:1:A:T"):
+        assert _is_mito(c), c
+    for c in ("13:32346896:G:A", "7:143222689:T:A", "", None):
+        assert not _is_mito(c), c
+
+
+def test_the_mito_guard_sits_before_the_absence_claim():
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parent.parent
+           / "sugivariant" / "enrich.py").read_text(encoding="utf-8")
+    i_guard = src.find("if _is_mito(coord):")
+    i_absent = src.find('"band": "absent from gnomAD v4.1"')
+    assert i_guard != -1 and i_absent != -1
+    assert i_guard < i_absent, "chrM reaches the absence claim before the guard"
+
+
+# ── rule: a ClinGen dosage CATEGORY code is not a point on the 0-3 scale ──
+def test_clingen_dosage_categories_are_named_not_scored():
+    from sugivariant.render import hi_display
+    assert hi_display("30") == "gene assoc. with recessive phenotype"
+    assert hi_display("40") == "dosage-sensitivity unlikely"
+    assert hi_display("3") == "3/3" and hi_display("0") == "0/3"
+    assert hi_display(None) == "—"
+
+
+def test_both_surfaces_share_one_dosage_map():
+    """The HTML had the map and the .md did not, so 459,525 pages printed
+    'haploinsufficiency 30 ... (0-3 scale)', inverting the meaning."""
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parent.parent
+    rnd = (root / "sugivariant" / "render.py").read_text(encoding="utf-8")
+    app = (root / "app.py").read_text(encoding="utf-8")
+    code = "\n".join(ln for ln in rnd.splitlines() if not ln.lstrip().startswith("#"))
+    assert "0–3 scale" not in code and "0-3 scale" not in code, \
+        "the .md still labels a category code as a point on the scale"
+    assert "_HI_CATEGORY = {" not in app, "app.py keeps a second copy of the map"
+    assert "hi_display" in app and "def hi_display" in rnd
+
+
+# ── rule: only a submission that carries a classification can disagree about one ──
+def test_blank_classifications_do_not_manufacture_a_disagreement():
+    from sugivariant.enrich import submission_timeline
+    subs = [{"date": "2018-01-01", "classification": "Benign"},
+            {"date": "2019-01-01", "classification": "Benign"},
+            {"date": "2020-01-01", "classification": ""},
+            {"date": "2021-01-01", "classification": None}]
+    t = submission_timeline(subs)
+    assert t["stable"] is True, "empty strings counted as distinct calls"
+    assert t["n"] == 4
+    subs.append({"date": "2021-06-01", "classification": "Likely pathogenic"})
+    assert submission_timeline(subs)["stable"] is False, "a real disagreement must survive"
