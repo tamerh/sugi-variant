@@ -846,6 +846,14 @@ def saprot_for(uniprot, protein_variant):
     if not (uniprot and protein_variant):
         return None
     a = _coord_entry(f"{uniprot}:{protein_variant}", "saprot")
+    # A FAILED fetch must not read as "this variant has no score". It is falsy, so the
+    # renderer and concordance still say "no call" (honest either way), but
+    # drop_misaligned_saprot DOES care: it derives the divergence point from which
+    # positions missed, so an outage counted as a miss would pull D down and withhold
+    # correct scores for the whole accession. Propagate the sentinel and let that
+    # function decide; it normalises back to None before anything is persisted.
+    if a is FETCH_ERROR:
+        return FETCH_ERROR
     llr = _f((a or {}).get("saprot_llr"))
     if llr is None:
         return None
@@ -2501,7 +2509,7 @@ def structural_context(hgvs_p, intervals, mismatch=None, canonical_pos=None):
 _AM_SHORT = re.compile(r"^([A-Z])(\d+)([A-Z])$")
 
 
-def drop_misaligned_saprot(recs):
+def drop_misaligned_saprot(recs, only=None):
     """Withhold SaProt LLRs that describe a DIFFERENT residue than the variant.
 
     SaProt is keyed `uniprot:refPosAlt` with the position taken from AlphaMissense.
@@ -2521,16 +2529,31 @@ def drop_misaligned_saprot(recs):
     (MEN1 keeps 374, withholds 112). Verified equivalent to the same rule driven by
     the upstream sequence manifest: identical 8,055 withheld over identical 173 genes.
 
+    `only`, a set of accessions, scopes the pass to those groups. An INCREMENTAL
+    repair needs it: a group whose scores are already withheld presents them as
+    misses, so re-deriving D over the whole file would read the withholding as new
+    coverage evidence and ratchet D downward on groups nothing changed for. Scoping
+    to the accessions that actually gained scores keeps every other group's verdict
+    exactly as the full pass left it.
+
     Mutates recs in place and returns the number withheld."""
     by_acc = {}
     for r in recs:
         am = r.get("alphamissense") or {}
         u = am.get("uniprot")
         m = _AM_SHORT.match(am.get("short") or "")
-        if u and m:
+        if u and m and (only is None or u in only):
             by_acc.setdefault(u, []).append((int(m.group(2)), r))
     dropped = 0
     for items in by_acc.values():
+        # A failed lookup is indistinguishable from a miss once it is None, and D is the
+        # LOWEST miss -- so a single transient error below the aligned prefix would
+        # withhold every score at or above it for this accession. The group's verdict is
+        # therefore unsafe to derive at all: leave its scores exactly as fetched rather
+        # than withhold on evidence that may be an outage. Only this accession is
+        # skipped, because a failure says nothing about any other group.
+        if any(r.get("saprot") is FETCH_ERROR for _, r in items):
+            continue
         hits = [p for p, r in items if r.get("saprot")]
         if not hits:
             continue
@@ -2546,6 +2569,12 @@ def drop_misaligned_saprot(recs):
                 # "never scored" -- a withheld value must not read as a missing one.
                 r["saprot_misaligned"] = d
                 dropped += 1
+    # The sentinel exists to inform the decision above, not to be pickled. Records are
+    # written straight after this pass, so it is flattened to None here -- the shape every
+    # reader already handles -- rather than leaking a live object into 4M record files.
+    for r in recs:
+        if r.get("saprot") is FETCH_ERROR:
+            r["saprot"] = None
     return dropped
 
 

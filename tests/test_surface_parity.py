@@ -1925,3 +1925,73 @@ def test_a_normal_page_carries_no_such_note():
     html, md, _g, _p = _both(rec)
     assert "without this gene's context" not in html
     assert "without this gene's context" not in md
+
+
+# ── rule: an OUTAGE must not be read as the evidence that triggers withholding ──
+# drop_misaligned_saprot infers the divergence point from which positions missed, and D
+# is the LOWEST miss. So one failed lookup inside the aligned prefix withholds every
+# correct score at or above it, for the whole accession. biobtree staging restarted
+# during the 2026-10-14 alias recovery (18,982 lookups) and surfaced that saprot_for was
+# flattening a transport failure to the same None a genuine miss produces.
+def test_a_failed_saprot_lookup_does_not_withhold_the_accession():
+    from sugivariant.enrich import drop_misaligned_saprot, FETCH_ERROR
+    recs = _men1_like()
+    by = {r["canonical_slug"]: r for r in recs}
+    # the miss at 150 -- the one that sets D -- was really an outage, not a mismatch
+    by["men1-miss-150"]["saprot"] = FETCH_ERROR
+    assert drop_misaligned_saprot(recs) == 0, \
+        "a transient fetch failure was mistaken for the divergence point"
+    for slug in ("men1-aligned-2", "men1-aligned-100", "men1-aligned-149",
+                 "men1-coincidence-162", "men1-coincidence-391"):
+        assert by[slug].get("saprot") is not None, f"{slug} withheld on an outage"
+        assert not by[slug].get("saprot_misaligned")
+
+
+def test_the_fetch_error_sentinel_is_never_persisted():
+    """It informs the decision; it must not reach a pickle, where every reader
+    expects a dict or None."""
+    from sugivariant.enrich import drop_misaligned_saprot, FETCH_ERROR
+    recs = _men1_like()
+    recs[0]["saprot"] = FETCH_ERROR
+    drop_misaligned_saprot(recs)
+    for r in recs:
+        assert r.get("saprot") is not FETCH_ERROR, "the sentinel leaked into a record"
+        assert r.get("saprot") is None or isinstance(r["saprot"], dict)
+
+
+def test_saprot_for_distinguishes_a_failed_fetch_from_a_genuine_miss():
+    from sugivariant import enrich as EN
+    real = EN._coord_entry
+    try:
+        EN._coord_entry = lambda *a, **k: EN.FETCH_ERROR
+        assert EN.saprot_for("O00255", "G150E") is EN.FETCH_ERROR, \
+            "a failed fetch must not return the None a genuine miss returns"
+        EN._coord_entry = lambda *a, **k: None
+        assert EN.saprot_for("O00255", "G150E") is None, \
+            "a genuine negative must stay None"
+    finally:
+        EN._coord_entry = real
+
+
+def test_scoping_the_divergence_pass_leaves_other_accessions_exactly_as_they_were():
+    """An INCREMENTAL repair re-fetches only the accessions that gained scores. A group
+    whose scores are already withheld presents them as misses, so an unscoped re-run
+    would read its own withholding as fresh coverage evidence and ratchet D downward on
+    groups nothing changed for."""
+    from sugivariant.enrich import drop_misaligned_saprot
+    recs = _men1_like()
+    drop_misaligned_saprot(recs)                       # first, full pass
+    settled = {r["canonical_slug"]: (r.get("saprot"), r.get("saprot_misaligned"))
+               for r in recs}
+    # a second accession, untouched by the repair, is added to the same file
+    other = {"canonical_slug": "other-1", "gene_symbol": "MEN1",
+             "alphamissense": {"class": "likely_benign", "score": "0.1",
+                               "uniprot": "P99999", "short": "G7E"},
+             "saprot": {"llr": -3.0, "damaging": False}}
+    recs.append(other)
+    assert drop_misaligned_saprot(recs, only={"P99999"}) == 0
+    for r in recs:
+        if r["canonical_slug"] == "other-1":
+            continue
+        assert (r.get("saprot"), r.get("saprot_misaligned")) == settled[r["canonical_slug"]], \
+            f"{r['canonical_slug']} moved although it was out of scope"
