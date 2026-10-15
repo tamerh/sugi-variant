@@ -264,10 +264,20 @@
 .vd-side .vd-card{font-size:.86rem}
 .vd-side .vd-card p{font-size:.85rem;margin:.3rem 0}
 .vd-preds{width:100%;border-collapse:collapse;font-size:.9rem}
-/* Numeric cells stay nowrap (a split number reads as two numbers), so on the
-   narrowest phones the table can still exceed the screen. Scroll the TABLE, not
-   the page -- the same containment .sources-table-wrap uses. */
-.vd-preds-wrap{overflow-x:auto;min-width:0;max-width:100%;-webkit-overflow-scrolling:touch}
+/* This wrapper used to be a scroll container (overflow-x:auto), so that a table too
+   wide for a phone scrolled instead of the page. It cost more than it was worth: a
+   scroll container clips on BOTH axes (overflow-x:auto silently computes overflow-y to
+   auto), and every tooltip in the table is a descendant of it. A bubble opened near the
+   right-hand edge widened its scroll area and put a horizontal scrollbar under the card;
+   a bubble taller than the space above its own row was sliced off at the top, losing the
+   first half of the text with nothing to show it was missing. Both were reported.
+   So make the table narrow enough not to need scrolling, and drop the clipper. On a
+   phone the label and value columns wrap at their spaces (never inside a number, which
+   has none), and the prose column may break a long token, which puts the table's
+   minimum width near 190px. Below that the page scrolls sideways again, as it did
+   before the wrapper existed -- but no screen that narrow exists. */
+.vd-preds-wrap{min-width:0;max-width:100%}
+.vd-preds td.section-sub{overflow-wrap:anywhere}
 .vd-preds th{text-align:left;font-weight:600;color:var(--fg-muted,#475569);white-space:nowrap;padding:.32rem .7rem .32rem 0;vertical-align:baseline;width:1%}
 .vd-preds td{padding:.32rem 0;vertical-align:baseline;border-top:1px solid var(--border)}
 .vd-preds tr:first-child td,.vd-preds tr:first-child th{border-top:0}
@@ -516,16 +526,14 @@ body > main { padding-bottom: 2.5rem; }
     .ti:hover::before,.ti:focus-visible::before{opacity:0}
   }
 }
-/* The evidence table lives in .vd-preds-wrap, a SCROLL container. An absolutely
-   positioned bubble whose containing block is inside that wrapper is both clipped by
-   it and counted in its scroll width -- so a 22rem tip opened from a word near the
-   right-hand end of the wide third column stuck out past the card, got cut off, and
-   put a horizontal scrollbar under a card that otherwise fits. Seen on
-   jak3-c-2351-minus-15a-g ("inside the BP7-excluded zone").
-   Anchoring the bubble to the CELL instead of the word, and capping it at the cell's
-   width, keeps it inside the table, so it can never widen the scroll area. .ti must go
-   static for that: the containing block is then the positioned td. The header column is
-   left alone -- it sits at the card's left edge, where a left-anchored bubble has room. */
+/* Anchor the bubble to the CELL rather than to the word, and cap it at the cell's width.
+   That keeps it inside the table whatever the trigger's position in the row, so a tip
+   opened from a word near the right-hand end of the wide third column cannot push the
+   page sideways. .ti must go static for it: the containing block is then the positioned
+   td. This was first added when the wrapper above still scrolled, where an escaping
+   bubble also widened the scroll area; the wrapper no longer clips, but the width cap is
+   what keeps the page from scrolling, so it stays. The header column is left alone: it
+   sits at the card's left edge, where a left-anchored bubble has room. */
 .vd-preds td:not(.vd-num){position:relative}
 .vd-preds td:not(.vd-num) .ti{position:static}
 .vd-preds td:not(.vd-num) .ti::after{max-width:min(22rem,100%)}
@@ -581,7 +589,11 @@ table.pf-tbl tr.is-max td{color:var(--fg,#0f172a);background:rgba(63,127,212,.07
      set the list's minimum width above the column. */
   .vd-similar-rel{white-space:normal}
   .vd-similar a{overflow-wrap:anywhere;word-break:break-word}
-  .vd-preds th{white-space:normal}
+  /* Both the label and the value column, now that this table is no longer inside a
+     scroll container and its own minimum width is what keeps the page straight. The
+     break can only fall at a space, and a number contains none: "phyloP -4.4" splits
+     after the label, never inside the figure. */
+  .vd-preds th,.vd-preds .vd-num{white-space:normal}
   .sources-table .src-name-cell{white-space:normal}
   .ds-table th{white-space:normal}
   .set-table td,.set-table th{white-space:normal}

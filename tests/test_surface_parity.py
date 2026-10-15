@@ -2097,25 +2097,33 @@ def test_record_datasets_are_all_actually_fetched():
 
 
 def test_no_evidence_table_tooltip_sits_in_a_cell_the_containment_rule_misses():
-    """A tooltip in the evidence table must be anchored to a cell, not to the word.
+    """A tooltip in the evidence table must be anchored to a cell, and nothing may clip it.
 
-    .vd-preds-wrap is a scroll container (overflow-x:auto, so the table can scroll
-    instead of the page on a narrow phone). An absolutely positioned bubble whose
-    containing block is INSIDE that wrapper is both clipped by it and counted in its
-    scroll width -- so a 22rem tip opened from a word near the right-hand end of the
-    wide third column stuck out past the card and put a horizontal scrollbar under a
-    card that otherwise fits. Found on jak3-c-2351-minus-15a-g.
+    .vd-preds-wrap used to be a scroll container so a wide table scrolled instead of the
+    page. A scroll container clips on BOTH axes (overflow-x:auto silently computes
+    overflow-y to auto) and every tooltip in the table is a descendant of it, which
+    produced two reported bugs on jak3-c-2351-minus-15a-g: a bubble opened near the
+    right-hand edge widened the scroll area and put a horizontal scrollbar under the
+    card, and a bubble taller than the space above its row was sliced off at the top,
+    losing the first half of its text with nothing to show it was missing.
 
-    app.css pins the bubble to `td:not(.vd-num)` and caps it at the cell's width. A
-    tooltip added to a vd-num cell would fall outside that rule and bring the scrollbar
-    back, silently -- so this checks the MARKUP, which is what can drift, as well as
-    that the rule is still there. The header column is deliberately exempt: it sits at
-    the card's left edge, where a left-anchored bubble has room.
+    Two rules keep that fixed and this guards both. The wrapper must not declare
+    overflow, so nothing clips a bubble. And the bubble stays pinned to
+    `td:not(.vd-num)`, capped at the cell's width, so it cannot push the page sideways
+    now that no scroll container contains it. A tooltip added to a vd-num cell would
+    fall outside that rule silently, so this checks the MARKUP too, not only the CSS.
+    The header column is deliberately exempt: it sits at the card's left edge, where a
+    left-anchored bubble has room.
     """
     import pathlib
     import re
     css = (pathlib.Path(__file__).resolve().parent.parent
            / "static" / "css" / "app.css").read_text()
+    wrap = re.search(r"^\.vd-preds-wrap\{([^}]*)\}", css, re.M)
+    assert wrap and "overflow" not in wrap.group(1), (
+        "the evidence table is back inside a clipping box: it will cut tall tooltips off "
+        f"at the top again -- .vd-preds-wrap{{{wrap.group(1) if wrap else '?'}}}")
+
     for sel in (".vd-preds td:not(.vd-num){position:relative}",
                 ".vd-preds td:not(.vd-num) .ti{position:static}",
                 ".vd-preds td:not(.vd-num) .ti::after{max-width:min(22rem,100%)}"):
