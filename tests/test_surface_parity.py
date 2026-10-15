@@ -2094,3 +2094,45 @@ def test_record_datasets_are_all_actually_fetched():
     assert not unused, (
         "RECORD_DATASETS names a dataset the package never fetches, so every gene "
         f"reads as stale on it for nothing: {unused}")
+
+
+def test_no_evidence_table_tooltip_sits_in_a_cell_the_containment_rule_misses():
+    """A tooltip in the evidence table must be anchored to a cell, not to the word.
+
+    .vd-preds-wrap is a scroll container (overflow-x:auto, so the table can scroll
+    instead of the page on a narrow phone). An absolutely positioned bubble whose
+    containing block is INSIDE that wrapper is both clipped by it and counted in its
+    scroll width -- so a 22rem tip opened from a word near the right-hand end of the
+    wide third column stuck out past the card and put a horizontal scrollbar under a
+    card that otherwise fits. Found on jak3-c-2351-minus-15a-g.
+
+    app.css pins the bubble to `td:not(.vd-num)` and caps it at the cell's width. A
+    tooltip added to a vd-num cell would fall outside that rule and bring the scrollbar
+    back, silently -- so this checks the MARKUP, which is what can drift, as well as
+    that the rule is still there. The header column is deliberately exempt: it sits at
+    the card's left edge, where a left-anchored bubble has room.
+    """
+    import pathlib
+    import re
+    css = (pathlib.Path(__file__).resolve().parent.parent
+           / "static" / "css" / "app.css").read_text()
+    for sel in (".vd-preds td:not(.vd-num){position:relative}",
+                ".vd-preds td:not(.vd-num) .ti{position:static}",
+                ".vd-preds td:not(.vd-num) .ti::after{max-width:min(22rem,100%)}"):
+        assert sel in css, f"the evidence-table tooltip containment rule is gone: {sel}"
+
+    checked = 0
+    for rec in _records(limit_genes=12, want=lambda r: r.get("spliceai") or r.get("cadd")):
+        html, _, _, _ = _both(rec)
+        if 'class="vd-preds-wrap"' not in html:
+            continue
+        table = html.split('class="vd-preds-wrap"', 1)[1].split("</table>", 1)[0]
+        for attrs, body in re.findall(r"<td([^>]*)>(.*?)</td>", table, re.S):
+            if 'class="ti"' in body:
+                checked += 1
+                assert "vd-num" not in attrs, (
+                    f"{rec.get('canonical_slug')}: a tooltip sits in a vd-num cell, which "
+                    "the containment rule does not cover -- it will widen the wrapper's "
+                    "scroll area and put a scrollbar under the card")
+    if not checked:
+        pytest.skip("no evidence-table tooltip in the sampled genes")

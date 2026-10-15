@@ -516,6 +516,20 @@ body > main { padding-bottom: 2.5rem; }
     .ti:hover::before,.ti:focus-visible::before{opacity:0}
   }
 }
+/* The evidence table lives in .vd-preds-wrap, a SCROLL container. An absolutely
+   positioned bubble whose containing block is inside that wrapper is both clipped by
+   it and counted in its scroll width -- so a 22rem tip opened from a word near the
+   right-hand end of the wide third column stuck out past the card, got cut off, and
+   put a horizontal scrollbar under a card that otherwise fits. Seen on
+   jak3-c-2351-minus-15a-g ("inside the BP7-excluded zone").
+   Anchoring the bubble to the CELL instead of the word, and capping it at the cell's
+   width, keeps it inside the table, so it can never widen the scroll area. .ti must go
+   static for that: the containing block is then the positioned td. The header column is
+   left alone -- it sits at the card's left edge, where a left-anchored bubble has room. */
+.vd-preds td:not(.vd-num){position:relative}
+.vd-preds td:not(.vd-num) .ti{position:static}
+.vd-preds td:not(.vd-num) .ti::after{max-width:min(22rem,100%)}
+
 /* right-aligned cells: anchor the bubble to the right edge so it cannot overflow */
 .pf-tbl th.n .ti::after{left:auto;right:0}
 .pf-tbl th.n .ti::before{left:auto;right:.9rem}
