@@ -2220,3 +2220,25 @@ def test_an_unknown_spliceai_status_degrades_to_the_gap_wording_not_to_silence()
     html, md, _, _ = _both(rec)
     assert "not assessed" not in md, ".md calls a legacy scored record unassessed"
     assert "not assessed" not in html, "HTML calls a legacy scored record unassessed"
+
+
+def test_the_svi_band_is_never_pinned_to_a_single_delta():
+    """ClinGen SVI's 0.1 / 0.2 bands apply to the LARGEST of the four deltas.
+
+    Every SpliceAI readout that cites them used to say "a raw delta at or below 0.1",
+    which attributes the band to any one of the four. A variant can have DS_AL 0.05 and
+    DS_DG 0.60; reading the band off the first of those would put a predicted splice
+    gain in the BP4 band. Raised in review of the below-threshold tooltip, 2026-10-15,
+    and the same looseness was in three other places on the page.
+    """
+    import pathlib
+    import re
+    root = pathlib.Path(__file__).resolve().parent.parent
+    src = (root / "templates" / "variant.html").read_text() + \
+          (root / "sugivariant" / "render.py").read_text()
+    # the band is only ever quoted alongside 0.1; "max"/"largest" must be in the clause
+    for m in re.finditer(r"ClinGen's SVI [^.]{0,120}0\.1[^.]{0,60}", src):
+        clause = m.group(0)
+        assert "largest" in clause or "max" in clause, (
+            f"SVI band attributed to a single delta rather than the largest of the four: "
+            f"{clause!r}")

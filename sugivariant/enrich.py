@@ -2044,11 +2044,16 @@ def gene_spliceai(hgnc_id):
     # lands, with no deploy.
     # The region the release actually covers for this gene, per chromosome, plus every
     # scored position in order. SpliceAI's precomputed release scores EVERY possible
-    # single-nucleotide substitution inside a gene's body and then keeps only the alleles
-    # whose largest delta reaches the reporting filter, so what we hold is one contiguous
-    # interval -- the gene body -- sampled sparsely. The lowest and highest position we
-    # hold a record for therefore bracket that interval, which is what lets spliceai_for()
-    # tell "evaluated, every allele under the filter" apart from "outside the scope".
+    # single-nucleotide substitution across the transcripts it covers and only then keeps
+    # the alleles whose largest delta reaches the reporting filter, so what we hold is one
+    # contiguous interval sampled sparsely. (The interval is the TRANSCRIPT span, not the
+    # gene body: the dataset's own data_version says "Ensembl MANE v1.4 SpliceAI
+    # (SpliceAIv1.3.1), RAW+MASKED SNV merged (raw delta>=0.2), GRCh38". A MANE transcript
+    # span is still one interval, which is all the bracket test needs, and deriving the
+    # span from the records we actually hold means it IS that span rather than a guess
+    # at it.) The lowest and highest position we hold a record for therefore bracket the
+    # interval, which is what lets spliceai_for() tell "evaluated, every allele under the
+    # filter" apart from "outside the scope".
     # Costs nothing: read off keys already fetched, and the cache is per-gene, never
     # pickled into a record.
     ordered = {}
@@ -2217,23 +2222,48 @@ def spliceai_for(coord, cache):
     # does not.
     #
     # The derivation. SpliceAI's precomputed release scores every possible single-
-    # nucleotide substitution inside a gene's body, then keeps only the alleles whose
-    # largest delta reaches 0.2. The covered region is therefore ONE contiguous interval
-    # (the gene body), sampled sparsely by the filter. So a position lying between the
+    # nucleotide substitution across the transcripts it covers, then keeps only the
+    # alleles whose largest delta reaches 0.2. The covered region is therefore ONE
+    # contiguous interval, sampled sparsely by the filter. So a position lying between the
     # lowest and the highest position we hold any record for in this gene is inside that
     # interval, SpliceAI did evaluate it, and the absence of all three alternate alleles
     # means all four deltas of each fell under 0.2 -- a prediction of no splicing effect
     # at this position, which is evidence, not a hole in our data.
     #
+    # THE FILTER RULE IS NOT AN ASSUMPTION. biobtree publishes it in the dataset's own
+    # metadata and dataset_threshold() reads the number out of it at runtime, so the page
+    # follows upstream if they ever retune it (verified 2026-10-15):
+    #
+    #   threshold:    "reported only if max SpliceAI delta (DS_AG/AL/DG/DL) >= 0.2; a
+    #                  variant absent from this dataset is below threshold (no predicted
+    #                  splice effect), not 'not assessed'"
+    #   keyScheme:    "chr:pos:ref:alt"
+    #   data_version: "Ensembl MANE v1.4 SpliceAI (SpliceAIv1.3.1), RAW+MASKED SNV merged
+    #                  (raw delta>=0.2), GRCh38; indels pending a valid public source"
+    #
+    # keyScheme settles the question the inference actually turns on: the filter is applied
+    # per ALTERNATE ALLELE, not per position or per gene, so one allele at a position can
+    # be in the release while its siblings are not. Observed on the page that prompted
+    # this: 19:17,832,943 carries A>C (0.77) and A>T (0.61) and not A>G.
+    #
+    # SpliceAI's own FAQ lists other reasons a variant can be missing, and each is excluded
+    # before this line rather than assumed away. Not a substitution: returns `snv_only`
+    # above, and data_version confirms the release is SNV-only. Outside the scored
+    # transcripts, or against a chromosome end: that is exactly what the bracket below
+    # rules out. A reference-sequence disagreement at a position that IS scored: lands on
+    # `other_allele` above, because by_pos is keyed without ref/alt.
+    #
     # The bracket test is deliberately the weakest claim available: it assumes nothing
     # about HOW the release defines its scope, no transcript model and no exon
-    # coordinates, only that the scope is a single interval, which "the gene body" is by
+    # coordinates, only that the scope is a single interval, which a transcript span is by
     # construction. A position OUTSIDE lo..hi may well have been covered too -- we do not
-    # guess, it stays `absent`.
+    # guess, it stays `absent`. Note we are deliberately MORE conservative than upstream
+    # asks: its metadata says to read any absence as below-threshold, and we only say so
+    # where coverage demonstrably reaches the position.
     #
     # Worked example, the page that prompted this (2026-10-15): JAK3 c.2351-15A>G,
     # 19:17832944:T:C, an acceptor -15 variant. JAK3 holds 1,818 scored alleles over
-    # 1,138 positions spanning 17,825,373-17,847,949 -- the whole gene body -- and
+    # 1,138 positions spanning 17,825,373-17,847,949 -- the whole transcript span -- and
     # 17,832,943, ONE base away, carries A>C acceptor_loss 0.77 and A>T 0.61. The intron
     # was plainly evaluated. Nothing at 17,832,944 cleared the filter, and the page said
     # "not assessed", i.e. disclosed a gap that does not exist.

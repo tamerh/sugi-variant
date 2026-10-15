@@ -736,28 +736,42 @@ def render_body(v, jsonld_tag=""):
             # bound. They also carried a bare "nearest scored position 1 bp away", a second
             # distance sitting directly under the splice region row's "acceptor -15",
             # measured from a different thing to a different thing with nothing saying so.
+            #
+            # Three points of precision here came out of review (2026-10-15), and each one
+            # is a claim the page would otherwise overstate:
+            #   * the filter is the RELEASE's own published rule, read from the dataset
+            #     metadata at runtime, not a convention we picked. Saying so is what turns
+            #     the inference from an assumption into a citation.
+            #   * ClinGen SVI's 0.1 / 0.2 bands apply to the LARGEST of the four deltas,
+            #     never to one delta taken alone.
+            #   * the covered scope is the transcripts the release is built on (Ensembl
+            #     MANE v1.4), not the whole gene body. The bracket test is unaffected, a
+            #     transcript span being one interval too, but the wording was wrong.
             # On the page the two justifications are separate tooltips, one for the VALUE
             # claim and one for the COVERAGE claim; .md has no tooltips, so it states both
             # inline in the same order.
             _near = sa.get("nearest_dp")
             _n = sa.get("scored_positions")
-            _where = (f" ({_n:,} scored positions" if _n else " (the gene body")
+            _where = (f" ({_n:,} scored positions" if _n else " (the covered span")
             if _near is not None:
                 _where += f", the nearest {_near} base{'' if _near == 1 else 's'} away"
             L.append("- SpliceAI: **no splice effect predicted**. SpliceAI outputs four numbers "
                      "per variant, not one: acceptor loss, donor loss, acceptor gain, donor gain "
-                     "(DS_AL / DS_DL / DS_AG / DS_DG). The release we use keeps only the alleles "
-                     "whose largest of the four reaches 0.2, and no allele at this position is "
-                     "in it, so all four are under 0.2 for every alternate allele here. No "
+                     "(DS_AL / DS_DL / DS_AG / DS_DG). A loss score is an existing splice site "
+                     "weakened or destroyed; a gain score is a new site created or an existing "
+                     "one strengthened. The release publishes its own filter rule, which we read "
+                     "from the dataset rather than assume: an allele is reported only if the "
+                     "largest of its four deltas reaches 0.2. No allele at this position is in "
+                     "the release, so all four are under 0.2 for every alternate allele here. No "
                      "figure is shown because none was read: the bound is deduced from that "
                      "absence. It is a result, not a gap in our data, because the release scores "
-                     "every possible substitution inside a gene's body before it filters, so "
-                     "what survives for a gene is one continuous stretch; this position lies "
-                     "inside the stretch covered for "
+                     "every possible substitution across the transcripts it covers (Ensembl MANE "
+                     "v1.4) before it filters, so what survives for a gene is one continuous "
+                     "stretch; this position lies inside the stretch covered for "
                      f"{v.get('gene_symbol') or 'this gene'}{_where}), so SpliceAI did score it. "
-                     "*ClinGen's SVI places a raw delta at or below 0.1 in the BP4 band and 0.1 "
-                     "to 0.2 as uninformative; we cannot tell which applies, so no ACMG code is "
-                     "assigned.*")
+                     "*ClinGen's SVI places the largest of the four at or below 0.1 in the BP4 "
+                     "band and 0.1 to 0.2 as uninformative; we cannot tell which applies, so no "
+                     "ACMG code is assigned.*")
         elif sa_st == "snv_only":
             L.append("- SpliceAI: **not assessed** — the release is built from a substitutions-only "
                      "source, so it holds no "
