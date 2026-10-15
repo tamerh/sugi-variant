@@ -730,29 +730,34 @@ def render_body(v, jsonld_tag=""):
                      f"its deltas all fell under \u03940.2 \u2014 a prediction of no splicing effect for "
                      f"this allele, not a gap in our data. *No ACMG code assigned.*")
         elif sa_st == "below_threshold":
-            # Lead with the CONCLUSION, then each justification. The row used to open with
-            # "all four deltas below 0.2", which reads like a measurement — and we never
-            # read four values, we read their absence from the release and deduced the
-            # bound. It also carried a bare "nearest scored position 1 bp away", a second
-            # distance stacked under the splice-region row's "acceptor -15", measured from
-            # a different thing to a different thing with nothing saying so. On the page
-            # the two justifications are separate tooltips, one for the VALUE claim and
-            # one for the COVERAGE claim; .md has no tooltips, so it states both inline.
+            # Conclusion first, then the concepts, then the nuance. Earlier drafts opened
+            # with "all four deltas below 0.2", which reads like a readout, and we never
+            # read four values: we read their absence from the release and deduced the
+            # bound. They also carried a bare "nearest scored position 1 bp away", a second
+            # distance sitting directly under the splice region row's "acceptor -15",
+            # measured from a different thing to a different thing with nothing saying so.
+            # On the page the two justifications are separate tooltips, one for the VALUE
+            # claim and one for the COVERAGE claim; .md has no tooltips, so it states both
+            # inline in the same order.
             _near = sa.get("nearest_dp")
             _n = sa.get("scored_positions")
             _where = (f" ({_n:,} scored positions" if _n else " (the gene body")
             if _near is not None:
                 _where += f", the nearest {_near} base{'' if _near == 1 else 's'} away"
-            L.append("- SpliceAI: **no splice effect predicted**. All four deltas \u2014 loss of "
-                     "an existing acceptor or donor site, gain of a new one \u2014 are under "
-                     "0.2. No figure is shown because none was read: the release keeps only "
-                     "alleles whose largest of the four reaches 0.2, and no allele at this "
-                     "position is in it, which is the bound. That absence is a result, not a "
-                     "gap in our data, because the position lies inside the stretch the release "
-                     f"covers for {v.get('gene_symbol') or 'this gene'}{_where}), so SpliceAI "
-                     "did score it. *ClinGen's SVI places a raw delta at or below 0.1 in the BP4 "
-                     "band and 0.1\u20130.2 as uninformative; we cannot tell which applies, so "
-                     "no ACMG code is assigned.*")
+            L.append("- SpliceAI: **no splice effect predicted**. SpliceAI outputs four numbers "
+                     "per variant, not one: acceptor loss, donor loss, acceptor gain, donor gain "
+                     "(DS_AL / DS_DL / DS_AG / DS_DG). The release we use keeps only the alleles "
+                     "whose largest of the four reaches 0.2, and no allele at this position is "
+                     "in it, so all four are under 0.2 for every alternate allele here. No "
+                     "figure is shown because none was read: the bound is deduced from that "
+                     "absence. It is a result, not a gap in our data, because the release scores "
+                     "every possible substitution inside a gene's body before it filters, so "
+                     "what survives for a gene is one continuous stretch; this position lies "
+                     "inside the stretch covered for "
+                     f"{v.get('gene_symbol') or 'this gene'}{_where}), so SpliceAI did score it. "
+                     "*ClinGen's SVI places a raw delta at or below 0.1 in the BP4 band and 0.1 "
+                     "to 0.2 as uninformative; we cannot tell which applies, so no ACMG code is "
+                     "assigned.*")
         elif sa_st == "snv_only":
             L.append("- SpliceAI: **not assessed** — the release is built from a substitutions-only "
                      "source, so it holds no "
