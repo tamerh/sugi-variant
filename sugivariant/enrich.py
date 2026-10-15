@@ -347,7 +347,7 @@ def _dataset_meta():
 
 def dataset_versions():
     """{biobtree group → last_built date YYYY-MM-DD} from the live meta — the HONEST
-    per-dataset build date. HANDOVER §7: the single biobtree 'dev' version stamp lies,
+    per-dataset build date. variant.sh §7: the single biobtree 'dev' version stamp lies,
     so pin per-dataset last_built instead. Cached; {} if meta is unreachable."""
     global _DATASET_VERSIONS
     if _DATASET_VERSIONS:
@@ -1840,7 +1840,7 @@ def disagreement_flag(rec):
                                  change in a LoF-intolerant gene (the non-missense analog)
       predictors_split         — the independent predictors disagree with each other
 
-    Descriptive only — a QC signal, NOT a reclassification (ClinGen SVI, HANDOVER §8)."""
+    Descriptive only — a QC signal, NOT a reclassification (ClinGen SVI, variant.sh §8)."""
     # Classifies the readout the record carries; it does NOT rebuild it. Callers that
     # render a possibly-stale pickled record call refresh_concordance() first — keeping
     # that out of here leaves the category routing a pure function of the readout.

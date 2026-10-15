@@ -472,7 +472,7 @@ def _resolution_response(kind, term, hits):
 
 # ── disagreement browse view ────────────────────────────────────────────────────
 # The one signal no competitor surfaces (benchmark 2026-07): variants where the
-# evidence doesn't line up. Descriptive QC, not reclassification (HANDOVER §8).
+# evidence doesn't line up. Descriptive QC, not reclassification (variant.sh §8).
 FEATURED_GENES = ["BRCA1", "BRCA2", "TP53", "PTEN", "MLH1", "MSH2",
                   "LDLR", "SCN1A", "KCNQ1", "ASXL1"]
 CAT_META = {

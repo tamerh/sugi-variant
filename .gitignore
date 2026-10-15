@@ -3,8 +3,10 @@ __pycache__/
 docs/internal/
 
 # dev + deployment/build tooling — kept local, out of the public repo
+# variant.sh is the operations entry point and the handover doc in one; it names
+# server paths, so it stays out of the public repo.
+variant.sh
 run.sh
-HANDOVER.md
 scripts/
 tools/
 deploy/
@@ -12,4 +14,3 @@ deploy/
 
 # tabix downloads its remote index into the CWD
 *.tbi
-variant.sh
