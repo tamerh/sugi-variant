@@ -228,6 +228,14 @@ def test_spliceai_absence_is_stated_on_both_surfaces():
             f"{name} still frames a below-threshold allele as missing data")
         assert "not a gap" in surface or "not missing" in surface, (
             f"{name} does not distinguish a below-threshold prediction from missing data")
+        # The two below-threshold states are adjacent readings of the same row, so they
+        # must lead the same way and withhold the codes the same way. Letting them drift
+        # apart makes two pages look like two different levels of confidence when the
+        # claim is identical.
+        assert "no splice effect predicted" in surface, (
+            f"{name} leads with the bound instead of what it means")
+        assert "neither BP4 nor PP3" in surface, (
+            f"{name} says no code is assigned without saying which evidence that is about")
 
     rec["spliceai"] = {"status": "absent"}
     html, md, _, _ = _both(rec)

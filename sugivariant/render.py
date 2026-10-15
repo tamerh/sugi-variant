@@ -724,11 +724,29 @@ def render_body(v, jsonld_tag=""):
                          "Broad lookup serve by default — can legitimately show 0 where this "
                          "shows a score; the masked figures are not available for this record.")
         elif sa_st == "other_allele":
-            L.append(f"- SpliceAI: **below the reporting threshold**. This position is scored for a "
-                     f"different substitution ({sa.get('ref')}>{sa.get('alt')}, \u0394{_fmt2(sa.get('score'))} "
-                     f"{(sa.get('effect') or '').replace('_', ' ')}), so this allele was evaluated and "
-                     f"its deltas all fell under \u03940.2 \u2014 a prediction of no splicing effect for "
-                     f"this allele, not a gap in our data. *No ACMG code assigned.*")
+            # The sibling of below_threshold, and the same two claims in the same order:
+            # what the four numbers are and that the bound is deduced from an absence, then
+            # why the absence counts as a result. The difference is that here the second
+            # one is PROVEN rather than inferred -- a scored allele sits at the same base,
+            # so nothing is taken on trust about the release's coverage -- and saying so is
+            # the only honest way to keep the two rows' confidence distinguishable.
+            L.append("- SpliceAI: **no splice effect predicted**. SpliceAI outputs four numbers "
+                     "per variant, not one: acceptor loss, donor loss, acceptor gain, donor gain "
+                     "(DS_AL / DS_DL / DS_AG / DS_DG). The release publishes its own filter rule, "
+                     "which we read from the dataset rather than assume: an allele is reported "
+                     "only if the largest of its four deltas reaches 0.2. This allele is not in "
+                     "the release, so all four of its deltas are under 0.2. No figure is shown "
+                     "because none was read: the bound is deduced from that absence. It is a "
+                     "result, not a gap in our data, and here that is proven rather than "
+                     f"inferred: a different substitution at this very position, {sa.get('ref')}>"
+                     f"{sa.get('alt')}, IS in the release and scores \u0394{_fmt2(sa.get('score'))} "
+                     f"{(sa.get('effect') or '').replace('_', ' ')}, so SpliceAI evaluated this "
+                     "position and this allele was not among the ones that cleared the filter. "
+                     "*ClinGen's SVI treats the largest of the four as evidence against a "
+                     "splicing effect at or below 0.1, where it may support BP4, and as "
+                     "uninformative between 0.1 and 0.2. We cannot tell which applies here, so "
+                     "these SpliceAI data support neither BP4 nor PP3; that is a statement about "
+                     "this evidence alone, not about the variant's other evidence.*")
         elif sa_st == "below_threshold":
             # Conclusion first, then the concepts, then the nuance. Earlier drafts opened
             # with "all four deltas below 0.2", which reads like a readout, and we never
