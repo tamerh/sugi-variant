@@ -388,9 +388,14 @@ def dataset_threshold(group, default):
 # gene's records so a later upstream release can rebuild only the genes it affects
 # rather than all 18,790 — the records cache has never had any way to know what it was
 # built from, which is why three full-corpus rebuilds happened in three days.
+# `gtex` was in this tuple and is fetched NOWHERE in the package -- so every gene read
+# as stale on it the moment upstream went db_v52 -> db_v53 (2026-10-11), i.e. 18,810
+# genes queued for a ~90h rebuild over data no record has ever contained. A dataset
+# earns a place here by being read, not by being interesting. test_record_datasets_are
+# _all_actually_fetched keeps that true.
 RECORD_DATASETS = ("clinvar", "gnomad_variant", "alphamissense", "revel", "saprot",
                    "cadd", "spliceai", "pangolin", "conservation", "gnomad_gnocchi",
-                   "gnomad_rmc", "repeat", "gtex", "clingen_variant")
+                   "gnomad_rmc", "repeat", "clingen_variant")
 
 
 def record_data_versions():

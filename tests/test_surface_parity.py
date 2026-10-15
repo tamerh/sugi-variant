@@ -2071,3 +2071,26 @@ def test_an_indeterminate_and_an_unscored_tool_are_both_still_named():
     assert cons["indeterminate"] == ["REVEL"] and cons["unscored"] == []
     assert set(cons["abstained"]) == {"REVEL"}, "the union must still list it"
     assert "REVEL is indeterminate" in cons["summary"], cons["summary"]
+
+
+# ── rule: a dataset gates rebuilds only if a record actually reads it ──
+# RECORD_DATASETS is stamped beside each gene so an upstream release rebuilds only the
+# genes it affects. A name in it that nothing fetches inverts that: it makes every gene
+# look stale for free. `gtex` sat there unfetched, and when upstream moved db_v52 ->
+# db_v53 it marked all 18,810 genes for a ~90h rebuild over data no record holds.
+def test_record_datasets_are_all_actually_fetched():
+    import pathlib
+    import re
+    from sugivariant.enrich import RECORD_DATASETS
+    root = pathlib.Path(__file__).resolve().parent.parent
+    src = "\n".join(p.read_text() for p in (root / "sugivariant").glob("*.py"))
+    src += (root / "app.py").read_text()
+    # Drop the declaration itself, or every name "finds" itself -- and drop COMMENTS,
+    # or the note explaining why gtex was removed counts as a use of gtex. A dataset
+    # mentioned only in prose is exactly the case this test exists to catch.
+    src = re.sub(r"RECORD_DATASETS = \([^)]*\)", "", src, flags=re.S)
+    src = "\n".join(ln.split("#", 1)[0] for ln in src.splitlines())
+    unused = [g for g in RECORD_DATASETS if not re.search(re.escape(g), src)]
+    assert not unused, (
+        "RECORD_DATASETS names a dataset the package never fetches, so every gene "
+        f"reads as stale on it for nothing: {unused}")
