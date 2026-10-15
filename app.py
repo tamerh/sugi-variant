@@ -541,6 +541,33 @@ async def _cache_html(request, call_next):
 
 @app.exception_handler(StarletteHTTPException)
 async def _err(request, exc):
+    # A 405 here can only ever be a non-GET method on a page route: every route in this
+    # app is @app.get, there is no form, no <input> and no POST endpoint on any page,
+    # and the JS does no fetch, no pushState and registers no service worker. So a 405
+    # is never a real "you may not do that" -- it is a URL that renders perfectly well
+    # over GET, reached with the wrong verb, and showing a styled error page for it is
+    # the wrong answer.
+    #
+    # Observed 2026-10-15: mobile Firefox POSTed /variant/jak3-c-2351-minus-15a-g on a
+    # browser refresh, with that same page as the referer, and got "Method Not Allowed".
+    # A reload re-issues the method of the history entry it is reloading, so that entry
+    # had to have been CREATED by a POST, and nothing we serve can create one. What can
+    # is the Cloudflare managed challenge, which is active on /variant/ and /predict/
+    # (cf-mitigated: challenge) and is served at the requested URL itself, so clearing
+    # it can leave a POST entry in history for a page URL. Two such POSTs exist in the
+    # whole access log, so this is rare -- but it costs four lines to never show it.
+    #
+    # 303 is the specific code that tells a browser to redo the request as GET (302
+    # may preserve the method). The no-store is belt and braces and does NOT reach the
+    # edge: the sugi.bio nginx vhost sets `proxy_hide_header Cache-Control` on
+    # /variant/ and stamps its own "no-cache, stale-if-error=86400" on every response,
+    # deliberately, so a deploy is visible without a hard refresh. Cloudflare therefore
+    # never sees this header. It is sent anyway because it is the correct thing for the
+    # app to say, and because Cloudflare caches GET and HEAD only, so a 303 answering a
+    # POST is not a cacheable response in the first place.
+    if exc.status_code == 405 and request.method not in ("GET", "HEAD"):
+        return RedirectResponse(str(request.url), status_code=303,
+                                headers={"Cache-Control": "no-store"})
     return HTMLResponse(_render("error.html", code=exc.status_code,
                                 detail=exc.detail), status_code=exc.status_code)
 
