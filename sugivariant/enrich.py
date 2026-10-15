@@ -10,6 +10,7 @@ echo into an integrative reference. All computed from primary data:
 Nothing here is a clinical call: concordance/consensus are transparent
 descriptions of independent evidence, each shown with its source.
 """
+import bisect
 import re
 import threading
 from collections import Counter
@@ -1277,15 +1278,22 @@ def splice_agreement(sa, pg):
             # signal exists, but agreement on DIRECTION is not ours to assert.
             return {"state": "both_scored", "text": "both predict an effect"}
         return {"state": "agree", "text": "agrees with SpliceAI"}
-    if st == "other_allele":
+    if st in ("other_allele", "below_threshold"):
         # The position WAS evaluated and this allele was not among the scored ones, so
         # the release really does place it under its own 0.2 cut. A genuine disagreement.
+        # `below_threshold` reaches the same conclusion by a different route — the
+        # position sits inside the span the release covers for the gene, rather than
+        # having a scored sibling allele at the identical position — and it is admitted
+        # here for exactly the reason `absent` is not: the evidence of evaluation is in
+        # hand. The SpliceAI row says "below 0.2" for both, so the page does not
+        # contradict itself the way it did when `absent` was read this way.
         return {"state": "spliceai_below", "text": "SpliceAI below 0.2"}
     if st == "absent":
-        # No SpliceAI record for this position at all. That is missing data, not a
-        # sub-threshold score — the delta could be anything, and the SpliceAI row two
-        # rows up already says "not assessed". Claiming "below 0.2" here made the page
-        # contradict itself on 957 of 1,249 measured spliceai_below states.
+        # No SpliceAI record for this position and nothing placing it inside the scored
+        # span. That is missing data, not a sub-threshold score — the delta could be
+        # anything, and the SpliceAI row two rows up says "not assessed". Claiming
+        # "below 0.2" here made the page contradict itself on 957 of 1,249 measured
+        # spliceai_below states, which is why the inference now has to be earned.
         return {"state": "spliceai_absent", "text": "not in the SpliceAI release"}
     return None
 
@@ -2034,7 +2042,27 @@ def gene_spliceai(hgnc_id):
     # non-zero value anywhere in the gene is the discriminator. Costs nothing — it
     # is read off rows already fetched — and starts working by itself once the data
     # lands, with no deploy.
-    return {"by_allele": by_allele, "by_pos": by_pos, "masked_loaded": masked_seen}
+    # The region the release actually covers for this gene, per chromosome, plus every
+    # scored position in order. SpliceAI's precomputed release scores EVERY possible
+    # single-nucleotide substitution inside a gene's body and then keeps only the alleles
+    # whose largest delta reaches the reporting filter, so what we hold is one contiguous
+    # interval -- the gene body -- sampled sparsely. The lowest and highest position we
+    # hold a record for therefore bracket that interval, which is what lets spliceai_for()
+    # tell "evaluated, every allele under the filter" apart from "outside the scope".
+    # Costs nothing: read off keys already fetched, and the cache is per-gene, never
+    # pickled into a record.
+    ordered = {}
+    for key in by_pos:
+        chrom, _, p = key.partition(":")
+        try:
+            ordered.setdefault(chrom, []).append(int(p))
+        except ValueError:
+            continue
+    for ps in ordered.values():
+        ps.sort()
+    return {"by_allele": by_allele, "by_pos": by_pos, "masked_loaded": masked_seen,
+            "span": {c: (ps[0], ps[-1]) for c, ps in ordered.items() if ps},
+            "ordered_pos": ordered}
 
 
 # ClinGen SVI calibration of SpliceAI (Walker et al., AJHG 2023;110:1046, PMID 37352859).
@@ -2114,9 +2142,17 @@ def spliceai_for(coord, cache):
                     reporting threshold — genuine negative evidence for this allele.
                     (The status name is historical; it used to be read as a gap in
                     our data. Legacy records on disk carry it, so it is kept.)
-      absent        the position is in no record of the release — either outside the
-                    scored MANE scope or below threshold for every allele. Those two
-                    are indistinguishable from here, so this one claims neither.
+      below_threshold
+                    no allele at this exact position is in the release, but the position
+                    lies INSIDE the span the release covers for this gene, so it was
+                    evaluated and every alternate allele fell under the 0.2 filter. Same
+                    negative evidence as other_allele, reached without needing a scored
+                    neighbouring allele at the identical position. See the derivation at
+                    the foot of this function.
+      absent        the position is in no record of the release AND lies outside the span
+                    the release covers for this gene — so it may be outside the scored
+                    scope or below threshold for every allele. Those two are
+                    indistinguishable from here, so this one claims neither.
       not_loaded    the gene's SpliceAI index was never built for this page, so nothing
                     was looked up. Previously this also returned `absent`, which turned
                     "we did not look" into a statement about the release: BRCA1
@@ -2129,8 +2165,8 @@ def spliceai_for(coord, cache):
     Returns None only when the variant has no coordinate to look up with."""
     if not coord:
         return None
-    # gene_spliceai() always returns a 3-key dict, empty maps included, so a falsy cache
-    # means it was never built — never that the gene has no SpliceAI data.
+    # gene_spliceai() always returns a fully populated dict, empty maps included, so a
+    # falsy cache means it was never built — never that the gene has no SpliceAI data.
     if not cache:
         return {"status": "not_loaded"}
     if coord_is_snv(coord) is False:
@@ -2174,6 +2210,53 @@ def spliceai_for(coord, cache):
         best = max(others, key=lambda d: (_f(d.get("score")) or 0))
         return {"status": "other_allele", "effect": best.get("effect"),
                 "score": best.get("score"), "ref": best.get("ref"), "alt": best.get("alt"),
+                "threshold": dataset_threshold("spliceai", _SPLICEAI_THRESHOLD)}
+
+    # Nothing at this exact position cleared the release's filter. That is only a GAP if
+    # the position lies outside what the release covers for this gene -- and usually it
+    # does not.
+    #
+    # The derivation. SpliceAI's precomputed release scores every possible single-
+    # nucleotide substitution inside a gene's body, then keeps only the alleles whose
+    # largest delta reaches 0.2. The covered region is therefore ONE contiguous interval
+    # (the gene body), sampled sparsely by the filter. So a position lying between the
+    # lowest and the highest position we hold any record for in this gene is inside that
+    # interval, SpliceAI did evaluate it, and the absence of all three alternate alleles
+    # means all four deltas of each fell under 0.2 -- a prediction of no splicing effect
+    # at this position, which is evidence, not a hole in our data.
+    #
+    # The bracket test is deliberately the weakest claim available: it assumes nothing
+    # about HOW the release defines its scope, no transcript model and no exon
+    # coordinates, only that the scope is a single interval, which "the gene body" is by
+    # construction. A position OUTSIDE lo..hi may well have been covered too -- we do not
+    # guess, it stays `absent`.
+    #
+    # Worked example, the page that prompted this (2026-10-15): JAK3 c.2351-15A>G,
+    # 19:17832944:T:C, an acceptor -15 variant. JAK3 holds 1,818 scored alleles over
+    # 1,138 positions spanning 17,825,373-17,847,949 -- the whole gene body -- and
+    # 17,832,943, ONE base away, carries A>C acceptor_loss 0.77 and A>T 0.61. The intron
+    # was plainly evaluated. Nothing at 17,832,944 cleared the filter, and the page said
+    # "not assessed", i.e. disclosed a gap that does not exist.
+    #
+    # Measured 2026-10-15 over 39 sampled genes and 5,046 `absent` readouts: 4,700
+    # (93.1%) sit inside their gene's scored span. Only the other 6.9% are genuinely
+    # unknown. Before this, all 100% rendered as "not assessed".
+    chrom, _, pstr = pos.partition(":")
+    span = ((cache or {}).get("span") or {}).get(chrom)
+    ordered = ((cache or {}).get("ordered_pos") or {}).get(chrom) or []
+    try:
+        here = int(pstr)
+    except ValueError:
+        here = None
+    if span and here is not None and span[0] <= here <= span[1]:
+        # Distance to the nearest position the release DOES hold -- the concrete evidence
+        # the page shows, so the reader can check the inference rather than take it.
+        i = bisect.bisect_left(ordered, here)
+        near = [ordered[j] for j in (i - 1, i) if 0 <= j < len(ordered)]
+        return {"status": "below_threshold",
+                "nearest_dp": min(abs(n - here) for n in near) if near else None,
+                "scored_positions": len(ordered),
+                "span_lo": span[0], "span_hi": span[1],
                 "threshold": dataset_threshold("spliceai", _SPLICEAI_THRESHOLD)}
     return {"status": "absent"}
 

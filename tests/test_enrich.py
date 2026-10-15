@@ -914,3 +914,69 @@ def test_a_stored_mito_absence_is_corrected_at_serve_time():
                       "source": "gnomAD v4.1"}}
     gn = refresh_frequency(nuc)
     assert gn["absent"] is True and gn["band"] == "absent from gnomAD v4.1"
+
+
+def test_a_position_inside_the_gene_scored_span_is_evidence_not_a_gap():
+    """`absent` conflated two different things; the gene's own span separates them.
+
+    SpliceAI's precomputed release scores every possible single-nucleotide substitution
+    inside a gene's body and then keeps only the alleles whose largest delta reaches 0.2,
+    so what the release holds for a gene is ONE contiguous interval sampled sparsely. A
+    position between the lowest and highest record we hold for that gene is therefore
+    inside the interval: it WAS evaluated, and the absence of every alternate allele means
+    all four deltas of each fell under 0.2. Outside that bracket we still know nothing.
+
+    Found on JAK3 c.2351-15A>G (19:17832944:T:C): the neighbouring base 17832943 carries
+    acceptor_loss 0.77, so the intron was plainly scored, yet the page said "not assessed".
+    Measured 2026-10-15 over 39 genes: 93.1% of `absent` readouts are inside their span.
+    """
+    from sugivariant.enrich import gene_spliceai, spliceai_for
+    hit = {"effect": "donor_loss", "score": "0.99"}
+    cache = {"by_allele": {"2:100:C:A": hit, "2:200:G:T": hit},
+             "by_pos": {"2:100": [{"ref": "C", "alt": "A", **hit}],
+                        "2:200": [{"ref": "G", "alt": "T", **hit}]},
+             "span": {"2": (100, 200)}, "ordered_pos": {"2": [100, 200]}}
+
+    inside = spliceai_for("2:150:A:G", cache)
+    assert inside["status"] == "below_threshold", inside
+    assert inside["nearest_dp"] == 50 and inside["scored_positions"] == 2
+    assert inside["span_lo"] == 100 and inside["span_hi"] == 200
+
+    # outside the bracket we claim nothing, and a scored allele still wins
+    assert spliceai_for("2:300:A:G", cache)["status"] == "absent"
+    assert spliceai_for("3:150:A:G", cache)["status"] == "absent"
+    assert spliceai_for("2:100:C:A", cache)["status"] == "scored"
+    assert spliceai_for("2:100:C:G", cache)["status"] == "other_allele"
+
+    # a cache built before the span existed must degrade to `absent`, never crash
+    assert spliceai_for("2:150:A:G", {k: cache[k] for k in ("by_allele", "by_pos")}
+                        )["status"] == "absent"
+
+
+def test_gene_spliceai_carries_the_span_the_bracket_test_needs():
+    from sugivariant.enrich import gene_spliceai
+    import sugivariant.enrich as EN
+    rows = [{"id": f"7:{p}:A:G", "score": "0.5", "effect": "donor_loss"}
+            for p in (500, 120, 900)]
+    orig = EN.map_all
+    EN.map_all = lambda *a, **k: iter(rows)
+    try:
+        c = gene_spliceai("HGNC:1")
+    finally:
+        EN.map_all = orig
+    assert c["span"] == {"7": (120, 900)}
+    assert c["ordered_pos"] == {"7": [120, 500, 900]}, "positions must be sorted for bisect"
+
+
+def test_a_bracketed_absence_disagrees_with_pangolin_but_an_unbracketed_one_does_not():
+    """Only an EARNED "below 0.2" may contradict Pangolin.
+
+    Reading plain `absent` as sub-threshold made the page contradict itself on 957 of
+    1,249 measured states, because the delta could have been anything. `below_threshold`
+    has the evidence that `absent` lacks, so it is admitted where `absent` is not.
+    """
+    from sugivariant.enrich import splice_agreement
+    pg = {"status": "scored", "score": 0.8, "effect": "gain"}
+    assert splice_agreement({"status": "below_threshold"}, pg)["state"] == "spliceai_below"
+    assert splice_agreement({"status": "other_allele"}, pg)["state"] == "spliceai_below"
+    assert splice_agreement({"status": "absent"}, pg)["state"] == "spliceai_absent"

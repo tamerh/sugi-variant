@@ -689,6 +689,8 @@ def render_body(v, jsonld_tag=""):
                        "*Descriptive; no cut-point applied.*")
         sa = v.get("spliceai") or {}
         sa_st = sa.get("status")
+        _SA_RENDERED = ("scored", "other_allele", "below_threshold", "snv_only",
+                        "not_loaded", "absent")
         if sa_st == "scored" and sa.get("ds_dl") is not None:
             # All four deltas, so the reader can see the mechanism rather than take a
             # single dominant label on trust — plus the distance to the affected site,
@@ -727,6 +729,21 @@ def render_body(v, jsonld_tag=""):
                      f"{(sa.get('effect') or '').replace('_', ' ')}), so this allele was evaluated and "
                      f"its deltas all fell under \u03940.2 \u2014 a prediction of no splicing effect for "
                      f"this allele, not a gap in our data. *No ACMG code assigned.*")
+        elif sa_st == "below_threshold":
+            # Same negative evidence as other_allele, reached from the gene's scored SPAN
+            # rather than from a scored sibling allele at the identical position: the
+            # release covers one contiguous interval (the gene body) and this position is
+            # inside it, so SpliceAI evaluated it and nothing cleared the 0.2 filter.
+            _near = sa.get("nearest_dp")
+            _n = sa.get("scored_positions")
+            L.append("- SpliceAI: **below the reporting threshold**. This position lies inside "
+                     "the span the release covers for "
+                     f"{v.get('gene_symbol') or 'this gene'}"
+                     + (f" ({_n:,} scored positions" if _n else " (the gene body")
+                     + (f", nearest {_near} bp away)" if _near is not None else ")")
+                     + ", so SpliceAI evaluated it and no alternate allele reached \u03940.2 — "
+                       "a prediction of no splicing effect at this position, not a gap in our "
+                       "data. *No ACMG code assigned.*")
         elif sa_st == "snv_only":
             L.append("- SpliceAI: **not assessed** — the release is built from a substitutions-only "
                      "source, so it holds no "
@@ -737,7 +754,13 @@ def render_body(v, jsonld_tag=""):
             L.append("- SpliceAI: **not looked up on this page** — it was served without the gene's "
                      "SpliceAI index, so no lookup was made. This is a gap in this page, not in the "
                      "data, and says nothing about whether a splicing effect is predicted.")
-        elif sa_st == "absent":
+        elif sa_st == "absent" or (sa_st and sa_st not in _SA_RENDERED):
+            # The "or" is the same guard the template spells as {% else %}: records are
+            # read from disk and the code is deployed separately, so a status this
+            # renderer does not know yet must fall back to the honest gap wording rather
+            # than drop the SpliceAI line entirely. A legacy record (a score and no
+            # status at all) is deliberately NOT caught — it has a score, so calling it
+            # "not assessed" would be the lie this whole chain exists to prevent.
             L.append("- SpliceAI: **not assessed** — no allele at this position is in our SpliceAI "
                      "release, either because it lies outside the scored MANE transcript scope or "
                      "because every allele is below \u03940.2. We cannot tell which, so this claims "

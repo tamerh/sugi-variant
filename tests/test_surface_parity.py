@@ -2136,3 +2136,73 @@ def test_no_evidence_table_tooltip_sits_in_a_cell_the_containment_rule_misses():
                     "scroll area and put a scrollbar under the card")
     if not checked:
         pytest.skip("no evidence-table tooltip in the sampled genes")
+
+
+def test_a_bracketed_spliceai_absence_is_stated_as_evidence_not_as_a_gap():
+    """A position inside the gene's scored span must not be called "not assessed".
+
+    SpliceAI's release scores every possible substitution inside a gene's body and keeps
+    only the alleles reaching Δ0.2, so what it holds for a gene is one contiguous interval
+    sampled sparsely. A position between the lowest and highest record we hold for the
+    gene was therefore evaluated, and the absence of every alternate allele puts all four
+    deltas of each under 0.2 — a prediction of no splicing effect, which is evidence.
+
+    Found on JAK3 c.2351-15A>G: the base one away carries acceptor_loss 0.77, so the
+    intron was plainly scored, and the page still said "not assessed". The remaining
+    `absent` state keeps its caveat and is checked alongside, because the whole point is
+    that the two are now told apart rather than merged.
+    """
+    os.environ.setdefault("BASE_PATH", "/variant")
+    rec = {"canonical_slug": "x-c-2351-minus-15a-g", "gene_symbol": "X",
+           "classification": "Likely benign", "variation_id": 2, "name": "X:c.2351-15A>G",
+           "hgvs_c": "c.2351-15A>G",
+           "review_status": "criteria provided, single submitter", "conditions": [],
+           "spliceai": {"status": "below_threshold", "nearest_dp": 1,
+                        "scored_positions": 1138, "span_lo": 17825373,
+                        "span_hi": 17847949, "threshold": 0.2}}
+    html, md, _, _ = _both(rec)
+    for surface, name in ((html, "HTML"), (md, ".md")):
+        assert "0.2" in surface, f"{name} omits the threshold that makes absence meaningful"
+        assert "not assessed" not in surface, (
+            f"{name} still discloses a gap for a position the release evaluated")
+        assert "evaluated" in surface, f"{name} does not say the position was evaluated"
+        assert "not a gap" in surface or "not missing" in surface, (
+            f"{name} does not distinguish a below-threshold prediction from missing data")
+        # the evidence the claim rests on, so a reader can check it rather than trust it
+        assert "1 bp" in surface or "1,138" in surface, (
+            f"{name} asserts the position was evaluated without showing what says so")
+
+    rec["spliceai"] = {"status": "absent"}
+    html, md, _, _ = _both(rec)
+    for surface, name in ((html, "HTML"), (md, ".md")):
+        assert "not assessed" in surface, (
+            f"{name}: an unbracketed absence must still disclose the gap")
+        assert "not evidence against" in surface, f"{name} omits the absence caveat"
+
+
+def test_an_unknown_spliceai_status_degrades_to_the_gap_wording_not_to_silence():
+    """Records live on disk; the code ships separately. Neither order may blank the row.
+
+    Record files are rewritten in place by transform passes, and the prod image is built
+    and deployed on its own schedule, so a record can carry a status the running code has
+    no branch for — records upgraded before the code ships, or the code rolled back after.
+    An unmatched status used to fall off the end of the chain and render NOTHING, which is
+    the one thing the SpliceAI row exists to prevent: silence reads as "no splice signal".
+    Fall back to the honest gap wording instead.
+    """
+    os.environ.setdefault("BASE_PATH", "/variant")
+    rec = {"canonical_slug": "x-c-1-plus-1g-c", "gene_symbol": "X", "classification": "VUS",
+           "variation_id": 3, "name": "X:c.1+1G>C", "hgvs_c": "c.1+1G>C",
+           "review_status": "criteria provided, single submitter", "conditions": [],
+           "spliceai": {"status": "a_status_from_a_later_build"}}
+    html, md, _, _ = _both(rec)
+    for surface, name in ((html, "HTML"), (md, ".md")):
+        assert "SpliceAI" in surface, f"{name} drops the SpliceAI row for an unknown status"
+        assert "not assessed" in surface, f"{name} renders silence for an unknown status"
+
+    # a legacy record — a score and no status at all — must NOT be swept into that
+    # fallback: it HAS a score, so "not assessed" would be the lie the chain prevents
+    rec["spliceai"] = {"effect": "donor_loss", "score": "0.99"}
+    html, md, _, _ = _both(rec)
+    assert "not assessed" not in md, ".md calls a legacy scored record unassessed"
+    assert "not assessed" not in html, "HTML calls a legacy scored record unassessed"
