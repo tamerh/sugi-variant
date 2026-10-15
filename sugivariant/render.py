@@ -767,11 +767,16 @@ def render_body(v, jsonld_tag=""):
                      "absence. It is a result, not a gap in our data, because the release scores "
                      "every possible substitution across the transcripts it covers (Ensembl MANE "
                      "v1.4) before it filters, so what survives for a gene is one continuous "
-                     "stretch; this position lies inside the stretch covered for "
-                     f"{v.get('gene_symbol') or 'this gene'}{_where}), so SpliceAI did score it. "
-                     "*ClinGen's SVI places the largest of the four at or below 0.1 in the BP4 "
-                     "band and 0.1 to 0.2 as uninformative; we cannot tell which applies, so no "
-                     "ACMG code is assigned.*")
+                     "stretch. What is measured is that this position sits inside the stretch "
+                     "covered for "
+                     f"{v.get('gene_symbol') or 'this gene'}{_where}); what is taken from the "
+                     "release's own description, rather than measured, is that coverage inside "
+                     "that stretch is continuous. On that, SpliceAI did score it. "
+                     "*ClinGen's SVI treats the largest of the four as evidence against a "
+                     "splicing effect at or below 0.1, where it may support BP4, and as "
+                     "uninformative between 0.1 and 0.2. We cannot tell which applies here, so "
+                     "these SpliceAI data support neither BP4 nor PP3; that is a statement about "
+                     "this evidence alone, not about the variant's other evidence.*")
         elif sa_st == "snv_only":
             L.append("- SpliceAI: **not assessed** — the release is built from a substitutions-only "
                      "source, so it holds no "

@@ -2253,13 +2253,24 @@ def spliceai_for(coord, cache):
     # rules out. A reference-sequence disagreement at a position that IS scored: lands on
     # `other_allele` above, because by_pos is keyed without ref/alt.
     #
-    # The bracket test is deliberately the weakest claim available: it assumes nothing
-    # about HOW the release defines its scope, no transcript model and no exon
-    # coordinates, only that the scope is a single interval, which a transcript span is by
-    # construction. A position OUTSIDE lo..hi may well have been covered too -- we do not
-    # guess, it stays `absent`. Note we are deliberately MORE conservative than upstream
-    # asks: its metadata says to read any absence as below-threshold, and we only say so
-    # where coverage demonstrably reaches the position.
+    # The bracket test is deliberately the weakest claim available: no transcript model,
+    # no exon coordinates, nothing about HOW the release defines its scope. A position
+    # OUTSIDE lo..hi may well have been covered too -- we do not guess, it stays `absent`.
+    #
+    # It is NOT assumption-free, and the page says which step is not measured. Measured:
+    # the position sits inside the span of records the release holds for the gene. Taken
+    # from the release's own description: that coverage INSIDE that span is continuous,
+    # i.e. every possible substitution there was scored before the filter was applied. A
+    # hole in coverage inside the span (a reference N run, say) would defeat the
+    # inference, which is why the distance to the nearest scored position is carried and
+    # shown rather than kept as an internal detail. Measured over the 21,739 upgraded
+    # records in the five preview genes (2026-10-15): median 10 bp, p90 126 bp, p99 604 bp,
+    # worst case 2,299 bp. Half of these positions have a scored neighbour within ten
+    # bases, so a coverage hole at the position but not at its neighbours is not a
+    # plausible reading of the data.
+    #
+    # Note we are deliberately MORE conservative than upstream asks: its metadata says to
+    # read any absence as below threshold, and we say so only where coverage reaches.
     #
     # Worked example, the page that prompted this (2026-10-15): JAK3 c.2351-15A>G,
     # 19:17832944:T:C, an acceptor -15 variant. JAK3 holds 1,818 scored alleles over

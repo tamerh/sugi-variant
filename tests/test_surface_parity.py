@@ -2175,8 +2175,12 @@ def test_a_bracketed_spliceai_absence_is_stated_as_evidence_not_as_a_gap():
             f"{name} still discloses a gap for a position the release evaluated")
         # the claim, not the copy: the prose is deliberately terse and gets tightened,
         # what must never drift is that the page says SpliceAI LOOKED at this position
-        assert "evaluated" in surface or "did score it" in surface, (
+        assert "did score" in surface or "evaluated" in surface, (
             f"{name} does not say the position was evaluated")
+        # the one step that is not measured must be named as such, not slipped in
+        assert "continuous" in surface, (
+            f"{name} presents continuous coverage as proven rather than as the assumption "
+            "the inference rests on")
         assert "not a gap" in surface or "not missing" in surface, (
             f"{name} does not distinguish a below-threshold prediction from missing data")
         # the evidence the claim rests on, so a reader can check it rather than trust it
