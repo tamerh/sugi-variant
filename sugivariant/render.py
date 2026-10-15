@@ -730,20 +730,29 @@ def render_body(v, jsonld_tag=""):
                      f"its deltas all fell under \u03940.2 \u2014 a prediction of no splicing effect for "
                      f"this allele, not a gap in our data. *No ACMG code assigned.*")
         elif sa_st == "below_threshold":
-            # Same negative evidence as other_allele, reached from the gene's scored SPAN
-            # rather than from a scored sibling allele at the identical position: the
-            # release covers one contiguous interval (the gene body) and this position is
-            # inside it, so SpliceAI evaluated it and nothing cleared the 0.2 filter.
+            # Lead with the CONCLUSION, then each justification. The row used to open with
+            # "all four deltas below 0.2", which reads like a measurement — and we never
+            # read four values, we read their absence from the release and deduced the
+            # bound. It also carried a bare "nearest scored position 1 bp away", a second
+            # distance stacked under the splice-region row's "acceptor -15", measured from
+            # a different thing to a different thing with nothing saying so. On the page
+            # the two justifications are separate tooltips, one for the VALUE claim and
+            # one for the COVERAGE claim; .md has no tooltips, so it states both inline.
             _near = sa.get("nearest_dp")
             _n = sa.get("scored_positions")
-            L.append("- SpliceAI: **below the reporting threshold**. This position lies inside "
-                     "the span the release covers for "
-                     f"{v.get('gene_symbol') or 'this gene'}"
-                     + (f" ({_n:,} scored positions" if _n else " (the gene body")
-                     + (f", nearest {_near} bp away)" if _near is not None else ")")
-                     + ", so SpliceAI evaluated it and no alternate allele reached \u03940.2 — "
-                       "a prediction of no splicing effect at this position, not a gap in our "
-                       "data. *No ACMG code assigned.*")
+            _where = (f" ({_n:,} scored positions" if _n else " (the gene body")
+            if _near is not None:
+                _where += f", the nearest {_near} base{'' if _near == 1 else 's'} away"
+            L.append("- SpliceAI: **no splice effect predicted**. All four deltas \u2014 loss of "
+                     "an existing acceptor or donor site, gain of a new one \u2014 are under "
+                     "0.2. No figure is shown because none was read: the release keeps only "
+                     "alleles whose largest of the four reaches 0.2, and no allele at this "
+                     "position is in it, which is the bound. That absence is a result, not a "
+                     "gap in our data, because the position lies inside the stretch the release "
+                     f"covers for {v.get('gene_symbol') or 'this gene'}{_where}), so SpliceAI "
+                     "did score it. *ClinGen's SVI places a raw delta at or below 0.1 in the BP4 "
+                     "band and 0.1\u20130.2 as uninformative; we cannot tell which applies, so "
+                     "no ACMG code is assigned.*")
         elif sa_st == "snv_only":
             L.append("- SpliceAI: **not assessed** — the release is built from a substitutions-only "
                      "source, so it holds no "

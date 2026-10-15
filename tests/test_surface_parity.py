@@ -2165,12 +2165,18 @@ def test_a_bracketed_spliceai_absence_is_stated_as_evidence_not_as_a_gap():
         assert "0.2" in surface, f"{name} omits the threshold that makes absence meaningful"
         assert "not assessed" not in surface, (
             f"{name} still discloses a gap for a position the release evaluated")
-        assert "evaluated" in surface, f"{name} does not say the position was evaluated"
+        # the claim, not the copy: the prose is deliberately terse and gets tightened,
+        # what must never drift is that the page says SpliceAI LOOKED at this position
+        assert "evaluated" in surface or "did score it" in surface, (
+            f"{name} does not say the position was evaluated")
         assert "not a gap" in surface or "not missing" in surface, (
             f"{name} does not distinguish a below-threshold prediction from missing data")
         # the evidence the claim rests on, so a reader can check it rather than trust it
-        assert "1 bp" in surface or "1,138" in surface, (
+        assert "1,138" in surface, (
             f"{name} asserts the position was evaluated without showing what says so")
+        # and the conclusion must come before the arithmetic that supports it
+        assert "no splice effect predicted" in surface, (
+            f"{name} leads with the bound instead of what it means")
 
     rec["spliceai"] = {"status": "absent"}
     html, md, _, _ = _both(rec)
