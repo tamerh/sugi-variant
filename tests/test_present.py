@@ -187,7 +187,10 @@ def test_no_group_heading_renders_without_rows_under_it():
     from sugivariant.enrich import refresh_record
     from sugivariant.present import EVIDENCE_GROUPS
     titles = {t for _, t in EVIDENCE_GROUPS}
-    cache = os.environ.get("RECORDS_DIR") or "/data2/sugi-variant-cache/records"
+    # The corpus lives outside the repo and differs per machine, so the path comes from
+    # the environment; the local operations script exports it. Without it these tests
+    # skip rather than assert against a path that is one deployment's layout.
+    cache = os.environ.get("RECORDS_DIR") or "cache/records"
     files = sorted(glob.glob(os.path.join(cache, "*.pkl.gz")))
     if not files:
         pytest.skip("no cached records")

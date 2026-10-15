@@ -17,7 +17,10 @@ import random
 
 import pytest
 
-CACHE = os.environ.get("RECORDS_DIR") or "/data2/sugi-variant-cache/records"
+# The corpus lives outside the repo and differs per machine, so the path comes from
+# the environment; the local operations script exports it. Without it these tests
+# skip rather than assert against a path that is one deployment's layout.
+CACHE = os.environ.get("RECORDS_DIR") or "cache/records"
 MAX_GENES = int(os.environ.get("RENDER_TEST_GENES", "40"))     # keep it quick by default
 
 

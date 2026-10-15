@@ -118,7 +118,10 @@ def test_live_index_gene_meta_matches_variant_rows():
     import sqlite3
 
     import pytest
-    db = os.environ.get("INDEX_DB") or "/data/sugi-variant/cache/index.db"
+    # The corpus lives outside the repo and differs per machine, so the path comes from
+    # the environment; the local operations script exports it. Without it these tests
+    # skip rather than assert against a path that is one deployment's layout.
+    db = os.environ.get("INDEX_DB") or "cache/index.db"
     if not pathlib.Path(db).exists():
         pytest.skip(f"no index at {db}")
     c = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
