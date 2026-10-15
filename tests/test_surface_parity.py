@@ -2254,3 +2254,69 @@ def test_the_svi_band_is_never_pinned_to_a_single_delta():
         assert "largest" in clause or "max" in clause, (
             f"SVI band attributed to a single delta rather than the largest of the four: "
             f"{clause!r}")
+
+
+def test_every_tooltip_reaches_a_screen_reader():
+    """A `.ti` span shows its body on hover via data-tip, which a screen reader cannot
+    see; aria-label is the only copy it gets. The PVS1 tooltip shipped without one, so
+    assistive tech read the four visible words "PVS1 input, not an applied code" and
+    none of the reasoning that keeps them honest. Every tooltip carries both now."""
+    import pathlib
+    import re
+    tpl = (pathlib.Path(__file__).resolve().parent.parent
+           / "templates" / "variant.html").read_text(encoding="utf-8")
+    bare = [m.group(0) for m in re.finditer(r'<span class="ti"[^>]*>', tpl)
+            if "aria-label=" not in m.group(0)]
+    assert not bare, (
+        "%d tooltip span(s) expose their body only to sighted hover: %s"
+        % (len(bare), [b[:120] for b in bare]))
+
+
+def test_an_unresolved_spliceai_absence_says_the_test_was_run():
+    """`absent` used to mean "we never checked" and "we checked and found nothing"
+    alike, so stating the ambiguity flatly was the honest reading. Since the span test
+    landed, a position inside its gene's scored span renders as `below_threshold`, so
+    reaching `absent` means the test RAN and did not reach. If the copy ever reverts to
+    the flat ambiguity, these ~450k pages become indistinguishable from pages that were
+    never checked, which is exactly the disclosure this chain exists to make."""
+    import pathlib
+    import re
+    root = pathlib.Path(__file__).resolve().parent.parent
+    tpl = (root / "templates" / "variant.html").read_text(encoding="utf-8")
+    rnd = (root / "sugivariant" / "render.py").read_text(encoding="utf-8")
+
+    tip = next(t for t in re.findall(r'data-tip="([^"]*)"', tpl)
+               if "genuinely unknown" in t)
+    for name, surface in (("tooltip", tip), ("renderer", rnd)):
+        low = surface.lower()
+        assert "did not reach" in low, (
+            "%s states the ambiguity without saying the span test was run" % name)
+        assert "lowest and the highest" in low or "lowest and highest" in low, (
+            "%s does not say what the test compared the position against" % name)
+        assert "not evidence against" in low, (
+            "%s drops the point that an unknown absence is not a negative result" % name)
+
+
+def test_the_scored_row_explains_the_four_deltas_like_its_siblings_do():
+    """The scored branch listed all four deltas by name while never saying what a loss
+    or a gain IS, and both sub-threshold branches did explain it: the page gave the
+    least conceptual help on the one branch carrying a real number. Parity means the
+    reader who sees a score learns at least as much as the reader who sees a bound."""
+    import pathlib
+    import re
+    tpl = (pathlib.Path(__file__).resolve().parent.parent
+           / "templates" / "variant.html").read_text(encoding="utf-8")
+    tips = [t for t in re.findall(r'data-tip="([^"]*)"', tpl)
+            if "DS_AL" in t or "acceptor loss" in t]
+    scored = [t for t in tips if "Raw: acceptor loss" in t]
+    assert len(scored) == 1, "expected exactly one scored-row deltas tooltip"
+    t = scored[0]
+    assert "four numbers per variant, not one" in t, (
+        "the scored row does not say a SpliceAI readout is four numbers")
+    assert "weakened or destroyed" in t and "new site created" in t, (
+        "the scored row names the four deltas without defining loss and gain")
+    assert "largest of the four" in t, (
+        "the scored row shows one figure without saying which of the four it is")
+    assert "neither PP3 nor BP4" in t, (
+        "the scored row says no code is assigned without scoping which evidence that "
+        "is about")

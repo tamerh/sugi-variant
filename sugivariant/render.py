@@ -812,9 +812,18 @@ def render_body(v, jsonld_tag=""):
             # than drop the SpliceAI line entirely. A legacy record (a score and no
             # status at all) is deliberately NOT caught — it has a score, so calling it
             # "not assessed" would be the lie this whole chain exists to prevent.
-            L.append("- SpliceAI: **not assessed** — no allele at this position is in our SpliceAI "
-                     "release, either because it lies outside the scored MANE transcript scope or "
-                     "because every allele is below \u03940.2. We cannot tell which, so this claims "
+            # Same correction as the template's tooltip: before the span test, "we did not
+            # look" and "we looked and found nothing" were the same page, so stating the
+            # ambiguity flatly was honest. Now a position inside the gene's scored span
+            # renders as below_threshold, so reaching HERE means the test ran and did not
+            # reach. Say that, or this page is indistinguishable from one never checked.
+            L.append("- SpliceAI: **not assessed** — this absence is genuinely unknown. Where a "
+                     "position sits between the lowest and the highest record the release holds "
+                     "for its gene, an absent score is a result and we state it as one; this "
+                     "position falls outside them, or the gene has no scored position at all, so "
+                     "that test did not reach here. It may lie outside the scored MANE transcript "
+                     "scope, or it may have been scored with all four deltas below \u03940.2 just "
+                     "past the last surviving record. We cannot tell which, so this claims "
                      "neither; absence is not evidence against a splicing effect.")
         pg = v.get("pangolin") or {}
         if pg.get("status") == "scored" and pg.get("score") is not None:
