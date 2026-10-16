@@ -2379,3 +2379,31 @@ def test_moving_the_accessions_kept_every_form_of_attribution():
     rec = {"gene_symbol": "JAK3", "hgvs_c": "c.2351-15A>G", "rsid": "rs2514550595"}
     assert "rs2514550595" in page_title(rec), (
         "the rsID left the title, which is the field it was actually added for")
+
+
+def test_a_card_is_never_painted_the_same_colour_as_the_page():
+    """Every panel was background:var(--bg), which is exactly what atlas.css sets body
+    to, so a card was the same colour as the margin beside it and a 1px border was the
+    only thing dividing content from page. The theme already had the right token: --bg
+    is the canvas, --bg-elev the raised sheet, and the site header had been using
+    --bg-elev all along. This pins the split so a new panel does not quietly reach for
+    the page colour again."""
+    import pathlib
+    import re
+    root = pathlib.Path(__file__).resolve().parent.parent
+    css = (root / "static" / "css" / "app.css").read_text(encoding="utf-8")
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)      # the comments discuss the old token
+    bad = re.findall(r"background:\s*var\(--bg[,)]", css)
+    assert not bad, (
+        "%d surface(s) in app.css paint themselves with the page background instead of "
+        "--bg-elev" % len(bad))
+
+    theme = (root / "static" / "css" / "atlas.css").read_text(encoding="utf-8")
+    for scope in (":root", '[data-theme="dark"]'):
+        blk = re.search(re.escape(scope) + r"\s*\{(.*?)\}", theme, re.S)
+        assert blk, "%s block missing from the theme" % scope
+        vals = dict(re.findall(r"(--bg|--bg-elev):\s*([^;]+);", blk.group(1)))
+        assert set(vals) == {"--bg", "--bg-elev"}, (scope, vals)
+        assert vals["--bg"].strip() != vals["--bg-elev"].strip(), (
+            "%s defines the canvas and the raised sheet as the same colour, so the "
+            "split has no visible effect" % scope)
