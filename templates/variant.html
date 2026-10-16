@@ -22,9 +22,17 @@
     <header class="vd-head vv-cls-{{ cls_class(v.classification) }}">
       <div class="vd-head-main">
         <h1 class="vd-title">{{ v.gene_symbol }} <span class="vd-hgvs">{{ hgvs_disp(v.hgvs_p or v.hgvs_c) }}</span></h1>
-        <p class="vd-ids">{% if v.hgvs_p and v.hgvs_c %}{{ hgvs_disp(v.hgvs_c) }} · {% endif %}
-          {% if v.rsid %}<a href="https://www.ncbi.nlm.nih.gov/snp/{{ v.rsid }}/">{{ v.rsid }}</a> · {% endif %}
-          <a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/{{ v.variation_id }}/">VCV{{ v.variation_id }}</a></p>
+        {# The rsID and the ClinVar accession used to sit here as outbound links: the only
+           two links above the fold, inside the verdict header, offering the reader an exit
+           before a single piece of evidence had been read. Both are in the Identity list
+           below now, which is where someone who wants the source goes looking. Nothing is
+           lost by moving them: the rsID was ALREADY duplicated down there as the dbSNP row,
+           both URLs are still emitted as schema.org sameAs by jsonld.py (so crawlers and
+           entity reconciliation are unaffected), the rsID still carries the <title> and the
+           meta description, which are the ranking fields it was put in for (f3d8222, NOT
+           this link), and _sources_line.html still credits ClinVar by name with its as-of
+           date. What is left here is the c. notation, which is page content, not an exit. #}
+        {% if v.hgvs_p and v.hgvs_c %}<p class="vd-ids">{{ hgvs_disp(v.hgvs_c) }}</p>{% endif %}
       </div>
       <div class="vd-head-verdict">
         <span class="vv-pill vv-pill-cls">{{ v.classification }}</span>
@@ -128,9 +136,10 @@
           <dl class="vd-dl vd-context-id">
             <dt>Gene</dt><dd><a href="{{ base }}/gene/{{ v.gene_symbol }}">{{ v.gene_symbol }}</a></dd>
             {% if v.hgvs_p %}<dt>Protein</dt><dd>{{ v.hgvs_p }}</dd>{% endif %}
-            {% if v.hgvs_c %}<dt>{{ 'Non-coding' if v.hgvs_c[:2] == 'n.' else 'Mitochondrial' if v.hgvs_c[:2] == 'm.' else 'Coding' }}</dt><dd>{{ v.hgvs_c }}</dd>{% endif %}
+            {% if v.hgvs_c %}<dt>Nucleotide</dt><dd>{{ v.hgvs_c }}</dd>{% endif %}
             {% if v.mane and v.mane.mrna %}<dt>MANE Select</dt><dd><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ v.mane.mrna }}">{{ v.mane.mrna }}</a>{% if v.mane.clinvar_on_mane is sameas false %} <span class="dd-note">· reported on {{ v.mane.clinvar_transcript }}</span>{% endif %}</dd>{% endif %}
             {% if v.rsid %}<dt>dbSNP</dt><dd><a href="https://www.ncbi.nlm.nih.gov/snp/{{ v.rsid }}/">{{ v.rsid }}</a></dd>{% endif %}
+            <dt>ClinVar</dt><dd><a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/{{ v.variation_id }}/">VCV{{ v.variation_id }}</a></dd>
             <dt>Type</dt><dd>{{ v.variant_type }}</dd>
             {% if v.chromosome %}<dt>Location</dt><dd>chr{{ v.chromosome }}:{{ v.start }} ({{ v.assembly }})</dd>{% endif %}
             {% if v.gene_context and v.gene_context.constraint and v.gene_context.constraint.loeuf %}<dt>Gene constraint</dt><dd>LOEUF {{ v.gene_context.constraint.loeuf }} · {% set pv = v.gene_context.constraint.pli|float %}pLI {% if pv < 0.01 %}&lt;0.01{% else %}{{ '%.2f'|format(pv) }}{% endif %}{% if v.gene_context.dosage and v.gene_context.dosage.haplo %} · ClinGen HI {{ hi_display(v.gene_context.dosage.haplo) }}{% endif %} <span class="dd-note">(gnomAD)</span></dd>{% endif %}

@@ -2323,3 +2323,59 @@ def test_the_scored_row_explains_the_four_deltas_like_its_siblings_do():
     assert "neither PP3 nor BP4" in t, (
         "the scored row says no code is assigned without scoping which evidence that "
         "is about")
+
+
+def test_the_verdict_header_offers_no_exit_before_the_evidence():
+    """The header carried the rsID and the ClinVar accession as outbound links: the only
+    two links above the fold, inside the verdict block, inviting the reader to another
+    site before reading anything this page assembled. They moved into the Identity list,
+    where someone who wants the source goes looking for it. A link added back up here
+    should be a deliberate decision, not a drift."""
+    import pathlib
+    import re
+    tpl = (pathlib.Path(__file__).resolve().parent.parent
+           / "templates" / "variant.html").read_text(encoding="utf-8")
+    head = re.search(r'<header class="vd-head.*?</header>', tpl, re.S)
+    assert head, "the verdict header is gone or was renamed"
+    body = re.sub(r"\{#.*?#\}", "", head.group(0), flags=re.S)   # drop Jinja comments
+    assert "<a " not in body and "href=" not in body, (
+        "the verdict header links out again:\n%s" % body)
+
+
+def test_moving_the_accessions_kept_every_form_of_attribution():
+    """Taking the two links out of the header must not quietly cost attribution or
+    discoverability. Four things carry it, and each is checked here because each was the
+    reason the links were defensible where they were:
+      · the Identity list now shows BOTH accessions, which is where they went;
+      · jsonld.py still emits both URLs as schema.org sameAs, so crawlers and entity
+        reconciliation are untouched;
+      · page_title still carries the rsID, which is the ranking field it was added to in
+        f3d8222 (never the header link);
+      · _sources_line.html still credits ClinVar by name."""
+    import pathlib
+    import re
+    root = pathlib.Path(__file__).resolve().parent.parent
+    tpl = (root / "templates" / "variant.html").read_text(encoding="utf-8")
+
+    ident = re.search(r'<dl class="vd-dl vd-context-id">.*?</dl>', tpl, re.S)
+    assert ident, "the Identity list is gone or was renamed"
+    labels = [re.sub(r"<[^>]+>", "", m).strip()
+              for m in re.findall(r"<dt>(.*?)</dt>", ident.group(0), re.S)]
+    assert "ClinVar" in labels, "ClinVar has no row in the Identity list: %s" % labels
+    assert "dbSNP" in labels, "dbSNP has no row in the Identity list: %s" % labels
+    # "Coding" was a constant word (51,712 of 51,715 sampled records are c.), so it
+    # classified nothing and read as decoration. "Nucleotide" is true of c., n. and m.
+    assert "Nucleotide" in labels and "Coding" not in labels, labels
+
+    jl = (root / "sugivariant" / "jsonld.py").read_text(encoding="utf-8")
+    assert "clinvar/variation" in jl and "/snp/" in jl, (
+        "jsonld no longer emits both accession URLs as sameAs, so moving the visible "
+        "links did cost attribution after all")
+
+    src = (root / "templates" / "_sources_line.html").read_text(encoding="utf-8")
+    assert "ClinVar" in src, "the sources line no longer credits ClinVar by name"
+
+    from sugivariant.render import page_title
+    rec = {"gene_symbol": "JAK3", "hgvs_c": "c.2351-15A>G", "rsid": "rs2514550595"}
+    assert "rs2514550595" in page_title(rec), (
+        "the rsID left the title, which is the field it was actually added for")
