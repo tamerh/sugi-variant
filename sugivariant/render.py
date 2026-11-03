@@ -630,7 +630,17 @@ def render_body(v, jsonld_tag=""):
                             if _n["escapes"] else
                             ", so the transcript is predicted to undergo NMD."))
         elif v.get("consequence"):
-            L.append(f"- Molecular consequence: **{v['consequence']['label']}**.")
+            # Parity with the HTML row, which says the same two things. "synonymous" must
+            # not be read as "no effect": the claim is about the protein sequence, and a
+            # synonymous change can still disrupt splicing, which the splice rows carry.
+            if v["consequence"]["type"] == "synonymous":
+                L.append("- Molecular consequence: **synonymous** — the codon changes but the "
+                         "protein sequence does not. This describes the protein only: a "
+                         "synonymous change can still affect splicing, which the splicing "
+                         "evidence addresses on its own terms.")
+            else:
+                L.append(f"- Molecular consequence: **{v['consequence']['label']}** — the reading "
+                         f"frame is preserved, so this is not a predicted loss-of-function variant.")
         pctl = v.get("am_percentile")
         if pctl and pctl["top_pct"] <= 10:      # only when it's a genuine standout
             L.append(f"- AlphaMissense ranks this among the **top {pctl['top_pct']}%** "

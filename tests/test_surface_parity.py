@@ -1587,6 +1587,55 @@ def test_both_surfaces_say_we_did_not_look_rather_than_not_assessed():
         assert "no allele at this position is in our SpliceAI release" not in surface
 
 
+def test_both_surfaces_name_a_synonymous_change_and_neither_calls_it_harmless():
+    """A synonymous variant said nothing about its consequence on either surface, which
+    left "p.Ter1361=" on the page with nothing explaining what "=" meant. Naming it is
+    only half the job: the HTML row was gated on lof_context, so a non-LoF consequence
+    reached the .md twin and never the page at all.
+
+    The wording is load-bearing. "Synonymous" is a claim about the PROTEIN; a synonymous
+    change can still disrupt splicing, so neither surface may round it up to harmless."""
+    import os as _os
+    _os.environ.setdefault("BASE_PATH", "/variant")
+    import app
+    from sugivariant.render import render_body
+    from sugivariant.enrich import refresh_record
+    rec = next(_records(limit_genes=120, want=lambda r: (r.get("hgvs_p") or "").endswith("=")), None)
+    if rec is None:
+        pytest.skip("no synonymous record in the sampled genes")
+    rec = dict(rec)
+    for k in ("_cons_fresh", "_sag_fresh", "_conc_fresh"):
+        rec.pop(k, None)
+    refresh_record(rec)
+    assert rec["consequence"]["type"] == "synonymous"
+    assert rec["lof_context"] is None
+
+    g, pops = app._freq_ctx(rec)
+    html = app._render("variant.html", v=rec, canonical=rec.get("canonical_slug"), nav="variant",
+                       jsonld="", freq_g=g, freq_pops=pops)
+    md = render_body(rec)
+    for name, surface in (("html", html), ("md", md)):
+        assert "synonymous" in surface, f"{name} never names the consequence"
+        assert "protein sequence does not" in surface, f"{name} does not say what is unchanged"
+        assert "splicing" in surface, f"{name} drops the splicing caveat"
+        # the one thing a synonymous label must never become
+        for forbidden in ("predicted loss-of-function", "stop-loss", "stop-gain", "harmless",
+                          "no effect", "benign because"):
+            assert forbidden not in surface, f"{name} says {forbidden!r} for a synonymous change"
+
+
+def test_a_non_lof_consequence_is_not_html_invisible():
+    """The HTML consequence row and tile were both gated on lof_context, so the 33,027
+    in-frame indel/delins records and every synonymous record showed the consequence in
+    the .md and nothing in the page. Gate on `consequence`, which lof_context implies."""
+    import pathlib
+    tpl = (pathlib.Path(__file__).resolve().parent.parent / "templates" / "variant.html").read_text()
+    assert tpl.count("v.consequence") >= 2, "the tile and the evidence row both need the fallback"
+    # and the .md must not be the only surface that can name one
+    rend = (pathlib.Path(__file__).resolve().parent.parent / "sugivariant" / "render.py").read_text()
+    assert 'consequence"]["type"] == "synonymous"' in rend
+
+
 def test_no_surface_lowercases_a_dataset_or_field_name():
     """Jinja's |capitalize and str.capitalize() lowercase the REST of the string, which
     turned "gnomAD v4.1 (AN 1,208,295)" into "gnomad v4.1 (an ...)" and, earlier,

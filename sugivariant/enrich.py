@@ -528,11 +528,17 @@ def molecular_consequence(rec):
     # alone would only drop it into the next one and call it stop-gain instead. Both
     # readings assert a loss of function the data does not support (§8), and the claim
     # propagated into lof_context and the disagreement flagger. p.Met1= is the same
-    # error at the start codon. Returning None is what every other synonymous change
-    # already gets here (p.Gly542= falls through), so these rows now simply omit the
-    # consequence line rather than carrying a wrong one.
+    # error at the start codon.
+    #
+    # The class is NAMED rather than left to fall through as None. Silence was correct
+    # but thin: the page prints "p.Ter1361=" and nothing on it explained what "=" meant.
+    # Naming it is also the only way to stay consistent -- labelling just the rows that
+    # were wrong would leave p.Gly542= silent beside a p.Ter1361= that says synonymous.
+    # lof is False, so lof_context() returns None at its first guard and no mechanism
+    # narrative can attach. The label describes the PROTEIN only: a synonymous change can
+    # still disrupt splicing, and the splice rows carry that question on their own.
     if p.endswith("=") or re.match(r"p\.\*\d+\*$", p):
-        return None
+        return {"type": "synonymous", "label": "synonymous", "lof": False}
     if "fs" in p:
         return {"type": "frameshift", "label": "frameshift", "lof": True}
     if re.match(r"p\.Met1(\?|=|[A-Za-z]{3})", p):
@@ -1768,21 +1774,26 @@ def refresh_consequence(rec):
     mechanism and disagreement_flag could side against ClinVar on the strength of it.
     567 records carry that claim on disk.
 
-    This CLEARS, never re-derives. The distinction matters: lof_context() needs the
-    gene's exon model, which is not one of the record's own stored fields, so a full
-    re-derivation would not be lookup-free and could not belong here. Clearing is
-    exact without it -- molecular_consequence() is a pure function of hgvs_p/hgvs_c,
-    and when it returns None, lof_context() returns None at its first guard whatever
-    the exons are. So the two keys can be emptied with certainty and nothing is
-    invented. A record whose grammar still types is left untouched.
+    It settles ONE class and leaves every other record alone: a protein the variant
+    does not change. That restriction is what lets it live here. lof_context() needs
+    the gene's exon model, which is not one of the record's own stored fields, so
+    re-deriving the typing in general would not be lookup-free. For this class the
+    answer needs no exons at all -- the consequence is a pure function of hgvs_p, and
+    lof is False, so lof_context() returns None at its first guard whatever the exon
+    model would have said. Nothing is invented and nothing else is touched.
+
+    It both corrects and fills: the 611 records that stored stop-loss or stop-gain get
+    the right label, and the ~669k that stored nothing get one for the first time, so
+    the two cannot disagree about what a synonymous page says.
 
     Mutates in place, once per record per process.
     """
     if rec.get("_cons_fresh"):
         return rec.get("consequence")
     rec["_cons_fresh"] = True
-    if (rec.get("consequence") or rec.get("lof_context")) and molecular_consequence(rec) is None:
-        rec["consequence"] = None
+    cons = molecular_consequence(rec)
+    if (cons or {}).get("type") == "synonymous":
+        rec["consequence"] = cons
         rec["lof_context"] = None
     return rec.get("consequence")
 

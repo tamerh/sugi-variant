@@ -417,14 +417,16 @@ def test_a_stop_that_stays_a_stop_is_not_a_loss_of_function():
     stop-gain instead -- so the '=' forms have to be settled first."""
     from sugivariant.enrich import molecular_consequence as mc, lof_context, is_missense
     for unchanged in ("p.Ter761=", "p.*761*", "p.Met1=", "p.Leu100=", "p.Leu10_Leu12="):
-        assert mc({"hgvs_p": unchanged}) is None, unchanged
+        got = mc({"hgvs_p": unchanged})
+        assert got and got["type"] == "synonymous", unchanged
+        assert got["lof"] is False, unchanged
         assert is_missense({"hgvs_p": unchanged}) is False, unchanged
     # and nothing downstream can assert a mechanism for it
     rec = {"hgvs_p": "p.Ter761=", "hgvs_c": "c.2283A>G",
            "gene_context": {"constraint": {"loeuf": 0.1, "pli": 1.0},
                             "dosage": {"haplo": 3}}}
     rec["consequence"] = mc(rec)
-    assert lof_context(rec) is None
+    assert lof_context(rec) is None, "lof=False must stop any mechanism narrative"
 
     # the genuine article keeps its label: the stop codon is replaced, so the
     # protein reads through
@@ -439,7 +441,7 @@ def test_a_stop_that_stays_a_stop_is_not_a_loss_of_function():
     assert mc({"hgvs_p": "", "hgvs_c": "c.588+1G>C"})["type"] == "splice"
 
 
-def test_a_wrong_consequence_already_on_disk_is_dropped_at_read_time():
+def test_a_wrong_consequence_already_on_disk_is_corrected_at_read_time():
     """611 records were built with a stop-retained change typed as stop-loss or
     stop-gain. refresh_record() is how a correction reaches records already on disk
     without a rebuild, so the clear belongs there -- otherwise the pages keep the
@@ -456,7 +458,7 @@ def test_a_wrong_consequence_already_on_disk_is_dropped_at_read_time():
            "lof_context": {"label": "stop-loss", "haploinsufficient": True,
                            "lof_disease_gene": True}}
     refresh_record(rec)
-    assert rec["consequence"] is None
+    assert rec["consequence"]["type"] == "synonymous"
     assert rec["lof_context"] is None
     assert disagreement_flag(rec) is None, "the flagger must not side against ClinVar"
 
@@ -464,7 +466,14 @@ def test_a_wrong_consequence_already_on_disk_is_dropped_at_read_time():
     r2 = {"hgvs_p": "p.Lys1358_Ter1361=",
           "consequence": {"type": "nonsense", "label": "nonsense (stop-gain)", "lof": True}}
     refresh_record(r2)
-    assert r2["consequence"] is None
+    assert r2["consequence"]["type"] == "synonymous"
+
+    # it FILLS as well as corrects: a synonymous record built before the label existed
+    # stored nothing, and must not end up saying less than the one that was wrong
+    fill = {"hgvs_p": "p.Gly542="}
+    refresh_record(fill)
+    assert fill["consequence"]["label"] == "synonymous"
+    assert fill["lof_context"] is None
 
     # a record the grammar still types keeps every bit of it
     keep = {"hgvs_p": "p.Glu1341delinsGlyTer",
@@ -474,10 +483,17 @@ def test_a_wrong_consequence_already_on_disk_is_dropped_at_read_time():
     assert keep["consequence"]["type"] == "nonsense"
     assert keep["lof_context"]["label"] == "nonsense (stop-gain)"
 
-    # a record that never carried a typing is not given one
+    # a class this refresher does not settle is still left completely alone: it has no
+    # exon model, so it must not touch anything but the unchanged-protein case
     bare = {"hgvs_p": "p.Arg117His"}
     refresh_record(bare)
     assert bare.get("consequence") is None and bare.get("lof_context") is None
+    frame = {"hgvs_p": "p.Gln592fs",
+             "consequence": {"type": "frameshift", "label": "frameshift", "lof": True},
+             "lof_context": {"label": "frameshift", "haploinsufficient": True}}
+    refresh_record(frame)
+    assert frame["consequence"]["type"] == "frameshift"
+    assert frame["lof_context"]["haploinsufficient"] is True
 
 
 def test_lof_context_uses_haploinsufficiency_and_constraint():
