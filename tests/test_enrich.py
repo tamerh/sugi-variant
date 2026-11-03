@@ -439,6 +439,47 @@ def test_a_stop_that_stays_a_stop_is_not_a_loss_of_function():
     assert mc({"hgvs_p": "", "hgvs_c": "c.588+1G>C"})["type"] == "splice"
 
 
+def test_a_wrong_consequence_already_on_disk_is_dropped_at_read_time():
+    """611 records were built with a stop-retained change typed as stop-loss or
+    stop-gain. refresh_record() is how a correction reaches records already on disk
+    without a rebuild, so the clear belongs there -- otherwise the pages keep the
+    claim until every one of 582 gene files is rewritten.
+
+    It CLEARS and never re-derives, deliberately: lof_context() needs the gene's exon
+    model, which is not one of the record's own stored fields, so re-deriving would not
+    be lookup-free. Clearing stays exact without it, because lof_context() returns None
+    at its first guard whenever consequence is None."""
+    from sugivariant.enrich import refresh_record, disagreement_flag
+    rec = {"hgvs_p": "p.Ter1361=", "hgvs_c": "c.4083A>G",
+           "classification": "Conflicting classifications of pathogenicity",
+           "consequence": {"type": "stop_loss", "label": "stop-loss", "lof": True},
+           "lof_context": {"label": "stop-loss", "haploinsufficient": True,
+                           "lof_disease_gene": True}}
+    refresh_record(rec)
+    assert rec["consequence"] is None
+    assert rec["lof_context"] is None
+    assert disagreement_flag(rec) is None, "the flagger must not side against ClinVar"
+
+    # the range form, which was typed stop-GAIN rather than stop-loss
+    r2 = {"hgvs_p": "p.Lys1358_Ter1361=",
+          "consequence": {"type": "nonsense", "label": "nonsense (stop-gain)", "lof": True}}
+    refresh_record(r2)
+    assert r2["consequence"] is None
+
+    # a record the grammar still types keeps every bit of it
+    keep = {"hgvs_p": "p.Glu1341delinsGlyTer",
+            "consequence": {"type": "nonsense", "label": "nonsense (stop-gain)", "lof": True},
+            "lof_context": {"label": "nonsense (stop-gain)"}}
+    refresh_record(keep)
+    assert keep["consequence"]["type"] == "nonsense"
+    assert keep["lof_context"]["label"] == "nonsense (stop-gain)"
+
+    # a record that never carried a typing is not given one
+    bare = {"hgvs_p": "p.Arg117His"}
+    refresh_record(bare)
+    assert bare.get("consequence") is None and bare.get("lof_context") is None
+
+
 def test_lof_context_uses_haploinsufficiency_and_constraint():
     from sugivariant.enrich import lof_context
     GERM = {"conditions": [{"name": "Cowden syndrome 1"}]}   # germline (non-somatic) condition

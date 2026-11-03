@@ -1756,7 +1756,35 @@ def refresh_record(rec):
     refresh_concordance(rec)
     refresh_frequency(rec)
     refresh_splice_agreement(rec)
+    refresh_consequence(rec)
     return rec
+
+
+def refresh_consequence(rec):
+    """Drop a stored consequence/lof_context that the HGVS grammar no longer supports.
+
+    The typing of a stop codon that stayed a stop (p.Ter761=, p.Met1=) was wrong: it
+    read as stop-loss with lof=True, so lof_context asserted a loss-of-function disease
+    mechanism and disagreement_flag could side against ClinVar on the strength of it.
+    567 records carry that claim on disk.
+
+    This CLEARS, never re-derives. The distinction matters: lof_context() needs the
+    gene's exon model, which is not one of the record's own stored fields, so a full
+    re-derivation would not be lookup-free and could not belong here. Clearing is
+    exact without it -- molecular_consequence() is a pure function of hgvs_p/hgvs_c,
+    and when it returns None, lof_context() returns None at its first guard whatever
+    the exons are. So the two keys can be emptied with certainty and nothing is
+    invented. A record whose grammar still types is left untouched.
+
+    Mutates in place, once per record per process.
+    """
+    if rec.get("_cons_fresh"):
+        return rec.get("consequence")
+    rec["_cons_fresh"] = True
+    if (rec.get("consequence") or rec.get("lof_context")) and molecular_consequence(rec) is None:
+        rec["consequence"] = None
+        rec["lof_context"] = None
+    return rec.get("consequence")
 
 
 def refresh_splice_agreement(rec):
