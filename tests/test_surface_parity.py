@@ -1618,10 +1618,15 @@ def test_both_surfaces_name_a_synonymous_change_and_neither_calls_it_harmless():
         assert "synonymous" in surface, f"{name} never names the consequence"
         assert "protein sequence does not" in surface, f"{name} does not say what is unchanged"
         assert "splicing" in surface, f"{name} drops the splicing caveat"
-        # the one thing a synonymous label must never become
+        # The caveat must survive wherever it is put. The HTML keeps the row short and
+        # carries it in a tooltip, so look for the claim rather than a bare substring:
+        # "Not the same as no effect" contains "no effect" while asserting its opposite.
         for forbidden in ("predicted loss-of-function", "stop-loss", "stop-gain", "harmless",
-                          "no effect", "benign because"):
+                          "has no effect", "without effect", "benign because"):
             assert forbidden not in surface, f"{name} says {forbidden!r} for a synonymous change"
+        assert "not a statement that the variant does nothing" in surface.lower() \
+            or "can still affect splicing" in surface, \
+            f"{name} names the class but never warns against reading it as harmless"
 
 
 def test_a_non_lof_consequence_is_not_html_invisible():
