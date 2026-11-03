@@ -326,9 +326,17 @@ def _protein_zone(v):
     if st and st.get("features"):
         L.append(f"Residue **{st['position']}** lies in " + "; ".join(st["features"]) + ".")
     if af and af.get("plddt"):
-        L.append(f"\nAlphaFold model confidence (whole protein): pLDDT {af['plddt']}, "
-                 f"{round(float(af['frac_high'])*100)}% of residues very-high."
-                 if af.get("frac_high") else f"\nAlphaFold pLDDT {af['plddt']}.")
+        # Link the model, like the PDB entries below are linked. The accession is on the
+        # alphafold block where a pass has refreshed it, and otherwise on the
+        # AlphaMissense block (missense records only).
+        _acc = af.get("acc") or (v.get("alphamissense") or {}).get("uniprot")
+        _name = (f"[AlphaFold](https://alphafold.ebi.ac.uk/entry/{_acc})" if _acc
+                 else "AlphaFold")
+        L.append(f"\n{_name} model confidence (whole protein, not this residue): "
+                 f"pLDDT {af['plddt']}, {round(float(af['frac_high'])*100)}% of residues "
+                 f"very-high."
+                 if af.get("frac_high") else
+                 f"\n{_name} pLDDT {af['plddt']} (whole protein, not this residue).")
     if pdb:
         mut = [p for p in pdb if any(w in (p.get("title") or "").lower()
                                      for w in ("mutant", "variant"))]

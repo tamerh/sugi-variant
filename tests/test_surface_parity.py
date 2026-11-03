@@ -1641,6 +1641,42 @@ def test_a_non_lof_consequence_is_not_html_invisible():
     assert 'consequence"]["type"] == "synonymous"' in rend
 
 
+def test_the_structure_row_is_reachable_and_says_which_protein_it_describes():
+    """The row read "AlphaFold pLDDT 75.96 · 8 PDB": a count of eight structures the
+    reader could not reach, and a whole-protein figure sitting directly beside the
+    Residue row with nothing saying it was not about that residue. The .md already said
+    "(whole protein)"; the HTML dropped the qualifier, which is the half that matters,
+    because a well-ordered domain and a disordered tail average to a number true of
+    neither."""
+    import os as _os, re
+    _os.environ.setdefault("BASE_PATH", "/variant")
+    import app
+    from sugivariant.render import render_body
+    from sugivariant.enrich import refresh_record
+    rec = next(_records(limit_genes=120, want=lambda r: (r.get("structure") or {}).get("pdb")
+                        and ((r.get("structure") or {}).get("alphafold") or {}).get("plddt")
+                        and (r.get("alphamissense") or {}).get("uniprot")), None)
+    if rec is None:
+        pytest.skip("no record with both PDB entries and an AlphaFold readout")
+    rec = dict(rec)
+    for k in ("_cons_fresh", "_sag_fresh", "_conc_fresh"):
+        rec.pop(k, None)
+    refresh_record(rec)
+    g, pops = app._freq_ctx(rec)
+    html = app._render("variant.html", v=rec, canonical=rec.get("canonical_slug"), nav="variant",
+                       jsonld="", freq_g=g, freq_pops=pops)
+    md = render_body(rec)
+    acc = ((rec.get("structure") or {}).get("alphafold") or {}).get("acc") \
+        or (rec.get("alphamissense") or {}).get("uniprot")
+    for name, surface in (("html", html), ("md", md)):
+        assert f"alphafold.ebi.ac.uk/entry/{acc}" in surface, f"{name} does not link the model"
+        assert "rcsb.org/structure/" in surface, f"{name} does not link a PDB entry"
+        assert "whole protein" in surface, f"{name} lets a protein-wide pLDDT pass as the residue's"
+    # the row must not go back to advertising a bare count with nothing to click
+    row = re.search(r"<dt>Structure</dt>\s*<dd>(.*?)</dd>", html, re.S)
+    assert row and "<a " in row.group(1), "the Structure row has no link in it at all"
+
+
 def test_no_surface_lowercases_a_dataset_or_field_name():
     """Jinja's |capitalize and str.capitalize() lowercase the REST of the string, which
     turned "gnomAD v4.1 (AN 1,208,295)" into "gnomad v4.1 (an ...)" and, earlier,

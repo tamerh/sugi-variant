@@ -1985,6 +1985,14 @@ _UF_KEEP = {
     "nucleotide binding region": "a nucleotide-binding region",
     "cross-link": "a cross-link site", "disulfide bond": "a disulfide bond",
     "sequence variant": "a UniProt-annotated variant site ({d})",
+    # Membrane topology. The type string is "transmembrane region", NOT "transmembrane":
+    # _UF_KEEP is an exact lowercase match, so the shorter spelling silently keeps nothing.
+    # UniProt describes each of these only as "helical" and does not NUMBER them, so the
+    # phrase cannot say "TM4" -- that would be us counting intervals, and literature TM
+    # numbering does not reliably follow UniProt's order. The interval carries the detail.
+    "transmembrane region": "a transmembrane helix",
+    # "cytoplasmic" / "extracellular" / "lumenal", straight from UniProt's description.
+    "topological domain": "the {d} side of the membrane",
 }
 
 
@@ -1995,8 +2003,14 @@ def gene_structure(hgnc_id):
             "resolution": p.get("resolution")}
            for p in map_all(hgnc_id, ">>hgnc>>uniprot>>pdb")]
     af = map_all(hgnc_id, ">>hgnc>>uniprot>>alphafold")
+    # `acc` is the UniProt accession, which the alphafold row already carries as its id.
+    # Keeping it is what lets a page link to the model: the accession otherwise only
+    # exists on records that have an AlphaMissense score, i.e. missense ones.
+    # NB: that row's `sequence_length` is NOT the protein length (reported upstream,
+    # systematically ~7.8x too large), so it is deliberately not read here.
     alphafold = ({"plddt": af[0].get("global_metric"),
-                  "frac_high": af[0].get("fraction_plddt_very_high")} if af else None)
+                  "frac_high": af[0].get("fraction_plddt_very_high"),
+                  "acc": af[0].get("id")} if af else None)
     intervals = []
     for f in map_all(hgnc_id, ">>hgnc>>uniprot>>ufeature", cap=60):
         t = (f.get("type") or "").strip().lower()

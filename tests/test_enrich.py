@@ -496,6 +496,60 @@ def test_a_wrong_consequence_already_on_disk_is_corrected_at_read_time():
     assert frame["lof_context"]["haploinsufficient"] is True
 
 
+def test_membrane_topology_uses_the_type_strings_uniprot_actually_sends():
+    """_UF_KEEP is an exact lowercase match on UniProt's feature type. The obvious
+    spelling, "transmembrane", is NOT what comes back: probed on staging 2026-11-03,
+    TMC1 returns "transmembrane region" (10) and "topological domain" (11). Keying on
+    the short form would have looked correct and silently kept nothing, so pin the
+    strings the source actually uses."""
+    from sugivariant.enrich import _UF_KEEP
+    assert "transmembrane region" in _UF_KEEP
+    assert "topological domain" in _UF_KEEP
+    assert "transmembrane" not in _UF_KEEP, "the bare form is not a UniProt type"
+
+
+def test_the_page_never_numbers_a_transmembrane_helix():
+    """UniProt describes every transmembrane region only as "helical" and does not
+    number them. Calling one TM4 would be us counting intervals, and literature TM
+    numbering does not reliably follow UniProt's order, so the phrase states the class
+    and lets the interval carry the detail."""
+    import re
+    from sugivariant.enrich import _UF_KEEP
+    phrase = _UF_KEEP["transmembrane region"]
+    assert "{d}" not in phrase, "UniProt's description is just 'helical'; do not interpolate it"
+    assert not re.search(r"\bTM\s*\d", phrase), phrase
+
+
+def test_a_residue_is_placed_in_the_membrane_and_on_a_side_of_it():
+    """The two facts a channel or transporter variant actually needs. Intervals are
+    synthetic so this needs no biobtree: these are TMC1's real numbers."""
+    from sugivariant.enrich import structural_context
+    iv = [{"type": "topological domain", "desc": "cytoplasmic", "begin": 431, "end": 434},
+          {"type": "transmembrane region", "desc": "helical", "begin": 403, "end": 430},
+          {"type": "transmembrane region", "desc": "helical", "begin": 435, "end": 469},
+          {"type": "topological domain", "desc": "extracellular", "begin": 470, "end": 515}]
+    assert structural_context("p.Arg418His", iv)["features"] == ["a transmembrane helix"]
+    assert structural_context("p.Arg432His", iv)["features"] == \
+        ["the cytoplasmic side of the membrane"]
+    assert structural_context("p.Arg480His", iv)["features"] == \
+        ["the extracellular side of the membrane"]
+    # a residue outside every interval gets nothing rather than the nearest thing
+    assert structural_context("p.Arg900His", iv) is None
+
+
+def test_membrane_topology_still_obeys_the_isoform_guard():
+    """5.6% of records are flagged am_isoform_mismatch, so a new feature type that
+    ignored the guard would put a membrane claim on the wrong residue at scale. Without
+    proof of canonical numbering (a SaProt score, passed as canonical_pos) the block is
+    withheld entirely, exactly as for every other feature type."""
+    from sugivariant.enrich import structural_context
+    iv = [{"type": "transmembrane region", "desc": "helical", "begin": 403, "end": 430}]
+    assert structural_context("p.Arg418His", iv, mismatch=True, canonical_pos=None) is None
+    got = structural_context("p.Arg999His", iv, mismatch=True, canonical_pos=418)
+    assert got["features"] == ["a transmembrane helix"]
+    assert got["position"] == 418 and got["uniprot_numbering"] is True
+
+
 def test_lof_context_uses_haploinsufficiency_and_constraint():
     from sugivariant.enrich import lof_context
     GERM = {"conditions": [{"name": "Cowden syndrome 1"}]}   # germline (non-somatic) condition
