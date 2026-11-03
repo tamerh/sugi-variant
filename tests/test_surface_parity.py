@@ -1384,9 +1384,15 @@ def test_three_quiet_predictors_still_read_as_a_sentence():
 def test_the_page_shows_a_saprot_row_even_when_saprot_is_dark():
     """An absent predictor must be stated, like SpliceAI's snv_only/absent rows —
     not omitted, which is indistinguishable from a page that never looked."""
+    # "no saprot" has TWO causes and the page words them differently: a WITHHELD score
+    # (saprot_misaligned -> "numbering disagrees past residue N") is a number we refuse
+    # to show because it describes the wrong residue, which is a different claim from a
+    # protein AlphaFold DB never modelled. Without excluding the misaligned case this
+    # sampled ITPR1 p.Leu1564Pro, which correctly says "withheld", and then asserted the
+    # "not scored" wording against it.
     rec = next(_records(limit_genes=600,
                         want=lambda r: (r.get("alphamissense") or {}).get("class")
-                        and not r.get("saprot")), None)
+                        and not r.get("saprot") and not r.get("saprot_misaligned")), None)
     if rec is None:
         pytest.skip("every sampled AlphaMissense-scored record has a SaProt score")
     html, _md, _g, _p = _both(rec)
