@@ -406,6 +406,39 @@ def test_molecular_consequence():
     assert mc({"hgvs_p": "p.Arg130Gln"}) is None                  # plain missense → typed by AM, not here
 
 
+def test_a_stop_that_stays_a_stop_is_not_a_loss_of_function():
+    """p.Ter761= is a stop codon that stayed a stop (TAA>TAG): the protein is
+    unchanged. It used to be reported as stop-loss, because the branch matched
+    'p.Ter' plus a number and never looked at what came after. 567 indexed rows
+    carried that claim, and it reached lof_context and the disagreement flagger,
+    so a synonymous variant could be described as a predicted loss of function in
+    a LoF-intolerant gene. Narrowing the stop-loss branch on its own would not have
+    fixed it -- the row would have fallen through to 'Ter' in p and been called
+    stop-gain instead -- so the '=' forms have to be settled first."""
+    from sugivariant.enrich import molecular_consequence as mc, lof_context, is_missense
+    for unchanged in ("p.Ter761=", "p.*761*", "p.Met1=", "p.Leu100=", "p.Leu10_Leu12="):
+        assert mc({"hgvs_p": unchanged}) is None, unchanged
+        assert is_missense({"hgvs_p": unchanged}) is False, unchanged
+    # and nothing downstream can assert a mechanism for it
+    rec = {"hgvs_p": "p.Ter761=", "hgvs_c": "c.2283A>G",
+           "gene_context": {"constraint": {"loeuf": 0.1, "pli": 1.0},
+                            "dosage": {"haplo": 3}}}
+    rec["consequence"] = mc(rec)
+    assert lof_context(rec) is None
+
+    # the genuine article keeps its label: the stop codon is replaced, so the
+    # protein reads through
+    for lost, kind in (("p.Ter761Leu", "stop_loss"), ("p.Ter761LeuextTer?", "stop_loss"),
+                       ("p.Ter467Xaa", "stop_loss"), ("p.Met1Val", "start_loss"),
+                       ("p.Met1?", "start_loss"), ("p.Gln39Ter", "nonsense")):
+        got = mc({"hgvs_p": lost})
+        assert got and got["type"] == kind and got["lof"] is True, (lost, got)
+
+    # a canonical splice site is typed from the c., so it must survive a p. that
+    # reports no protein change
+    assert mc({"hgvs_p": "", "hgvs_c": "c.588+1G>C"})["type"] == "splice"
+
+
 def test_lof_context_uses_haploinsufficiency_and_constraint():
     from sugivariant.enrich import lof_context
     GERM = {"conditions": [{"name": "Cowden syndrome 1"}]}   # germline (non-somatic) condition

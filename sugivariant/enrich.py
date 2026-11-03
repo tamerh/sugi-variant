@@ -521,6 +521,18 @@ def molecular_consequence(rec):
     or None. Mainly for the non-missense ~51% where the predictor panel is dark."""
     p = rec.get("hgvs_p") or ""
     c = rec.get("hgvs_c") or ""
+    # HGVS '=' means the residue is UNCHANGED, so this has to be settled before the
+    # positional branches below, which match on the prefix alone. A stop codon that
+    # stays a stop (p.Ter761=, TAA>TAG) is stop-RETAINED: it was read as stop-loss
+    # because `p\.Ter\d` ignores what follows the number, and narrowing that branch
+    # alone would only drop it into the next one and call it stop-gain instead. Both
+    # readings assert a loss of function the data does not support (§8), and the claim
+    # propagated into lof_context and the disagreement flagger. p.Met1= is the same
+    # error at the start codon. Returning None is what every other synonymous change
+    # already gets here (p.Gly542= falls through), so these rows now simply omit the
+    # consequence line rather than carrying a wrong one.
+    if p.endswith("=") or re.match(r"p\.\*\d+\*$", p):
+        return None
     if "fs" in p:
         return {"type": "frameshift", "label": "frameshift", "lof": True}
     if re.match(r"p\.Met1(\?|=|[A-Za-z]{3})", p):
