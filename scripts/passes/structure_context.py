@@ -38,6 +38,14 @@ and left exactly as they are, the same choice spliceai_span makes for its own ca
 cases. Measured at 2.1% of records over a 400-gene sample. A gene whose fetch fails or
 returns nothing is likewise skipped, so a transport failure can only cost an addition.
 
+A NOTE FOR WHOEVER COMES NEXT. This writes the DERIVED field (`structural`) and not the
+raw `structure.intervals` the features were read from, so on a record written before this
+pass the stored intervals still lack the two new types while the derived line reflects
+them. Nothing reads stored intervals at serve time, so no page is affected, and a rebuilt
+gene gets both. But do not treat stored intervals as current: fetch them, as this pass
+does. Bringing them into line would rewrite nearly every file for no visible change, so it
+is left for whenever a pass touches them for a reason of its own.
+
 Files are rewritten atomically. --apply is required to write; without it this only counts.
 
 Usage:  structure_context.py <records-dir> [--apply] [--workers N] [--genes=A,B] [--sample N]

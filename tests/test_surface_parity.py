@@ -1682,6 +1682,18 @@ def test_the_structure_row_is_reachable_and_says_which_protein_it_describes():
     row = re.search(r"<dt>Structure</dt>\s*<dd>(.*?)</dd>", html, re.S)
     assert row and "<a " in row.group(1), "the Structure row has no link in it at all"
 
+    # Same PDB entries on both surfaces. They drifted once -- the .md listed 6 and the
+    # HTML 3 -- which is not a false statement either way, but it means a reader
+    # comparing a page with its .md twin sees two different lists, and nothing was
+    # checking it.
+    ids = lambda s: re.findall(r"rcsb\.org/structure/([0-9A-Za-z]+)", s)
+    assert ids(html) == ids(md), (ids(html), ids(md))
+    # and whichever is truncated must still say how many were left out
+    n = len((rec.get("structure") or {}).get("pdb") or [])
+    if n > len(ids(html)):
+        assert f"+{n - len(ids(html))}" in html, "the HTML hides the remainder"
+        assert str(n) in md, "the .md does not state the true total"
+
 
 def test_no_surface_lowercases_a_dataset_or_field_name():
     """Jinja's |capitalize and str.capitalize() lowercase the REST of the string, which
