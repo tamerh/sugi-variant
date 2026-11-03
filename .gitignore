@@ -7,7 +7,14 @@ docs/internal/
 # server paths, so it stays out of the public repo.
 variant.sh
 run.sh
-scripts/
+# scripts/ is local tooling, EXCEPT scripts/passes/: a pass is method, not deployment.
+# It records exactly how a correction reached the 4.15M records already on disk, which
+# is the part of the work that most needs to be inspectable. The checkpoint files each
+# pass writes beside itself stay out.
+scripts/*
+!scripts/passes/
+scripts/passes/*
+!scripts/passes/*.py
 tools/
 deploy/
 *.log
