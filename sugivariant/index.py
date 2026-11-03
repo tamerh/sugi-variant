@@ -479,12 +479,22 @@ if __name__ == "__main__":
     ap.add_argument("--bulk", action="store_true",
                     help="tune the DB for a full build into a throwaway file")
     ap.add_argument("--db", default=os.environ.get("INDEX_DB", "cache/index.db"))
+    # Without this the CLI cannot express "reindex these genes": build_index skips any
+    # gene already in gene_meta, which is what makes a full build resumable. A fix to a
+    # readout that index_gene PERSISTS (variant.flag) has to be able to rewrite rows for
+    # genes that are already done, and the stop-retained correction was the first that
+    # needed it. index_gene already deletes and reinserts a gene's rows, so forcing is
+    # idempotent, not additive.
+    ap.add_argument("--force", action="store_true",
+                    help="reindex genes already in gene_meta instead of skipping them "
+                         "(for a correction to a persisted readout)")
     ap.add_argument("genes", nargs="*", help="gene symbols (or use --genes-file)")
     a = ap.parse_args()
     genes = a.genes
     if a.genes_file:
         genes = [ln.strip() for ln in open(a.genes_file) if ln.strip() and not ln.startswith("#")]
     print(f"building {a.db} over {len(genes)} genes (resumable)…", flush=True)
-    build_index(genes, a.db, from_records=a.from_records, bulk=a.bulk)
+    build_index(genes, a.db, from_records=a.from_records, bulk=a.bulk,
+                skip_done=not a.force)
     sz = os.path.getsize(a.db) / 1024 / 1024
     print(f"-> {a.db} ({sz:.1f} MB) | {stats(open_db(a.db))}")
