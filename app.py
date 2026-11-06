@@ -6,6 +6,7 @@ hit. Sibling of the Sugi Predict app; reuses the atlas.css design system.
 Run: uvicorn app:app --host 0.0.0.0 --port 8013
 """
 import hashlib
+import json
 import os
 import pathlib
 import re
@@ -38,6 +39,7 @@ from sugivariant.enrich import (begin_build as _begin_build,   # noqa: E402
                                build_degraded as _build_degraded)
 from sugibiobtree.client import BiobtreeError          # noqa: E402
 from sugivariant import index as IX                       # noqa: E402
+from sugivariant import dbvar as SV                       # noqa: E402
 
 ROOT = pathlib.Path(__file__).parent
 BASE = os.environ.get("BASE_PATH", "").rstrip("/")
@@ -445,12 +447,13 @@ def _render(tpl, **ctx):
 
 # ── persistent resolution index (optional; falls back to the live path if absent) ─
 INDEX_DB = pathlib.Path(os.environ.get("INDEX_DB") or (CACHE_DIR / "index.db"))
+SV_DB = pathlib.Path(os.environ.get("SV_DB") or (CACHE_DIR / "sv.db"))
 _tls = threading.local()
 
 
 def _load_release():
     """Load the compact (or full) release manifest for VARIANT_SERVE=release."""
-    global _RELEASE, _RELEASE_STATE, _RELEASE_ID, _RELEASE_DATE, _RELEASE_VERSION, _RELEASE_META
+    global _RELEASE, _RELEASE_STATE, _RELEASE_ID, _RELEASE_DATE, _RELEASE_VERSION, _RELEASE_META, SV_DB
     import json
     if not RELEASE_PATH.exists():
         raise RuntimeError(f"VARIANT_SERVE=release but no release manifest at {RELEASE_PATH}")
@@ -476,6 +479,9 @@ def _load_release():
     _RELEASE_DATE = data.get("released_at") or (data.get("created_at") or "")[:10] or None
     _RELEASE_VERSION = data.get("variant_version") or _RELEASE_ID
     _RELEASE_META = data
+    sv = ((data.get("corpora") or {}).get("structural_variant") or {})
+    if sv.get("db"):
+        SV_DB = pathlib.Path(sv["db"])
     env.globals["release"] = _RELEASE_VERSION
     env.globals["released_at"] = _RELEASE_DATE
     rd = corpus.get("records_dir")
@@ -508,6 +514,69 @@ def _index():
         conn = IX.open_ro(str(INDEX_DB))
         _tls.index = conn
     return conn
+
+
+def _sv_index():
+    """Thread-local read-only connection to the dbVar structural-variant store, or None."""
+    if not SV_DB.exists():
+        return None
+    conn = getattr(_tls, "sv", None)
+    if conn is None:
+        conn = SV.open_ro(str(SV_DB))
+        _tls.sv = conn
+    return conn
+
+
+def _sv_row(row):
+    r = dict(row)
+    for k in ("phenotypes", "clinvar"):
+        try:
+            r[k] = json.loads(r.get(k) or "[]")
+        except Exception:
+            r[k] = []
+    return r
+
+
+def _sv_lookup(key):
+    conn = _sv_index()
+    if not conn:
+        return []
+    rows = [_sv_row(r) for r in SV.lookup(conn, key)]
+    if rows:
+        return rows
+    # A locus request (chr:start-end) that is not itself an SV coordinate: return
+    # everything overlapping it. Exact SV coordinates are handled by the alias above.
+    m = re.match(r"^([^:]+):(\d+)-(\d+)$", (key or "").strip())
+    if m:
+        return [_sv_row(r) for r in SV.overlapping(
+            conn, m.group(1), int(m.group(2)), int(m.group(3)))]
+    return []
+
+
+def _sv_genes(nssv):
+    conn = _sv_index()
+    return SV.genes_for_sv(conn, nssv) if conn else []
+
+
+def _sv_size(v):
+    try:
+        return f"{abs(int(v.get('svlen'))):,} bp"
+    except (TypeError, ValueError):
+        return None
+
+
+def _clinvar_url(acc):
+    a = (acc or "").strip()
+    if a.upper().startswith("VCV"):
+        num = a[3:].split(".")[0].lstrip("0") or "0"
+        return f"https://www.ncbi.nlm.nih.gov/clinvar/variation/{num}/"
+    if a.upper().startswith("RCV"):
+        return f"https://www.ncbi.nlm.nih.gov/clinvar/{a}/"
+    return None
+
+
+env.globals["sv_size"] = _sv_size
+env.globals["clinvar_url"] = _clinvar_url
 
 
 def _ix_rec(row):
@@ -1046,6 +1115,42 @@ def gene_hub(gene: str):
     return _render("gene_hub.html", gene=g, groups=groups, total=len(rows),
                    flagged=flagged, cap=_HUB_CAP, dgroups=dgroups, dcounts=dcounts,
                    dcap=_DZ_CAP, cats=DISAGREEMENT_CATEGORIES, meta=CAT_META)
+
+
+@app.get("/sv/{key}.md", response_class=PlainTextResponse)
+def sv_md(key: str):
+    """Markdown twin of a dbVar structural-variant page (NSSV / nsv / VCV / locus)."""
+    rows = _sv_lookup(key)
+    if not rows:
+        return PlainTextResponse("This structural variant is not in the current release.\n",
+                                 status_code=404)
+    headers = {"Cache-Control": "public, max-age=3600",
+               "Access-Control-Allow-Origin": "*",
+               "Content-Type": "text/markdown; charset=utf-8"}
+    if len(rows) > 1:
+        md = "# Structural variants\n\n" + "\n".join(
+            f"- {r['nssv']} — {r.get('svtype')} at chr{r['chrom']}:{r['start']}-{r['end']}"
+            + (f", {r['significance']}" if r.get("significance") else "")
+            for r in rows)
+        return PlainTextResponse(md + "\n", headers=headers)
+    rec = rows[0]
+    md = SV.render_md(rec, _sv_genes(rec["nssv"]))
+    return PlainTextResponse(md, headers=headers)
+
+
+@app.get("/sv/{key}", response_class=HTMLResponse)
+def sv_page(key: str):
+    """dbVar structural-variant page. Read-only; never builds."""
+    rows = _sv_lookup(key)
+    if not rows:
+        if RELEASE_MODE:
+            raise StarletteHTTPException(404, f"“{key}” is not in the current release.")
+        raise StarletteHTTPException(404, f"No structural variant for “{key}”.")
+    if len(rows) == 1:
+        rec, genes, hits = rows[0], _sv_genes(rows[0]["nssv"]), None
+    else:
+        rec, genes, hits = None, None, rows
+    return HTMLResponse(_render("sv.html", v=rec, genes=genes, hits=hits, nav="variant"))
 
 
 @app.get("/{slug}.md", response_class=PlainTextResponse)

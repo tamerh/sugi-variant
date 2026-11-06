@@ -122,6 +122,20 @@ def test_serve_manifest_is_compact_and_excludes_unservable(tmp_path):
     assert genes["AAA"]["path"] == "AAA.pkl.gz"
 
 
+def test_serve_manifest_names_the_sv_corpus(tmp_path):
+    rec, idx = _fixture(tmp_path)
+    manifest, _ = build_manifest(rec, idx, release="v1.0.0")
+    svdb = tmp_path / "sv.db"
+    conn = sqlite3.connect(svdb)
+    conn.execute("CREATE TABLE sv(nssv TEXT)")
+    conn.execute("INSERT INTO sv VALUES('NSSV1')")
+    conn.commit()
+    conn.close()
+    serve = serve_manifest(manifest, sv_db=str(svdb))
+    assert serve["corpora"]["structural_variant"]["records"] == 1
+    assert serve["corpora"]["structural_variant"]["db"].endswith("sv.db")
+
+
 def test_rebuild_queue_targets_only_missing_variants(tmp_path):
     rec, idx = _fixture(tmp_path)
     manifest, _ = build_manifest(rec, idx, count_records=True)

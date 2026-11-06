@@ -520,13 +520,16 @@ def rebuild_queue(manifest):
 SERVABLE = ("ok", "stale", "mismatch")
 
 
-def serve_manifest(manifest):
+def serve_manifest(manifest, sv_db=None):
     """Compact manifest for the read-only serving mode.
 
     Only genes with a record file and a servable status. Missing/known-empty/
     orphan genes are absent: the app answers them as "not in snapshot" without
     touching a record build. `stale` is served (the page carries its source dates)
     and `mismatch` is served (the pickle exists; its page is usable).
+
+    If `sv_db` is given, the structural-variant corpus is named in the release
+    alongside the small-variant corpus.
     """
     corpus = ((manifest or {}).get("corpora") or {}).get(CORPUS) or {}
     state = corpus.get("gene_state") or {}
@@ -535,7 +538,7 @@ def serve_manifest(manifest):
         if s.get("path") and s.get("status") in SERVABLE:
             genes[g] = {"path": s["path"], "status": s["status"],
                         "stale": "stale" in (s.get("issues") or [])}
-    return {
+    out = {
         "schema": "sugi-variant-release-serve/1",
         "release": manifest.get("release"),
         "released_at": manifest.get("released_at"),
@@ -548,6 +551,17 @@ def serve_manifest(manifest):
         "index_db": corpus.get("index_db"),
         "corpora": {"small_variant": {"genes": genes, "status": corpus.get("status")}},
     }
+    if sv_db:
+        n = None
+        try:
+            conn = sqlite3.connect(f"file:{sv_db}?mode=ro", uri=True)
+            n = conn.execute("SELECT COUNT(*) FROM sv").fetchone()[0]
+            conn.close()
+        except Exception:
+            pass
+        out["corpora"]["structural_variant"] = {"db": os.path.abspath(sv_db),
+                                                "records": n}
+    return out
 
 
 def verify_manifest(manifest, records_dir, index_db, count_records=False, sample=None):
@@ -651,6 +665,7 @@ def main(argv=None):
     b.add_argument("--report", help="optional Markdown audit path")
     b.add_argument("--queue-out", help="write the rebuild queue JSON here")
     b.add_argument("--serve-out", help="write the compact serve manifest here")
+    b.add_argument("--sv-db", help="include the dbVar sv.db in the release manifest")
     b.add_argument("--current-versions", help="JSON {dataset: version} to check staleness")
     b.add_argument("--release", help="release id (vX.Y.Z); default VARIANT_BUILD_VERSION or git describe")
     b.add_argument("--released-at", help="release date (YYYY-MM-DD; default today)")
@@ -694,7 +709,7 @@ def main(argv=None):
         if a.queue_out:
             _write_atomic(a.queue_out, json.dumps(queue, indent=2, sort_keys=False) + "\n")
         if a.serve_out:
-            serve = serve_manifest(manifest)
+            serve = serve_manifest(manifest, sv_db=a.sv_db)
             _write_atomic(a.serve_out,
                           json.dumps(serve, indent=2, sort_keys=False) + "\n")
         t = report["totals"]
