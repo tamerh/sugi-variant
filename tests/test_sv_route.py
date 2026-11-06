@@ -64,6 +64,19 @@ def test_markdown_twin(client):
     assert "TMC1" in r.text
 
 
+def test_resolve_json_for_sv(client):
+    r = client.get("/resolve.json?q=NSSV1")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["hits"][0]["kind"] == "structural_variant"
+    assert d["hits"][0]["nssv"] == "NSSV1"
+    assert d["not_found"] is False
+    region = client.get("/resolve.json?q=1:2000000-2100000").json()
+    assert region["ambiguous"] is True
+    assert {h["nssv"] for h in region["hits"]} == {"NSSV1", "NSSV2"}
+    assert client.get("/resolve.json?q=NSSV999").json()["not_found"] is True
+
+
 def test_sv_hub(client):
     r = client.get("/sv")
     assert r.status_code == 200

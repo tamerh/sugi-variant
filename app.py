@@ -13,7 +13,8 @@ import re
 import sys
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, Response, RedirectResponse, PlainTextResponse
+from fastapi.responses import (HTMLResponse, Response, RedirectResponse,
+                               PlainTextResponse, JSONResponse)
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -587,7 +588,8 @@ def _ix_rec(row):
     return {"canonical_slug": row["slug"], "gene_symbol": row["gene"],
             "hgvs_p": row["hgvs_p"], "hgvs_c": row["hgvs_c"],
             "classification": row["classification"], "review_status": row["review_status"],
-            "rsid": row["rsid"], "variation_id": row["vcv"]}
+            "rsid": row["rsid"], "coordinate": row["coordinate"],
+            "variation_id": row["vcv"]}
 
 
 def _index_hits(key):
@@ -626,6 +628,8 @@ def resolve_rsid(rsid):
     hits = _index_hits(rsid.lower())
     if hits:
         return hits
+    if RELEASE_MODE:
+        return []           # release serving is read-only; no live dbSNP fallback
     try:
         variations = map_all(rsid, ">>dbsnp>>clinvar", cap=None)
     except Exception:
@@ -984,6 +988,72 @@ def genes_directory():
 
 _PUB = "https://sugi.bio" + (BASE or "/variant")
 env.globals["pub"] = _PUB   # absolute public base, for canonical citation URLs
+
+
+def _hit_small(r):
+    gene = r.get("gene_symbol") or r.get("gene")
+    slug = r.get("canonical_slug") or r.get("slug")
+    return {
+        "kind": "variant", "slug": slug, "gene": gene,
+        "hgvs_p": r.get("hgvs_p"), "hgvs_c": r.get("hgvs_c"),
+        "classification": r.get("classification"),
+        "review_status": r.get("review_status"),
+        "rsid": r.get("rsid"), "coordinate": r.get("coordinate"),
+        "variation_id": r.get("variation_id") or r.get("vcv"),
+        "canonical_url": f"{_PUB}/{slug}",
+        "cached": bool(gene and (_RECORDS_DIR / f"{gene.upper()}.pkl.gz").exists()),
+    }
+
+
+def _hit_sv(r):
+    return {
+        "kind": "structural_variant", "nssv": r.get("nssv"), "nsv": r.get("nsv"),
+        "chromosome": r.get("chrom"), "start": r.get("start"), "end": r.get("end"),
+        "svtype": r.get("svtype"), "significance": r.get("significance"),
+        "canonical_url": f"{_PUB}/sv/{r.get('nssv')}", "cached": True,
+    }
+
+
+@app.get("/resolve.json")
+def resolve_json(q: str = "", gene: str = "", slug: str = "", limit: int = 10):
+    """Read-only resolver for agents/MCP: identifier -> canonical page(s).
+
+    Small variants and structural variants share the response shape. An rsID,
+    coordinate, GENE+HGVS, slug, NSSV/nsv, VCV or locus resolves; multiple hits
+    are returned as `ambiguous` rather than silently choosing one.
+    """
+    limit = max(1, min(int(limit or 10), 50))
+    q = (q or "").strip()
+    key = (slug or q).strip()
+    hits = []
+    if key:
+        if slug:
+            small = _index_hits(slug) or []
+            hits = [_hit_small(r) for r in small]
+            if not hits:
+                hits = [_hit_sv(r) for r in _sv_lookup(slug)]
+        else:
+            sv = _sv_lookup(q)
+            if sv:
+                hits = [_hit_sv(r) for r in sv]
+            else:
+                _kind, _term, recs = resolve_query(q)
+                hits = [_hit_small(r) for r in recs]
+                if not hits:
+                    hits = [_hit_small(r) for r in (_index_hits(q) or [])]
+    if gene:
+        g = gene.upper()
+        hits = [h for h in hits
+                if (h.get("gene") or "").upper() == g
+                or (h.get("kind") == "structural_variant" and g in _sv_genes(h["nssv"]))]
+    hits = hits[:limit]
+    kinds = {h["kind"] for h in hits}
+    return JSONResponse(
+        {"query": q, "kind": (kinds.pop() if len(kinds) == 1 else ("mixed" if kinds else None)),
+         "ambiguous": len(hits) > 1, "hits": hits, "not_found": not hits,
+         "release": _RELEASE_VERSION if RELEASE_MODE else None},
+        headers={"Cache-Control": "public, max-age=300"})
+
 
 
 def _index_lastmod():
