@@ -42,10 +42,17 @@ from sugivariant import index as IX                       # noqa: E402
 ROOT = pathlib.Path(__file__).parent
 BASE = os.environ.get("BASE_PATH", "").rstrip("/")
 CACHE_DIR = pathlib.Path(os.environ.get("CACHE_DIR") or (ROOT / "cache"))
+SERVE_MODE = (os.environ.get("VARIANT_SERVE") or "auto").strip().lower()
+RELEASE_MODE = SERVE_MODE in ("release", "snapshot")
+RELEASE_PATH = pathlib.Path(os.environ.get("VARIANT_RELEASE")
+                             or os.environ.get("VARIANT_SNAPSHOT")
+                             or (CACHE_DIR / "release.json"))
 
 env = Environment(loader=FileSystemLoader(str(ROOT / "templates")),
                   autoescape=select_autoescape(["html"]))
 env.globals["base"] = BASE
+env.globals["release"] = None
+env.globals["released_at"] = None
 env.globals["css_v"] = lambda: str(int(max(
     (ROOT / "static" / "css" / f).stat().st_mtime for f in ("app.css", "atlas.css"))))
 
@@ -158,6 +165,14 @@ _GENE_CACHE_LOCK = threading.Lock()
 # evicted with its records and rebuilt on the next page. Never written to disk.
 _SIMILAR_INDEX = {}
 _SIMILAR_LOCK = threading.Lock()
+# Read-only release mode (VARIANT_SERVE=release): {GENE: {path, status, stale}}
+# and the snapshot id used for the X-Sugi-Variant-Release header. Loaded once at startup.
+_RELEASE = None
+_RELEASE_STATE = {}
+_RELEASE_ID = None
+_RELEASE_DATE = None
+_RELEASE_VERSION = None
+_RELEASE_META = {}
 # Measured deserialized-RAM cost per enriched record (~15 KB by RSS delta); rounded up so the
 # byte budget is a safe upper bound on real memory (GENE_CACHE_MB ~= actual MB the cache uses).
 _BYTES_PER_VARIANT = 16000
@@ -235,11 +250,51 @@ def _with_similar(r, gene, recs):
     return r
 
 
+_RELEASE_SERVABLE = ("ok", "stale", "mismatch")
+
+
+def _release_servable(gene):
+    s = _RELEASE_STATE.get((gene or "").upper())
+    return bool(s and s.get("path") and s.get("status") in _RELEASE_SERVABLE)
+
+
+def _records_release(g):
+    """Snapshot mode: load the pickle named by the manifest, or return nothing.
+
+    No biotree, no enriched_records(), no collect(), no persist. A gene the
+    manifest does not list (or lists as missing/known-empty/orphan) is simply
+    not in this snapshot.
+    """
+    recs = _cache_get(g)
+    if recs is not None:
+        return recs
+    s = _RELEASE_STATE.get(g)
+    if not s or s.get("status") not in _RELEASE_SERVABLE or not s.get("path"):
+        return []
+    import gzip
+    import pickle
+    with _gene_lock(g):
+        recs = _cache_get(g)
+        if recs is not None:
+            return recs
+        try:
+            with gzip.open(_RECORDS_DIR / s["path"], "rb") as f:
+                recs = pickle.load(f)
+            with _SIMILAR_LOCK:
+                _SIMILAR_INDEX.pop(g, None)
+            _cache_put(g, recs)
+            return recs
+        except Exception:
+            return []
+
+
 def _records(gene):
     g = gene.upper()
     recs = _cache_get(g)
     if recs is not None:
         return recs
+    if RELEASE_MODE:
+        return _records_release(g)
     import gzip
     import pickle
     path = _RECORDS_DIR / f"{g}.pkl.gz"
@@ -303,6 +358,8 @@ def _records(gene):
 def _collect_one(vcv):
     """Build a single variant record straight from its VCV (index hit) — no per-gene
     build. Used as a resolution fallback and for the whale fast path."""
+    if RELEASE_MODE:
+        return None                     # snapshot serving never builds
     from sugivariant.collect import attach_enrichment
     try:
         _begin_build()
@@ -336,6 +393,8 @@ def _resolve(slug):
             # The VCV isn't under this gene at all — ClinVar's sort-gene differs from the
             # HGVS-derived gene (overlapping loci, e.g. MT-ATP8 filed under MT-ATP6). The
             # per-gene build will never contain it, so build the single variant directly.
+            if RELEASE_MODE:
+                return None             # snapshot serving never builds
             return _collect_one(vcv)
     return None
 
@@ -351,6 +410,8 @@ def _resolve_page(slug):
     gene = _gene_of(slug)
     if not gene:
         return None
+    if RELEASE_MODE:
+        return _resolve(slug)           # read the pickle or return None; no build
     g = gene.upper()
     if g in _GENE_CACHE or (_RECORDS_DIR / f"{g}.pkl.gz").exists():
         return _resolve(slug)
@@ -385,6 +446,54 @@ def _render(tpl, **ctx):
 # ── persistent resolution index (optional; falls back to the live path if absent) ─
 INDEX_DB = pathlib.Path(os.environ.get("INDEX_DB") or (CACHE_DIR / "index.db"))
 _tls = threading.local()
+
+
+def _load_release():
+    """Load the compact (or full) release manifest for VARIANT_SERVE=release."""
+    global _RELEASE, _RELEASE_STATE, _RELEASE_ID, _RELEASE_DATE, _RELEASE_VERSION, _RELEASE_META
+    import json
+    if not RELEASE_PATH.exists():
+        raise RuntimeError(f"VARIANT_SERVE=release but no release manifest at {RELEASE_PATH}")
+    if not INDEX_DB.exists():
+        raise RuntimeError(f"VARIANT_SERVE=release but no index at {INDEX_DB}")
+    data = json.loads(RELEASE_PATH.read_text(encoding="utf-8"))
+    corpus = ((data.get("corpora") or {}).get("small_variant") or {})
+    raw = corpus.get("genes")
+    if raw is None:                       # full manifest from `snapshot.py build`
+        raw = corpus.get("gene_state") or {}
+    state = {}
+    for g, s in raw.items():
+        if not isinstance(s, dict):
+            continue
+        state[g.upper()] = {
+            "path": s.get("path"),
+            "status": s.get("status"),
+            "stale": bool(s.get("stale", "stale" in (s.get("issues") or []))),
+        }
+    _RELEASE = data
+    _RELEASE_STATE = state
+    _RELEASE_ID = data.get("release") or data.get("snapshot_id") or data.get("created_at")
+    _RELEASE_DATE = data.get("released_at") or (data.get("created_at") or "")[:10] or None
+    _RELEASE_VERSION = data.get("variant_version") or _RELEASE_ID
+    _RELEASE_META = data
+    env.globals["release"] = _RELEASE_VERSION
+    env.globals["released_at"] = _RELEASE_DATE
+    rd = corpus.get("records_dir")
+    if rd:
+        try:
+            if pathlib.Path(rd).resolve() != _RECORDS_DIR.resolve():
+                print(f"warning: release records_dir {rd} != {_RECORDS_DIR}",
+                      file=sys.stderr, flush=True)
+        except Exception:
+            pass
+    print(f"Sugi Variant: release {_RELEASE_VERSION} ({_RELEASE_DATE}); "
+          f"{len(state):,} genes; biobtree {data.get('biobtree_version') or '?'}",
+          flush=True)
+
+
+if RELEASE_MODE:
+    _load_release()
+
 
 
 def _index():
@@ -577,6 +686,19 @@ async def _cache_html(request, call_next):
         if request.headers.get("if-none-match") == etag:
             return Response(status_code=304, headers=h)
         return HTMLResponse(content=body, headers=h)
+    return resp
+
+
+@app.middleware("http")
+async def _release_header(request, call_next):
+    """Name the snapshot on every response, not just pages, so a deploy is auditable."""
+    resp = await call_next(request)
+    if RELEASE_MODE and _RELEASE_ID:
+        resp.headers["X-Sugi-Variant-Release"] = str(_RELEASE_ID)
+        if _RELEASE_VERSION:
+            resp.headers["X-Sugi-Variant-Version"] = str(_RELEASE_VERSION)
+        if _RELEASE_DATE:
+            resp.headers["X-Sugi-Variant-Released-At"] = str(_RELEASE_DATE)
     return resp
 
 
@@ -933,10 +1055,17 @@ def variant_md(slug: str):
     the page + '.md'. Deterministic; GET + cached; CORS-open."""
     rec = _resolve_page(slug.lower().strip("/"))
     if not rec:
+        if RELEASE_MODE:
+            headers = {"X-Sugi-Variant-Release": str(_RELEASE_ID)} if _RELEASE_ID else {}
+            return PlainTextResponse("This variant is not in the current release.\n",
+                                     status_code=404, headers=headers)
         raise StarletteHTTPException(404, f"No variant page for “{slug}”.")
     from sugivariant.render import render_body
     title = rec.get("name") or f"{rec.get('gene_symbol', '')} {rec.get('hgvs_p') or rec.get('hgvs_c') or ''}".strip()
-    md = f"# {title}\n\n{_PUB}/{rec['canonical_slug']}\n\n" + render_body(rec)
+    release_line = (f"_Release {_RELEASE_VERSION} · last updated {_RELEASE_DATE}_\n\n"
+                    if RELEASE_MODE and _RELEASE_VERSION else "")
+    md = (f"# {title}\n\n{_PUB}/{rec['canonical_slug']}\n\n"
+          f"{release_line}" + render_body(rec))
     return PlainTextResponse(md, headers={"Cache-Control": "public, max-age=3600",
                                           "Access-Control-Allow-Origin": "*",
                                           "Content-Type": "text/markdown; charset=utf-8"})
@@ -949,6 +1078,9 @@ def variant_page(slug: str, view: str = ""):
         return _resolution_response("rsid", slug, resolve_rsid(slug))
     rec = _resolve_page(slug)
     if not rec:
+        if RELEASE_MODE:
+            raise StarletteHTTPException(
+                404, f"“{slug}” is not in the current release.")
         raise StarletteHTTPException(404, f"No variant page for “{slug}”.")
     # Add a live discordance cue to the similar-variant cross-links (the flag isn't in
     # the sibling records at build time; the index carries it per slug — cheap lookup).

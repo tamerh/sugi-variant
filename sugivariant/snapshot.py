@@ -41,11 +41,12 @@ import os
 import pickle
 import random
 import sqlite3
+import subprocess
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
 
-SCHEMA = "sugi-variant-snapshot/1"
+SCHEMA = "sugi-variant-release/1"
 RECORD_SUFFIX = ".pkl.gz"
 STAMP_SUFFIX = ".dbver.json"
 CORPUS = "small_variant"
@@ -233,8 +234,40 @@ def _page_diff(conn, records_dir, gene):
             "stale_slugs": stale, "extra_slugs": extra, "alias_only": alias_only}
 
 
+def _git(*args):
+    try:
+        return subprocess.check_output(
+            ["git", *args], cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            stderr=subprocess.DEVNULL).decode().strip()
+    except Exception:
+        return None
+
+
+def _release_meta(release=None, released_at=None, variant_version=None,
+                  variant_commit=None, biobtree_version=None, biobtree_commit=None):
+    """The release identity stamped into the manifest and served pages.
+
+    Precedence: explicit argument, VARIANT_BUILD_VERSION, git describe, 'dev'.
+    The private release script sets the env vars once at build start, exactly as
+    Atlas's stamp_version() does, so every artifact of one run shares the stamp.
+    """
+    rel = (release or os.environ.get("VARIANT_BUILD_VERSION")
+           or _git("describe", "--tags", "--always") or "dev")
+    return {
+        "release": rel,
+        "released_at": (released_at or _utc_now()[:10]),
+        "variant_version": variant_version or rel,
+        "variant_commit": (variant_commit or os.environ.get("VARIANT_BUILD_COMMIT")
+                           or _git("rev-parse", "--short", "HEAD")),
+        "biobtree_version": biobtree_version or os.environ.get("BIOBTREE_VERSION"),
+        "biobtree_commit": biobtree_commit or os.environ.get("BIOBTREE_COMMIT"),
+    }
+
+
 def build_manifest(records_dir, index_db, current_versions=None,
-                   count_records=False, count_sample=None):
+                   count_records=False, count_sample=None,
+                   release=None, released_at=None, variant_version=None,
+                   variant_commit=None, biobtree_version=None, biobtree_commit=None):
     """(manifest, report). Pure read; no writes, no biotree."""
     records = scan_records(records_dir, count_records=count_records,
                            count_sample=count_sample)
@@ -337,9 +370,16 @@ def build_manifest(records_dir, index_db, current_versions=None,
     alias_only_rows = sum(s.get("alias_only") or 0 for s in gene_state.values())
     status = "ok" if not (missing or corrupt or mismatch or records_only) else "partial"
 
+    meta = _release_meta(release, released_at, variant_version, variant_commit,
+                         biobtree_version, biobtree_commit)
     manifest = {
         "schema": SCHEMA,
-        "snapshot_id": _utc_now(),
+        "release": meta["release"],
+        "released_at": meta["released_at"],
+        "variant_version": meta["variant_version"],
+        "variant_commit": meta["variant_commit"],
+        "biobtree_version": meta["biobtree_version"],
+        "biobtree_commit": meta["biobtree_commit"],
         "created_at": _utc_now(),
         "corpora": {
             CORPUS: {
@@ -367,7 +407,7 @@ def build_manifest(records_dir, index_db, current_versions=None,
         },
     }
     report = {
-        "snapshot_id": manifest["snapshot_id"],
+        "release": manifest["release"],
         "records_dir": os.path.abspath(records_dir),
         "index_db": os.path.abspath(index_db),
         "totals": {
@@ -456,7 +496,7 @@ def rebuild_queue(manifest):
         by_reason[e["reason"]] = by_reason.get(e["reason"], 0) + 1
     return {
         "schema": "sugi-variant-rebuild-queue/2",
-        "snapshot_id": manifest.get("snapshot_id"),
+        "release": manifest.get("release"),
         "generated_at": _utc_now(),
         "totals": {
             "genes": len(entries),
@@ -474,6 +514,39 @@ def rebuild_queue(manifest):
         "reindex": reindex_entries,
         "alias_only": alias_entries,
         "uncounted": sorted(uncounted),
+    }
+
+
+SERVABLE = ("ok", "stale", "mismatch")
+
+
+def serve_manifest(manifest):
+    """Compact manifest for the read-only serving mode.
+
+    Only genes with a record file and a servable status. Missing/known-empty/
+    orphan genes are absent: the app answers them as "not in snapshot" without
+    touching a record build. `stale` is served (the page carries its source dates)
+    and `mismatch` is served (the pickle exists; its page is usable).
+    """
+    corpus = ((manifest or {}).get("corpora") or {}).get(CORPUS) or {}
+    state = corpus.get("gene_state") or {}
+    genes = {}
+    for g, s in state.items():
+        if s.get("path") and s.get("status") in SERVABLE:
+            genes[g] = {"path": s["path"], "status": s["status"],
+                        "stale": "stale" in (s.get("issues") or [])}
+    return {
+        "schema": "sugi-variant-release-serve/1",
+        "release": manifest.get("release"),
+        "released_at": manifest.get("released_at"),
+        "variant_version": manifest.get("variant_version"),
+        "variant_commit": manifest.get("variant_commit"),
+        "biobtree_version": manifest.get("biobtree_version"),
+        "biobtree_commit": manifest.get("biobtree_commit"),
+        "created_at": manifest.get("created_at"),
+        "records_dir": corpus.get("records_dir"),
+        "index_db": corpus.get("index_db"),
+        "corpora": {"small_variant": {"genes": genes, "status": corpus.get("status")}},
     }
 
 
@@ -510,7 +583,7 @@ def verify_manifest(manifest, records_dir, index_db, count_records=False, sample
             errors.append({"gene": g, "error": "index-count-changed",
                            "expected": s["n"], "actual": meta_n})
     return {"ok": not errors, "checked": checked, "errors": errors,
-            "snapshot_id": manifest.get("snapshot_id")}
+            "release": manifest.get("release")}
 
 
 def _md_report(report, manifest):
@@ -526,7 +599,7 @@ def _md_report(report, manifest):
         return out + [""]
 
     L = ["# Snapshot audit", "",
-         f"- snapshot: `{report['snapshot_id']}`",
+         f"- release: `{report['release']}`",
          f"- records: `{report['records_dir']}`",
          f"- index: `{report['index_db']}`",
          f"- schema: `{manifest['schema']}`", "",
@@ -577,7 +650,14 @@ def main(argv=None):
     b.add_argument("--out", default="snapshot.json", help="manifest path")
     b.add_argument("--report", help="optional Markdown audit path")
     b.add_argument("--queue-out", help="write the rebuild queue JSON here")
+    b.add_argument("--serve-out", help="write the compact serve manifest here")
     b.add_argument("--current-versions", help="JSON {dataset: version} to check staleness")
+    b.add_argument("--release", help="release id (vX.Y.Z); default VARIANT_BUILD_VERSION or git describe")
+    b.add_argument("--released-at", help="release date (YYYY-MM-DD; default today)")
+    b.add_argument("--variant-version", help="code version stamp (default: release id)")
+    b.add_argument("--variant-commit", help="code commit stamp (default: git short HEAD)")
+    b.add_argument("--biobtree-version", help="biobtree release (default: $BIOBTREE_VERSION)")
+    b.add_argument("--biobtree-commit", help="biobtree commit (default: $BIOBTREE_COMMIT)")
     b.add_argument("--count-records", action="store_true",
                    help="load every pickle and compare with gene_meta.n")
     b.add_argument("--count-sample", type=int, metavar="N",
@@ -602,7 +682,10 @@ def main(argv=None):
                 current = json.load(f)
         manifest, report = build_manifest(
             a.records, a.index, current_versions=current,
-            count_records=a.count_records, count_sample=a.count_sample)
+            count_records=a.count_records, count_sample=a.count_sample,
+            release=a.release, released_at=a.released_at,
+            variant_version=a.variant_version, variant_commit=a.variant_commit,
+            biobtree_version=a.biobtree_version, biobtree_commit=a.biobtree_commit)
         _write_atomic(a.out, json.dumps(manifest, indent=2, sort_keys=False) + "\n")
         md = _md_report(report, manifest)
         if a.report:
@@ -610,8 +693,12 @@ def main(argv=None):
         queue = rebuild_queue(manifest)
         if a.queue_out:
             _write_atomic(a.queue_out, json.dumps(queue, indent=2, sort_keys=False) + "\n")
+        if a.serve_out:
+            serve = serve_manifest(manifest)
+            _write_atomic(a.serve_out,
+                          json.dumps(serve, indent=2, sort_keys=False) + "\n")
         t = report["totals"]
-        print(f"snapshot {report['snapshot_id']}")
+        print(f"release {report['release']}")
         print(f"  record files : {t['record_genes']:,}")
         print(f"  served genes : {t['served_genes']:,}")
         print(f"  index genes  : {t['index_genes']:,}")
@@ -643,6 +730,9 @@ def main(argv=None):
                   f"{e['reason']:<14} records {e['records'] or 0:,} / index {e['index_rows']:,}")
         if a.queue_out:
             print(f"  queue        : {a.queue_out}")
+        if a.serve_out:
+            print(f"  serve        : {a.serve_out} "
+                  f"({len(serve['corpora']['small_variant']['genes']):,} genes)")
         if a.strict and (report["missing"] or report["empty"] or
                          report["corrupt"] or report["mismatch"]):
             return 1
@@ -652,7 +742,7 @@ def main(argv=None):
         manifest = json.load(f)
     res = verify_manifest(manifest, a.records, a.index,
                           count_records=a.count_records, sample=a.sample)
-    print(f"verify {res['snapshot_id']}  checked {res['checked']:,}  "
+    print(f"verify {res['release']}  checked {res['checked']:,}  "
           f"{'OK' if res['ok'] else str(len(res['errors'])) + ' errors'}")
     for e in res["errors"][:50]:
         print("  ", e)

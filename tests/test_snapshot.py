@@ -15,7 +15,7 @@ import sqlite3
 
 from sugivariant.snapshot import (
     build_manifest, read_index, read_stamp, rebuild_queue, scan_records,
-    verify_manifest,
+    serve_manifest, verify_manifest,
 )
 
 
@@ -65,9 +65,12 @@ def _fixture(tmp_path):
 def test_build_manifest_describes_disk_and_index(tmp_path):
     rec, idx = _fixture(tmp_path)
     manifest, report = build_manifest(
-        rec, idx, count_records=True, current_versions={"clinvar": "v1"})
+        rec, idx, count_records=True, current_versions={"clinvar": "v1"},
+        release="v1.0.0", released_at="2026-11-06")
 
-    assert manifest["schema"] == "sugi-variant-snapshot/1"
+    assert manifest["schema"] == "sugi-variant-release/1"
+    assert manifest["release"] == "v1.0.0"
+    assert manifest["released_at"] == "2026-11-06"
     state = manifest["corpora"]["small_variant"]["gene_state"]
     assert set(state) == {"AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG"}
 
@@ -100,6 +103,23 @@ def test_build_manifest_describes_disk_and_index(tmp_path):
     assert corpus["known_empty"] == 1
     assert corpus["missing"] == 1
     assert corpus["records"] == 8               # AAA 2 + BBB 1 + FFF 1 + GGG 4
+
+
+def test_serve_manifest_is_compact_and_excludes_unservable(tmp_path):
+    rec, idx = _fixture(tmp_path)
+    manifest, _ = build_manifest(rec, idx, count_records=True, release="v1.0.0",
+                                 released_at="2026-11-06", biobtree_version="v2.20.0")
+    serve = serve_manifest(manifest)
+    assert serve["schema"] == "sugi-variant-release-serve/1"
+    assert serve["release"] == "v1.0.0"
+    assert serve["released_at"] == "2026-11-06"
+    assert serve["biobtree_version"] == "v2.20.0"
+    genes = serve["corpora"]["small_variant"]["genes"]
+    assert set(genes) == {"AAA", "BBB", "FFF", "GGG"}
+    assert "CCC" not in genes      # orphan
+    assert "DDD" not in genes      # missing record
+    assert "EEE" not in genes      # known-empty
+    assert genes["AAA"]["path"] == "AAA.pkl.gz"
 
 
 def test_rebuild_queue_targets_only_missing_variants(tmp_path):
