@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Structural variants{% endblock %}
+{% block description %}Clinical dbVar structural variants — deletions, duplications, insertions and inversions — with their overlapping genes and ClinVar accessions.{% endblock %}
+{% block content %}
+<div class="prose-page container">
+  <header class="prose-header">
+    <nav class="breadcrumb"><a href="{{ base }}/">Sugi Variant</a> <span>›</span> structural variants</nav>
+    <h1 class="prose-title">Structural variants</h1>
+    <p class="prose-tagline">{{ total }} clinical dbVar structural variants — deletions, duplications, insertions and inversions — with their overlapping genes and ClinVar accessions.</p>
+  </header>
+  <div class="prose-body">
+    <p>Structural variants are a separate corpus from the per-residue variant pages. Each page
+      reports the dbVar record (type, size, breakpoints, significance, origin, phenotypes), its
+      ClinVar accessions and every gene whose Ensembl span overlaps the interval. The SNV
+      predictors (AlphaMissense, REVEL, SaProt, SpliceAI) do not apply.</p>
+
+    <p>Open a variant at <code>/sv/&lt;NSSV…&gt;</code>, a dbVar region at
+      <code>/sv/&lt;nsv…&gt;</code>, a ClinVar accession, or a locus such as
+      <code>/sv/9:72500000-72900000</code>. Gene pages also list the structural variants
+      overlapping the gene.</p>
+
+    <h2>By clinical significance</h2>
+    <ul>
+      {% for s in sig %}<li><b>{{ s.significance }}</b> — {{ s.n }}</li>{% endfor %}
+    </ul>
+
+    <h2>Genes with the most overlapping structural variants</h2>
+    <table>
+      <tr><th>Gene</th><th>Overlapping SVs</th></tr>
+      {% for g in genes %}
+      <tr><td><a href="{{ atlas_gene(g.gene) }}">{{ g.gene }}</a> · <a href="{{ base }}/gene/{{ g.gene }}">variants</a></td><td>{{ g.n }}</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

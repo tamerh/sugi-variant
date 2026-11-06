@@ -64,6 +64,13 @@ def test_markdown_twin(client):
     assert "TMC1" in r.text
 
 
+def test_sv_hub(client):
+    r = client.get("/sv")
+    assert r.status_code == 200
+    assert "Structural variants" in r.text
+    assert "TMC1" in r.text
+
+
 def test_unknown_is_404(client):
     assert client.get("/sv/NSSV999").status_code == 404
     assert client.get("/sv/NSSV999.md").status_code == 404

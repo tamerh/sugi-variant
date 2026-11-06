@@ -1161,6 +1161,21 @@ def gene_hub(gene: str):
                    sv_rows=sv_rows, sv_total=sv_total, sv_cap=_SV_CAP)
 
 
+@app.get("/sv", response_class=HTMLResponse)
+def sv_home():
+    """Landing page for the structural-variant corpus."""
+    conn = _sv_index()
+    if not conn:
+        raise StarletteHTTPException(404, "Structural variants are not in this release.")
+    total = conn.execute("SELECT COUNT(*) FROM sv").fetchone()[0]
+    sig = [{"significance": r[0] or "not provided", "n": r[1]} for r in conn.execute(
+        "SELECT significance, COUNT(*) n FROM sv GROUP BY significance ORDER BY n DESC")]
+    genes = [{"gene": r[0], "n": r[1]} for r in conn.execute(
+        "SELECT gene, COUNT(*) n FROM sv_gene GROUP BY gene ORDER BY n DESC LIMIT 30")]
+    return HTMLResponse(_render("sv_index.html", total=total, sig=sig,
+                                genes=genes, nav="variant"))
+
+
 @app.get("/sv/{key}.md", response_class=PlainTextResponse)
 def sv_md(key: str):
     """Markdown twin of a dbVar structural-variant page (NSSV / nsv / VCV / locus)."""
