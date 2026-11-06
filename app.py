@@ -1171,14 +1171,19 @@ def sv_md(key: str):
     headers = {"Cache-Control": "public, max-age=3600",
                "Access-Control-Allow-Origin": "*",
                "Content-Type": "text/markdown; charset=utf-8"}
+    release_line = (f"_Release {_RELEASE_VERSION} · last updated {_RELEASE_DATE}_"
+                    if RELEASE_MODE and _RELEASE_VERSION else "")
     if len(rows) > 1:
-        md = "# Structural variants\n\n" + "\n".join(
+        md = "# Structural variants\n\n"
+        if release_line:
+            md += release_line + "\n\n"
+        md += "\n".join(
             f"- {r['nssv']} — {r.get('svtype')} at chr{r['chrom']}:{r['start']}-{r['end']}"
             + (f", {r['significance']}" if r.get("significance") else "")
             for r in rows)
         return PlainTextResponse(md + "\n", headers=headers)
     rec = rows[0]
-    md = SV.render_md(rec, _sv_genes(rec["nssv"]))
+    md = SV.render_md(rec, _sv_genes(rec["nssv"]), release_line=release_line)
     return PlainTextResponse(md, headers=headers)
 
 

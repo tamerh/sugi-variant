@@ -301,13 +301,16 @@ def build(db_path, intervals=None, nssvs_file=None, limit=200, genes=None,
     return built
 
 
-def render_md(rec, genes=None):
+def render_md(rec, genes=None, release_line=""):
     size = ""
     try:
         size = f"{abs(int(rec['svlen'])):,} bp"
     except (TypeError, ValueError, KeyError):
         pass
-    L = [f"# dbVar {rec['nssv']} — {rec.get('svtype') or 'structural variant'}", "",
+    L = [f"# dbVar {rec['nssv']} — {rec.get('svtype') or 'structural variant'}", ""]
+    if release_line:
+        L += [release_line, ""]
+    L += [
          f"**{rec.get('svtype') or 'SV'}** at "
          f"chr{rec['chrom']}:{rec['start']}-{rec['end']}"
          + (f" ({size})" if size else "") + ".", ""]
