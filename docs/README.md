@@ -16,6 +16,8 @@ orchestration). It resolves and grounds every identifier through BioBTree.
   interpretation rules.
 - **Getting started** → [getting-started.md](getting-started.md) — searching, URLs, sets,
   and gene pages.
+- **Resolver API** → [resolve-api.md](resolve-api.md) — the read-only `/resolve.json`
+  endpoint for agents, MCP tools and scripts.
 
 ## What it is (and isn't)
 
