@@ -188,6 +188,28 @@ def genes_for_sv(conn, nssv):
         "SELECT gene FROM sv_gene WHERE nssv=? ORDER BY gene", (nssv,))]
 
 
+_SIG_ORDER = """CASE lower(s.significance)
+  WHEN 'pathogenic' THEN 0 WHEN 'pathogenic/likely pathogenic' THEN 1
+  WHEN 'likely pathogenic' THEN 2 WHEN 'conflicting data from submitters' THEN 3
+  WHEN 'conflicting classifications of pathogenicity' THEN 3
+  WHEN 'uncertain significance' THEN 4 WHEN 'benign/likely benign' THEN 5
+  WHEN 'likely benign' THEN 6 WHEN 'benign' THEN 7 ELSE 8 END"""
+
+
+def gene_sv_count(conn, gene):
+    return conn.execute("SELECT COUNT(*) FROM sv_gene WHERE gene=?",
+                        (gene.upper(),)).fetchone()[0]
+
+
+def gene_svs(conn, gene, limit=100):
+    """SVs overlapping a gene, most clinically significant first, then by start."""
+    rows = conn.execute(
+        "SELECT s.* FROM sv_gene g JOIN sv s ON s.nssv=g.nssv WHERE g.gene=? "
+        f"ORDER BY {_SIG_ORDER}, s.start, s.nssv LIMIT ?",
+        (gene.upper(), int(limit)))
+    return [dict(r) for r in rows]
+
+
 def gene_coords(symbol):
     """(chrom, start, end) for a gene symbol via HGNC -> Ensembl, or None."""
     from sugibiobtree import entry, map_all

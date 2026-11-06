@@ -42,6 +42,22 @@
   </section>
   {% endif %}
 
+  {% if sv_rows %}
+  <section class="entity-main" id="structural-variants">
+    <h2 class="section-title">Structural variants <span class="dz-count">{{ sv_total }}</span></h2>
+    <p class="section-sub" style="margin:-.4rem 0 .8rem">Clinical dbVar structural variants whose interval overlaps {{ gene }}.{% if sv_total > sv_cap %} Showing the {{ sv_cap }} most clinically significant of {{ sv_total }}.{% endif %}</p>
+    <ul class="gh-list">
+      {% for r in sv_rows %}
+      <li class="gh-row">
+        <a href="{{ base }}/sv/{{ r.nssv }}"><b>{{ r.svtype }} chr{{ r.chrom }}:{{ r.start }}–{{ r.end }}</b></a>
+        <span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(r.significance) }}">{{ r.significance|replace('conflicting data from submitters','Conflicting') }}</span>
+        <span class="gh-cond section-sub">{{ sv_size(r) }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
   <section class="entity-main"><h2 class="section-title">All {{ gene }} variants</h2>
     {% for grp in groups %}
     <div class="dz-group">

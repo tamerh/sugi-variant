@@ -68,6 +68,9 @@ _CLS_CLASS = {
     # through to the default and rendered in the VUS grey -- the same colour as
     # "uncertain" -- on 73,495 variants, their gene-hub pills and their /set tiles.
     "benign/likely benign": "ben",
+    # dbVar calls a submitter conflict "conflicting data from submitters"; render it
+    # in the same conflict colour as ClinVar's "Conflicting classifications".
+    "conflicting data from submitters": "conflict",
 }
 
 
@@ -1059,6 +1062,7 @@ def disagreements_gene(gene: str):
 _CLS_ORDER = ["Pathogenic", "Pathogenic/Likely pathogenic", "Likely pathogenic",
               "Conflicting classifications of pathogenicity"]
 _HUB_CAP = 300   # per-classification display cap (sitemap carries the full set)
+_SV_CAP = 100    # structural-variant rows on a gene hub (DMD has 1,785)
 
 
 @app.get("/gene/{gene}", response_class=HTMLResponse)
@@ -1112,9 +1116,13 @@ def gene_hub(gene: str):
     dfull = {cat: [r for r in rows if r["flag"] == cat] for cat in DISAGREEMENT_CATEGORIES}
     dcounts = {k: len(v) for k, v in dfull.items()}
     dgroups = {cat: items[:_DZ_CAP] for cat, items in dfull.items()}
+    sv_conn = _sv_index()
+    sv_total = SV.gene_sv_count(sv_conn, g) if sv_conn else 0
+    sv_rows = SV.gene_svs(sv_conn, g, limit=_SV_CAP) if sv_conn else []
     return _render("gene_hub.html", gene=g, groups=groups, total=len(rows),
                    flagged=flagged, cap=_HUB_CAP, dgroups=dgroups, dcounts=dcounts,
-                   dcap=_DZ_CAP, cats=DISAGREEMENT_CATEGORIES, meta=CAT_META)
+                   dcap=_DZ_CAP, cats=DISAGREEMENT_CATEGORIES, meta=CAT_META,
+                   sv_rows=sv_rows, sv_total=sv_total, sv_cap=_SV_CAP)
 
 
 @app.get("/sv/{key}.md", response_class=PlainTextResponse)

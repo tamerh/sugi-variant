@@ -4,8 +4,8 @@ Pure SQLite; no biotree and no network. The build/collect path is exercised in
 the live prototype, not here.
 """
 from sugivariant.dbvar import (
-    _insert, aliases, open_db, lookup, overlapping, record_from_attrs, render_md,
-    should_build,
+    _insert, aliases, gene_sv_count, gene_svs, open_db, lookup, overlapping,
+    record_from_attrs, render_md, should_build,
 )
 
 
@@ -59,6 +59,15 @@ def test_lookup_and_interval_overlap(tmp_path):
     assert {r["nssv"] for r in hits} == {"NSSV1", "NSSV2"}
     assert overlapping(conn, "1", 6_000_000, 6_100_000) == []
     assert [r["nssv"] for r in overlapping(conn, "9", 72_600_000, 72_700_000)] == ["NSSV3"]
+
+
+def test_gene_svs_orders_significance(tmp_path):
+    conn = _db(tmp_path)
+    conn.execute("INSERT INTO sv_gene VALUES('TMC1','NSSV2')")
+    conn.execute("INSERT INTO sv_gene VALUES('TMC1','NSSV1')")
+    conn.commit()
+    assert gene_sv_count(conn, "TMC1") == 2
+    assert [r["nssv"] for r in gene_svs(conn, "TMC1")] == ["NSSV1", "NSSV2"]
 
 
 def test_insert_is_idempotent(tmp_path):
