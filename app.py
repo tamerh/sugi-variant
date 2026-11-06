@@ -996,30 +996,66 @@ def _index_lastmod():
 # Sitemap index memo: enumerating 6.5k genes takes ~5s, so cache the built XML and
 # regenerate only when index.db changes (keyed on its lastmod). Per-worker + in-memory:
 # first hit after a rebuild is slow, every hit after is instant. Auto-invalidates.
-_SITEMAP_INDEX_CACHE = None  # (lastmod, xml)
+_SITEMAP_INDEX_CACHE = None  # (index_lastmod, sv_lastmod, xml)
+_SV_CHUNK = 50000            # sitemaps.org cap per urlset
+
+
+def _sv_lastmod():
+    try:
+        import datetime
+        return datetime.date.fromtimestamp(SV_DB.stat().st_mtime).isoformat()
+    except Exception:
+        return None
 
 
 @app.get("/sitemap.xml")
 def sitemap():
     # Sitemap INDEX (not a flat urlset): a 600k-URL urlset breaches the sitemaps.org
-    # 50k/50MB cap and Google silently drops it. One child sitemap per gene, each
-    # well under the cap.
+    # 50k/50MB cap and Google silently drops it. One child sitemap per gene, plus
+    # chunks for the structural-variant corpus.
     global _SITEMAP_INDEX_CACHE
     ix = _index()
     if not ix:
         raise StarletteHTTPException(503, "Sitemap needs the resolution index; run sugivariant.index.")
     lm = _index_lastmod()
-    if _SITEMAP_INDEX_CACHE and _SITEMAP_INDEX_CACHE[0] == lm:
-        xml = _SITEMAP_INDEX_CACHE[1]
+    sv_lm = _sv_lastmod()
+    if _SITEMAP_INDEX_CACHE and _SITEMAP_INDEX_CACHE[0] == lm and _SITEMAP_INDEX_CACHE[1] == sv_lm:
+        xml = _SITEMAP_INDEX_CACHE[2]
     else:
         lm_tag = f"<lastmod>{lm}</lastmod>" if lm else ""
         children = "".join(
             f"<sitemap><loc>{_PUB}/sitemap-{g.lower()}.xml</loc>{lm_tag}</sitemap>"
             for g, _ in IX.sitemap_genes(ix))
+        sv_conn = _sv_index()
+        if sv_conn:
+            n = sv_conn.execute("SELECT COUNT(*) FROM sv").fetchone()[0]
+            sv_tag = f"<lastmod>{sv_lm}</lastmod>" if sv_lm else ""
+            children += "".join(
+                f"<sitemap><loc>{_PUB}/sitemap-sv-{i}.xml</loc>{sv_tag}</sitemap>"
+                for i in range(1, (n + _SV_CHUNK - 1) // _SV_CHUNK + 1))
         xml = ('<?xml version="1.0" encoding="UTF-8"?>'
                '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
                f'{children}</sitemapindex>')
-        _SITEMAP_INDEX_CACHE = (lm, xml)
+        _SITEMAP_INDEX_CACHE = (lm, sv_lm, xml)
+    return Response(content=xml, media_type="application/xml",
+                    headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get("/sitemap-sv-{chunk}.xml")
+def sitemap_sv(chunk: int):
+    conn = _sv_index()
+    if not conn or chunk < 1:
+        raise StarletteHTTPException(404, "No structural-variant sitemap.")
+    rows = conn.execute("SELECT nssv FROM sv ORDER BY nssv LIMIT ? OFFSET ?",
+                        (_SV_CHUNK, (chunk - 1) * _SV_CHUNK)).fetchall()
+    if not rows:
+        raise StarletteHTTPException(404, "No structural-variant sitemap.")
+    lm = _sv_lastmod()
+    lm_tag = f"<lastmod>{lm}</lastmod>" if lm else ""
+    urls = "".join(f"<url><loc>{_PUB}/sv/{r[0]}</loc>{lm_tag}</url>" for r in rows)
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>'
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+           f'{urls}</urlset>')
     return Response(content=xml, media_type="application/xml",
                     headers={"Cache-Control": "public, max-age=3600"})
 
