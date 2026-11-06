@@ -121,6 +121,7 @@ def aliases(rec):
              .lower())
     for a in rec.get("clinvar") or []:
         keys.add(a.lower())
+        keys.add(a.split(".")[0].lower())   # VCV000059108.1 -> vcv000059108
         if a.upper().startswith("VCV"):
             num = a[3:].split(".")[0].lstrip("0") or "0"
             keys.add(num.lower())

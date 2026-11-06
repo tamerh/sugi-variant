@@ -598,6 +598,16 @@ def _index_hits(key):
     return [_ix_rec(r) for r in IX.lookup(ix, key)] if ix else None
 
 
+def _vcv_hits(key):
+    """Small variants by ClinVar VCV accession (VCV000007829 / VCV000007829.1)."""
+    m = re.match(r"^VCV0*(\d+)(?:\.\d+)?$", (key or "").strip(), re.I)
+    ix = _index()
+    if not m or not ix:
+        return []
+    row = ix.execute("SELECT * FROM variant WHERE vcv=?", (int(m.group(1)),)).fetchone()
+    return [_ix_rec(row)] if row else []
+
+
 # ── query resolution (rsID reverse-map + gene-first HGVS match) ─────────────────
 # Three arrival keys are supported (biobtree keys on identifiers, not free-text
 # HGVS): an rsID resolves directly via dbSNP reverse-map; a GENE + HGVS/AA query
@@ -1028,7 +1038,7 @@ def resolve_json(q: str = "", gene: str = "", slug: str = "", limit: int = 10):
     hits = []
     if key:
         if slug:
-            small = _index_hits(slug) or []
+            small = (_index_hits(slug) or []) or _vcv_hits(slug)
             hits = [_hit_small(r) for r in small]
             if not hits:
                 hits = [_hit_sv(r) for r in _sv_lookup(slug)]
@@ -1040,7 +1050,7 @@ def resolve_json(q: str = "", gene: str = "", slug: str = "", limit: int = 10):
                 _kind, _term, recs = resolve_query(q)
                 hits = [_hit_small(r) for r in recs]
                 if not hits:
-                    hits = [_hit_small(r) for r in (_index_hits(q) or [])]
+                    hits = [_hit_small(r) for r in (_vcv_hits(q) or _index_hits(q) or [])]
     if gene:
         g = gene.upper()
         hits = [h for h in hits

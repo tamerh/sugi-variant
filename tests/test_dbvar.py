@@ -46,6 +46,7 @@ def test_aliases_cover_identity_region_and_clinvar():
     assert "nsv4728187" in keys
     assert "1:10001-5532775" in keys
     assert "vcv000980940.1" in keys
+    assert "vcv000980940" in keys
     assert "980940" in keys
 
 
