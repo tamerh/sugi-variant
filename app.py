@@ -1011,6 +1011,7 @@ def _hit_small(r):
         "rsid": r.get("rsid"), "coordinate": r.get("coordinate"),
         "variation_id": r.get("variation_id") or r.get("vcv"),
         "canonical_url": f"{_PUB}/{slug}",
+        "markdown_url": f"{_PUB}/{slug}.md",
         "cached": bool(gene and (_RECORDS_DIR / f"{gene.upper()}.pkl.gz").exists()),
     }
 
@@ -1020,7 +1021,9 @@ def _hit_sv(r):
         "kind": "structural_variant", "nssv": r.get("nssv"), "nsv": r.get("nsv"),
         "chromosome": r.get("chrom"), "start": r.get("start"), "end": r.get("end"),
         "svtype": r.get("svtype"), "significance": r.get("significance"),
-        "canonical_url": f"{_PUB}/sv/{r.get('nssv')}", "cached": True,
+        "canonical_url": f"{_PUB}/sv/{r.get('nssv')}",
+        "markdown_url": f"{_PUB}/sv/{r.get('nssv')}.md",
+        "cached": True,
     }
 
 

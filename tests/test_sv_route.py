@@ -70,6 +70,7 @@ def test_resolve_json_for_sv(client):
     d = r.json()
     assert d["hits"][0]["kind"] == "structural_variant"
     assert d["hits"][0]["nssv"] == "NSSV1"
+    assert d["hits"][0]["markdown_url"].endswith("/sv/NSSV1.md")
     assert d["not_found"] is False
     region = client.get("/resolve.json?q=1:2000000-2100000").json()
     assert region["ambiguous"] is True
