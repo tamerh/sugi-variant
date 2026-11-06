@@ -42,6 +42,7 @@ import pickle
 import random
 import sqlite3
 import sys
+from collections import defaultdict
 from datetime import datetime, timezone
 
 SCHEMA = "sugi-variant-snapshot/1"
@@ -80,14 +81,23 @@ def read_stamp(records_path):
         return None
 
 
-def _count_records(records_path):
-    """(count, error). Counts a pickle without importing the app."""
+def _read_pickle(records_path):
+    """(n_records, n_distinct_slugs, error). Read once; no app import."""
     try:
         with gzip.open(records_path, "rb") as f:
             recs = pickle.load(f)
-        return (len(recs), None) if isinstance(recs, list) else (None, "not-a-list")
+        if not isinstance(recs, list):
+            return None, None, "not-a-list"
+        slugs = {r.get("canonical_slug") for r in recs if r.get("canonical_slug")}
+        return len(recs), len(slugs), None
     except Exception as e:                       # corrupt / truncated / not a pickle
-        return None, type(e).__name__
+        return None, None, type(e).__name__
+
+
+def _count_records(records_path):
+    """(count, error). Counts a pickle without importing the app."""
+    n, _slugs, err = _read_pickle(records_path)
+    return n, err
 
 
 def scan_records(records_dir, count_records=False, count_sample=None):
@@ -114,6 +124,7 @@ def scan_records(records_dir, count_records=False, count_sample=None):
             "size": st.st_size,
             "mtime": datetime.fromtimestamp(st.st_mtime, timezone.utc).isoformat(timespec="seconds"),
             "n": None,
+            "n_slugs": None,
             "count_error": None,
             "stamp": read_stamp(e.path),
         }
@@ -126,8 +137,9 @@ def scan_records(records_dir, count_records=False, count_sample=None):
     else:
         targets = []
     for gene in targets:
-        n, err = _count_records(os.path.join(records_dir, found[gene]["path"]))
+        n, n_slugs, err = _read_pickle(os.path.join(records_dir, found[gene]["path"]))
         found[gene]["n"] = n
+        found[gene]["n_slugs"] = n_slugs
         found[gene]["count_error"] = err
     return found
 
@@ -142,6 +154,11 @@ def read_index(index_db):
             r["gene"]: r["n"]
             for r in conn.execute("SELECT gene, COUNT(*) AS n FROM variant GROUP BY gene")
         }
+        slug_counts = {
+            r["gene"]: r["n"]
+            for r in conn.execute(
+                "SELECT gene, COUNT(DISTINCT slug) AS n FROM variant GROUP BY gene")
+        }
         total = conn.execute("SELECT COUNT(*) FROM variant").fetchone()[0]
         flagged = conn.execute("SELECT COUNT(*) FROM variant WHERE flag IS NOT NULL").fetchone()[0]
     finally:
@@ -149,6 +166,7 @@ def read_index(index_db):
     return {
         "gene_meta": gene_meta,
         "variant_counts": variant_counts,
+        "slug_counts": slug_counts,
         "total": total,
         "flagged": flagged,
     }
@@ -160,12 +178,68 @@ def _stale_from(stamp, current):
     return sorted(d for d, v in current.items() if stamp.get(d) != v)
 
 
+def _page_diff(conn, records_dir, gene):
+    """Compare the INDEX's distinct slugs with the PICKLE's canonical slugs.
+
+    Row counts are not pages: two ClinVar VCVs can share one canonical slug, and an
+    index built before a slug-shape fix can still carry a coordinate slug for a page
+    that now has a gene-HGVS slug. This separates four things:
+
+      missing_slugs  index pages with no pickle page and no alias pointing at one
+                     (the real rebuild gap)
+      stale_slugs    index slugs whose VCV's alias keys already name a pickle page
+                     (the page exists; reindex, do not rebuild)
+      extra_slugs    pickle pages the index does not list (a surplus)
+      alias_only     index VCVs whose slug IS in the pickle but whose VCV is not
+                     (duplicate VCVs resolving to an existing page)
+    """
+    p = os.path.join(records_dir, f"{gene}{RECORD_SUFFIX}")
+    pkl_slugs, pkl_vcvs = set(), set()
+    if os.path.exists(p):
+        try:
+            with gzip.open(p, "rb") as f:
+                recs = pickle.load(f)
+            if isinstance(recs, list):
+                pkl_slugs = {r.get("canonical_slug") for r in recs if r.get("canonical_slug")}
+                pkl_vcvs = {str(r.get("variation_id")) for r in recs
+                            if r.get("variation_id") is not None}
+        except Exception:
+            pass
+    rows = conn.execute("SELECT vcv, slug FROM variant WHERE gene=?", (gene,)).fetchall()
+    idx_slugs = {r[1] for r in rows if r[1]}
+    slug_to_vcv = {r[1]: r[0] for r in rows if r[1]}
+    missing = sorted(idx_slugs - pkl_slugs)
+    extra = sorted(pkl_slugs - idx_slugs)
+    alias_only = sum(1 for slug, vcv in ((r[1], r[0]) for r in rows)
+                     if slug in pkl_slugs and str(vcv) not in pkl_vcvs)
+    stale, true_missing = [], []
+    if missing and pkl_slugs:
+        # One batched alias lookup for the missing slugs' VCVs: a key that is already
+        # a pickle page means the index slug is stale, not that the page is absent.
+        by_vcv = defaultdict(set)
+        vcvs = [slug_to_vcv[s] for s in missing]
+        qs = ",".join("?" * len(vcvs))
+        for vcv, key in conn.execute(f"SELECT vcv, key FROM alias WHERE vcv IN ({qs})", vcvs):
+            by_vcv[str(vcv)].add(key)
+        for s in missing:
+            v = str(slug_to_vcv.get(s))
+            if by_vcv.get(v, set()) & pkl_slugs:
+                stale.append(s)
+            else:
+                true_missing.append(s)
+    else:
+        true_missing = missing
+    return {"index_slugs": len(idx_slugs), "missing_slugs": true_missing,
+            "stale_slugs": stale, "extra_slugs": extra, "alias_only": alias_only}
+
+
 def build_manifest(records_dir, index_db, current_versions=None,
                    count_records=False, count_sample=None):
     """(manifest, report). Pure read; no writes, no biotree."""
     records = scan_records(records_dir, count_records=count_records,
                            count_sample=count_sample)
     index = read_index(index_db)
+    pd_conn = sqlite3.connect(f"file:{index_db}?mode=ro", uri=True)
     index_genes = set(index["gene_meta"]) | set(index["variant_counts"])
     record_genes = set(records)
     genes = sorted(index_genes | record_genes)
@@ -228,7 +302,25 @@ def build_manifest(records_dir, index_db, current_versions=None,
             state = {"path": r["path"], "size": r["size"], "mtime": r["mtime"],
                      "n": n, "index_rows": idx_n, "stamp": r["stamp"],
                      "status": status, "issues": issues}
+        idx_slugs = index["slug_counts"].get(g, 0)
+        state["index_slugs"] = idx_slugs
+        countable = r is None or (r["count_error"] is None and r["n"] is not None)
+        if idx_slugs and countable:
+            diff = _page_diff(pd_conn, records_dir, g)
+            state.update(diff)
+            state["pages_missing"] = len(diff["missing_slugs"])
+            state["pages_stale"] = len(diff["stale_slugs"])
+            state["rows_missing"] = max(0, idx_n - (r["n"] if r else 0))
+        else:
+            state["missing_slugs"] = None
+            state["stale_slugs"] = []
+            state["extra_slugs"] = []
+            state["alias_only"] = 0
+            state["pages_missing"] = 0 if idx_slugs == 0 else None
+            state["pages_stale"] = 0
+            state["rows_missing"] = None
         gene_state[g] = state
+    pd_conn.close()
 
     counted = [s for s in gene_state.values() if s["n"] is not None]
     all_counted = bool(gene_state) and len(counted) == len(gene_state)
@@ -240,6 +332,9 @@ def build_manifest(records_dir, index_db, current_versions=None,
     served_counted = [s for s in served.values() if s["n"] is not None]
     served_all_counted = bool(served) and len(served_counted) == len(served)
     record_total = sum(s["n"] for s in served_counted) if served_counted else None
+    pages_missing_total = sum(s.get("pages_missing") or 0 for s in gene_state.values())
+    pages_stale_total = sum(s.get("pages_stale") or 0 for s in gene_state.values())
+    alias_only_rows = sum(s.get("alias_only") or 0 for s in gene_state.values())
     status = "ok" if not (missing or corrupt or mismatch or records_only) else "partial"
 
     manifest = {
@@ -259,6 +354,10 @@ def build_manifest(records_dir, index_db, current_versions=None,
                 "missing": len(missing),
                 "records": record_total if served_all_counted else None,
                 "index_records": index["total"],
+                "index_slugs": sum(index["slug_counts"].values()),
+                "pages_missing": pages_missing_total,
+                "pages_stale": pages_stale_total,
+                "alias_only_rows": alias_only_rows,
                 "counted": served_all_counted,
                 "datasets": dict(current_versions or {}),
                 "scope": "all-cached-genes",
@@ -279,6 +378,9 @@ def build_manifest(records_dir, index_db, current_versions=None,
             "flagged": index["flagged"],
             "counted_genes": len(served_counted),
             "record_total": record_total,
+            "pages_missing": pages_missing_total,
+            "pages_stale": pages_stale_total,
+            "alias_only_rows": alias_only_rows,
         },
         "index_only": sorted(index_genes - record_genes),
         "records_only": records_only,
@@ -295,17 +397,20 @@ def build_manifest(records_dir, index_db, current_versions=None,
 
 
 def rebuild_queue(manifest):
-    """The record rebuilds needed to make the snapshot complete.
+    """The rebuilds needed to make the snapshot complete, counted in PAGES.
 
-    Only the genes where the INDEX knows more variants than the PICKLE holds:
-    ``no_record`` (the gene has index rows and no pickle) and
-    ``pickle_behind_index`` (the pickle predates variants the index carries).
-    Surplus records (pickle > index) are not a rebuild target -- the pages
-    already exist; they are an index/legacy issue, reported separately.
+    A page is a distinct canonical slug. Two ClinVar VCVs can share one slug, and a
+    stale index can carry a coordinate slug for a page that now has a gene-HGVS
+    slug, so a row-count deficit overstates the work. The queue separates:
+
+      pages_behind   index slugs with no pickle record (the real gap)
+      no_record      no pickle at all; every index slug is missing
+      alias_only     index VCVs whose slug already exists in the pickle
+                     (duplicates resolving to an existing page -- reindex, no rebuild)
 
     Freshness is NOT a rebuild reason here. A dataset version bump marks almost
     every gene stale (18.8k on the dev cache) and belongs to a separate,
-    materiality-driven pass; each queue row carries its stale flag for context.
+    materiality-driven pass; each row carries its stale flag for context.
 
     Requires counted records (``--count-records`` or ``--count-sample``).
     Uncounted genes with index rows are reported in ``uncounted`` rather than
@@ -313,38 +418,61 @@ def rebuild_queue(manifest):
     """
     corpus = ((manifest or {}).get("corpora") or {}).get(CORPUS) or {}
     state = corpus.get("gene_state") or {}
-    entries, uncounted = [], []
+    entries, alias_entries, reindex_entries, uncounted = [], [], [], []
     for g, s in state.items():
-        idx_n = s.get("index_rows") or 0
         if s.get("status") in ("known_empty", "orphan"):
             continue
+        idx_slugs = s.get("index_slugs") or 0
         n = s.get("n")
+        pages = s.get("pages_missing")
+        pages_stale = s.get("pages_stale") or 0
+        rows = s.get("rows_missing")
+        alias = s.get("alias_only") or 0
         stale = "stale" in (s.get("issues") or [])
-        if s.get("status") == "missing" and idx_n > 0:
-            entries.append({"gene": g, "reason": "no_record", "records": 0,
-                            "index_rows": idx_n, "deficit": idx_n, "stale": stale})
-        elif n is None:
-            if idx_n > 0:
+        base = {"gene": g, "records": n, "index_rows": s.get("index_rows") or 0,
+                "index_slugs": idx_slugs, "pages_stale": pages_stale, "stale": stale}
+        if s.get("status") == "missing" and idx_slugs > 0:
+            entries.append({**base, "reason": "no_record", "records": 0,
+                            "pages": pages if pages is not None else idx_slugs,
+                            "rows": rows if rows is not None else (s.get("index_rows") or 0),
+                            "alias_only": 0})
+        elif n is None or pages is None:
+            if idx_slugs > 0:
                 uncounted.append(g)
-        elif idx_n > n:
-            entries.append({"gene": g, "reason": "pickle_behind_index",
-                            "records": n, "index_rows": idx_n,
-                            "deficit": idx_n - n, "stale": stale})
-    entries.sort(key=lambda e: (-e["deficit"], e["gene"]))
+        elif pages > 0:
+            entries.append({**base, "reason": "pages_behind", "pages": pages,
+                            "rows": rows or 0, "alias_only": alias})
+        elif pages_stale > 0:
+            reindex_entries.append({**base, "reason": "stale_slug", "pages": 0,
+                                    "rows": rows or 0, "alias_only": alias})
+        elif (rows or 0) > 0 or alias > 0:
+            alias_entries.append({**base, "reason": "alias_only", "pages": 0,
+                                  "rows": rows or 0, "alias_only": alias})
+    entries.sort(key=lambda e: (-e["pages"], -e["rows"], e["gene"]))
+    reindex_entries.sort(key=lambda e: (-e["pages_stale"], -e["rows"], e["gene"]))
+    alias_entries.sort(key=lambda e: (-e["alias_only"], -e["rows"], e["gene"]))
     by_reason = {}
     for e in entries:
         by_reason[e["reason"]] = by_reason.get(e["reason"], 0) + 1
     return {
-        "schema": "sugi-variant-rebuild-queue/1",
+        "schema": "sugi-variant-rebuild-queue/2",
         "snapshot_id": manifest.get("snapshot_id"),
         "generated_at": _utc_now(),
         "totals": {
             "genes": len(entries),
-            "variants_to_add": sum(e["deficit"] for e in entries),
+            "pages_to_add": sum(e["pages"] for e in entries),
+            "rows_to_add": sum(e["rows"] for e in entries),
+            "variants_to_add": sum(e["rows"] for e in entries),   # old name, rows not pages
             "by_reason": by_reason,
+            "reindex_genes": len(reindex_entries),
+            "stale_pages_to_reindex": sum(e["pages_stale"] for e in reindex_entries),
+            "alias_only_genes": len(alias_entries),
+            "alias_only_rows": sum(e["alias_only"] for e in alias_entries),
             "uncounted_genes": len(uncounted),
         },
         "queue": entries,
+        "reindex": reindex_entries,
+        "alias_only": alias_entries,
         "uncounted": sorted(uncounted),
     }
 
@@ -411,6 +539,9 @@ def _md_report(report, manifest):
          f"- counted genes: **{t['counted_genes']:,}**",
          f"- counted records: **{t['record_total']:,}**" if t["record_total"] is not None
          else "- counted records: not counted",
+         f"- **pages missing** (distinct slugs): **{t['pages_missing']:,}**",
+         f"- stale index slugs (page exists; reindex): **{t['pages_stale']:,}**",
+         f"- alias-only rows (duplicate VCVs on an existing page): **{t['alias_only_rows']:,}**",
          ""]
     L += block("Index genes with rows but NO record file (real gap)", report["missing"])
     L += block("Record files with no current index rows (orphan/legacy)", report["orphan"])
@@ -500,11 +631,16 @@ def main(argv=None):
         if a.report:
             print(f"  report       : {a.report}")
         t = queue["totals"]
-        print(f"  rebuild queue: {t['genes']:,} genes / {t['variants_to_add']:,} variants"
+        print(f"  rebuild queue: {t['genes']:,} genes / {t['pages_to_add']:,} missing pages"
+              f" / {t['rows_to_add']:,} rows"
+              + (f"  ({t['reindex_genes']:,} reindex-only genes, "
+                 f"{t['stale_pages_to_reindex']:,} stale slugs)" if t["reindex_genes"] else "")
+              + (f"  ({t['alias_only_genes']:,} alias-only genes, "
+                 f"{t['alias_only_rows']:,} rows)" if t["alias_only_genes"] else "")
               + (f"  ({t['uncounted_genes']:,} uncounted)" if t["uncounted_genes"] else ""))
         for e in queue["queue"][:10]:
-            print(f"    {e['deficit']:>7,}  {e['gene']:<12} {e['reason']:<20} "
-                  f"records {e['records']:,} / index {e['index_rows']:,}")
+            print(f"    {e['pages']:>6,} pages {e['rows']:>7,} rows  {e['gene']:<12} "
+                  f"{e['reason']:<14} records {e['records'] or 0:,} / index {e['index_rows']:,}")
         if a.queue_out:
             print(f"  queue        : {a.queue_out}")
         if a.strict and (report["missing"] or report["empty"] or

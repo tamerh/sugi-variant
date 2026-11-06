@@ -24,7 +24,8 @@ def _records(root, genes):
     os.makedirs(root, exist_ok=True)
     for gene, (n, stamp) in genes.items():
         with gzip.open(os.path.join(root, f"{gene}.pkl.gz"), "wb") as f:
-            pickle.dump([{"variation_id": i, "gene_symbol": gene} for i in range(n)], f)
+            pickle.dump([{"variation_id": i, "gene_symbol": gene,
+                          "canonical_slug": f"{gene.lower()}-{i}"} for i in range(n)], f)
         if stamp is not None:
             with open(os.path.join(root, f"{gene}.dbver.json"), "w") as f:
                 json.dump(stamp, f)
@@ -34,12 +35,14 @@ def _index(path, gene_counts):
     conn = sqlite3.connect(path)
     conn.executescript(
         "CREATE TABLE gene_meta(gene TEXT PRIMARY KEY, n INTEGER);"
-        "CREATE TABLE variant(vcv INTEGER PRIMARY KEY, gene TEXT, slug TEXT, flag TEXT);")
+        "CREATE TABLE variant(vcv INTEGER PRIMARY KEY, gene TEXT, slug TEXT, flag TEXT);"
+        "CREATE TABLE alias(key TEXT, vcv INTEGER);")
     vcv = 1
     for gene, n in gene_counts.items():
         conn.execute("INSERT INTO gene_meta VALUES(?,?)", (gene, n))
-        for _ in range(n):
-            conn.execute("INSERT INTO variant VALUES(?,?,?,?)", (vcv, gene, f"s{vcv}", None))
+        for i in range(n):
+            conn.execute("INSERT INTO variant VALUES(?,?,?,?)",
+                         (vcv, gene, f"{gene.lower()}-{i}", None))
             vcv += 1
     conn.commit()
     conn.close()
@@ -104,10 +107,69 @@ def test_rebuild_queue_targets_only_missing_variants(tmp_path):
     manifest, _ = build_manifest(rec, idx, count_records=True)
     q = rebuild_queue(manifest)
     assert [e["gene"] for e in q["queue"]] == ["DDD", "FFF"]
-    assert [e["deficit"] for e in q["queue"]] == [5, 2]
-    assert q["totals"]["variants_to_add"] == 7
-    assert q["totals"]["by_reason"] == {"no_record": 1, "pickle_behind_index": 1}
+    assert [e["pages"] for e in q["queue"]] == [5, 2]
+    assert q["totals"]["pages_to_add"] == 7
+    assert q["totals"]["rows_to_add"] == 7
+    assert q["totals"]["by_reason"] == {"no_record": 1, "pages_behind": 1}
     assert q["uncounted"] == []
+
+
+def test_rebuild_queue_separates_alias_only_and_slug_drift(tmp_path):
+    """Three failure modes a row count cannot see:
+
+    HHH: three VCVs share one slug -> 0 missing pages, 2 alias-only rows.
+    III: same row count on both sides but different slugs -> 1 missing page.
+    JJJ: the index carries a coordinate slug whose VCV already has a pickle page
+         under an alias -> 0 missing pages, 1 stale slug to fix by reindex.
+    """
+    rec = tmp_path / "records"
+    _records(rec, {"HHH": (1, {"clinvar": "v1"}), "III": (1, {"clinvar": "v1"}),
+                   "JJJ": (1, {"clinvar": "v1"})})
+    idx = tmp_path / "index.db"
+    conn = sqlite3.connect(idx)
+    conn.executescript(
+        "CREATE TABLE gene_meta(gene TEXT PRIMARY KEY, n INTEGER);"
+        "CREATE TABLE variant(vcv INTEGER PRIMARY KEY, gene TEXT, slug TEXT, flag TEXT);"
+        "CREATE TABLE alias(key TEXT, vcv INTEGER);")
+    for gene, n in {"HHH": 3, "III": 1, "JJJ": 1}.items():
+        conn.execute("INSERT INTO gene_meta VALUES(?,?)", (gene, n))
+    conn.executemany("INSERT INTO variant VALUES(?,?,?,?)", [
+        (0, "HHH", "hhh-0", None),       # the one the pickle holds
+        (1, "HHH", "hhh-0", None),       # alias-only duplicates
+        (2, "HHH", "hhh-0", None),
+        (3, "III", "iii-9", None),       # pickle has iii-0
+        (4, "JJJ", "5:100:g:a", None),   # stale slug; alias names jjj-0
+    ])
+    conn.executemany("INSERT INTO alias VALUES(?,?)",
+                     [("jjj-0", 4), ("5:100:g:a", 4)])
+    conn.commit()
+    conn.close()
+
+    manifest, _ = build_manifest(str(rec), str(idx), count_records=True)
+    q = rebuild_queue(manifest)
+    assert [e["gene"] for e in q["queue"]] == ["III"]
+    assert q["queue"][0]["pages"] == 1
+    assert q["queue"][0]["rows"] == 0
+    assert [e["gene"] for e in q["reindex"]] == ["JJJ"]
+    assert q["reindex"][0]["pages_stale"] == 1
+    assert [e["gene"] for e in q["alias_only"]] == ["HHH"]
+    assert q["alias_only"][0]["alias_only"] == 2
+    assert q["totals"]["pages_to_add"] == 1
+    assert q["totals"]["reindex_genes"] == 1
+    assert q["totals"]["stale_pages_to_reindex"] == 1
+    assert q["totals"]["alias_only_genes"] == 1
+    assert q["totals"]["alias_only_rows"] == 2
+
+    state = manifest["corpora"]["small_variant"]["gene_state"]
+    assert state["HHH"]["pages_missing"] == 0
+    assert state["HHH"]["alias_only"] == 2
+    assert state["III"]["pages_missing"] == 1
+    assert state["III"]["missing_slugs"] == ["iii-9"]
+    assert state["III"]["extra_slugs"] == ["iii-0"]
+    assert state["JJJ"]["pages_missing"] == 0
+    assert state["JJJ"]["pages_stale"] == 1
+    assert state["JJJ"]["missing_slugs"] == []
+    assert state["JJJ"]["stale_slugs"] == ["5:100:g:a"]
 
 
 def test_rebuild_queue_does_not_guess_when_counts_are_missing(tmp_path):
