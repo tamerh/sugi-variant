@@ -14,7 +14,8 @@ import pickle
 import sqlite3
 
 from sugivariant.snapshot import (
-    build_manifest, read_index, read_stamp, scan_records, verify_manifest,
+    build_manifest, read_index, read_stamp, rebuild_queue, scan_records,
+    verify_manifest,
 )
 
 
@@ -49,10 +50,12 @@ def _fixture(tmp_path):
     _records(rec, {
         "AAA": (2, {"clinvar": "v1"}),
         "BBB": (1, {"clinvar": "v0"}),       # stale
-        "CCC": (0, None),                    # empty, unstamped, records-only
+        "CCC": (0, None),                    # empty, unstamped, orphan
+        "FFF": (1, {"clinvar": "v1"}),       # pickle behind index (index 3)
+        "GGG": (4, {"clinvar": "v1"}),       # surplus (index 2)
     })
     idx = tmp_path / "index.db"
-    _index(idx, {"AAA": 2, "BBB": 1, "DDD": 5, "EEE": 0})   # DDD has no record file
+    _index(idx, {"AAA": 2, "BBB": 1, "DDD": 5, "EEE": 0, "FFF": 3, "GGG": 2})
     return str(rec), str(idx)
 
 
@@ -63,7 +66,7 @@ def test_build_manifest_describes_disk_and_index(tmp_path):
 
     assert manifest["schema"] == "sugi-variant-snapshot/1"
     state = manifest["corpora"]["small_variant"]["gene_state"]
-    assert set(state) == {"AAA", "BBB", "CCC", "DDD", "EEE"}
+    assert set(state) == {"AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG"}
 
     # the three differences that matter
     assert report["index_only"] == ["DDD", "EEE"]
@@ -74,23 +77,46 @@ def test_build_manifest_describes_disk_and_index(tmp_path):
     assert report["empty"] == ["CCC"]
     assert report["stale"] == [{"gene": "BBB", "datasets": ["clinvar"]}]
     assert report["unstamped"] == ["CCC"]
+    assert {m["gene"] for m in report["mismatch"]} == {"FFF", "GGG"}
 
     assert state["AAA"]["status"] == "ok"
     assert state["BBB"]["status"] == "stale"
     assert state["CCC"]["status"] == "orphan"
     assert state["DDD"]["status"] == "missing"
     assert state["EEE"]["status"] == "known_empty"
+    assert state["FFF"]["status"] == "mismatch"
+    assert state["GGG"]["status"] == "mismatch"
     assert state["AAA"]["n"] == 2
     assert state["DDD"]["n"] is None
 
     # served corpus excludes orphan and missing files
     corpus = manifest["corpora"]["small_variant"]
-    assert corpus["genes"] == 2
-    assert corpus["record_files"] == 3
+    assert corpus["genes"] == 4
+    assert corpus["record_files"] == 5
     assert corpus["orphan_files"] == 1
     assert corpus["known_empty"] == 1
     assert corpus["missing"] == 1
-    assert corpus["records"] == 3              # AAA 2 + BBB 1
+    assert corpus["records"] == 8               # AAA 2 + BBB 1 + FFF 1 + GGG 4
+
+
+def test_rebuild_queue_targets_only_missing_variants(tmp_path):
+    rec, idx = _fixture(tmp_path)
+    manifest, _ = build_manifest(rec, idx, count_records=True)
+    q = rebuild_queue(manifest)
+    assert [e["gene"] for e in q["queue"]] == ["DDD", "FFF"]
+    assert [e["deficit"] for e in q["queue"]] == [5, 2]
+    assert q["totals"]["variants_to_add"] == 7
+    assert q["totals"]["by_reason"] == {"no_record": 1, "pickle_behind_index": 1}
+    assert q["uncounted"] == []
+
+
+def test_rebuild_queue_does_not_guess_when_counts_are_missing(tmp_path):
+    rec, idx = _fixture(tmp_path)
+    manifest, _ = build_manifest(rec, idx, count_records=False)
+    q = rebuild_queue(manifest)
+    # DDD is still a definite no_record gap; the rest need a count
+    assert [e["gene"] for e in q["queue"]] == ["DDD"]
+    assert set(q["uncounted"]) == {"AAA", "BBB", "FFF", "GGG"}
 
 
 def test_build_manifest_does_not_write_to_records_or_index(tmp_path):
@@ -101,7 +127,7 @@ def test_build_manifest_does_not_write_to_records_or_index(tmp_path):
     assert before == after
     # read_index leaves the db untouched (no journal/WAL side files)
     assert not any(p.startswith("index.db-") for p in os.listdir(os.path.dirname(idx)))
-    assert manifest["corpora"]["small_variant"]["index_records"] == 8
+    assert manifest["corpora"]["small_variant"]["index_records"] == 13
 
 
 def test_verify_detects_a_deleted_record(tmp_path):
@@ -127,7 +153,7 @@ def test_verify_detects_a_changed_count(tmp_path):
 def test_scan_reads_stamps_and_can_sample_counts(tmp_path):
     rec, _ = _fixture(tmp_path)
     found = scan_records(rec, count_sample=1)
-    assert set(found) == {"AAA", "BBB", "CCC"}
+    assert set(found) == {"AAA", "BBB", "CCC", "FFF", "GGG"}
     assert found["AAA"]["stamp"] == {"clinvar": "v1"}
     assert found["CCC"]["stamp"] is None
     # exactly one gene was counted by the deterministic sample

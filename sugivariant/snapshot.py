@@ -192,7 +192,8 @@ def build_manifest(records_dir, index_db, current_versions=None,
                 known_empty.append(g)
                 status = "known_empty"
             state = {"path": None, "size": None, "mtime": None, "n": None,
-                     "stamp": None, "status": status, "issues": issues}
+                     "index_rows": idx_n, "stamp": None,
+                     "status": status, "issues": issues}
         else:
             n = r["n"]
             if idx_n == 0:
@@ -225,8 +226,8 @@ def build_manifest(records_dir, index_db, current_versions=None,
                 unstamped.append(g)
             status = next((s for s in _STATUS_ORDER if s in issues), "ok")
             state = {"path": r["path"], "size": r["size"], "mtime": r["mtime"],
-                     "n": n, "stamp": r["stamp"], "status": status,
-                     "issues": issues}
+                     "n": n, "index_rows": idx_n, "stamp": r["stamp"],
+                     "status": status, "issues": issues}
         gene_state[g] = state
 
     counted = [s for s in gene_state.values() if s["n"] is not None]
@@ -291,6 +292,61 @@ def build_manifest(records_dir, index_db, current_versions=None,
         "unstamped": unstamped,
     }
     return manifest, report
+
+
+def rebuild_queue(manifest):
+    """The record rebuilds needed to make the snapshot complete.
+
+    Only the genes where the INDEX knows more variants than the PICKLE holds:
+    ``no_record`` (the gene has index rows and no pickle) and
+    ``pickle_behind_index`` (the pickle predates variants the index carries).
+    Surplus records (pickle > index) are not a rebuild target -- the pages
+    already exist; they are an index/legacy issue, reported separately.
+
+    Freshness is NOT a rebuild reason here. A dataset version bump marks almost
+    every gene stale (18.8k on the dev cache) and belongs to a separate,
+    materiality-driven pass; each queue row carries its stale flag for context.
+
+    Requires counted records (``--count-records`` or ``--count-sample``).
+    Uncounted genes with index rows are reported in ``uncounted`` rather than
+    guessed at.
+    """
+    corpus = ((manifest or {}).get("corpora") or {}).get(CORPUS) or {}
+    state = corpus.get("gene_state") or {}
+    entries, uncounted = [], []
+    for g, s in state.items():
+        idx_n = s.get("index_rows") or 0
+        if s.get("status") in ("known_empty", "orphan"):
+            continue
+        n = s.get("n")
+        stale = "stale" in (s.get("issues") or [])
+        if s.get("status") == "missing" and idx_n > 0:
+            entries.append({"gene": g, "reason": "no_record", "records": 0,
+                            "index_rows": idx_n, "deficit": idx_n, "stale": stale})
+        elif n is None:
+            if idx_n > 0:
+                uncounted.append(g)
+        elif idx_n > n:
+            entries.append({"gene": g, "reason": "pickle_behind_index",
+                            "records": n, "index_rows": idx_n,
+                            "deficit": idx_n - n, "stale": stale})
+    entries.sort(key=lambda e: (-e["deficit"], e["gene"]))
+    by_reason = {}
+    for e in entries:
+        by_reason[e["reason"]] = by_reason.get(e["reason"], 0) + 1
+    return {
+        "schema": "sugi-variant-rebuild-queue/1",
+        "snapshot_id": manifest.get("snapshot_id"),
+        "generated_at": _utc_now(),
+        "totals": {
+            "genes": len(entries),
+            "variants_to_add": sum(e["deficit"] for e in entries),
+            "by_reason": by_reason,
+            "uncounted_genes": len(uncounted),
+        },
+        "queue": entries,
+        "uncounted": sorted(uncounted),
+    }
 
 
 def verify_manifest(manifest, records_dir, index_db, count_records=False, sample=None):
@@ -389,6 +445,7 @@ def main(argv=None):
     b.add_argument("--index", required=True, help="index.db")
     b.add_argument("--out", default="snapshot.json", help="manifest path")
     b.add_argument("--report", help="optional Markdown audit path")
+    b.add_argument("--queue-out", help="write the rebuild queue JSON here")
     b.add_argument("--current-versions", help="JSON {dataset: version} to check staleness")
     b.add_argument("--count-records", action="store_true",
                    help="load every pickle and compare with gene_meta.n")
@@ -419,6 +476,9 @@ def main(argv=None):
         md = _md_report(report, manifest)
         if a.report:
             _write_atomic(a.report, md)
+        queue = rebuild_queue(manifest)
+        if a.queue_out:
+            _write_atomic(a.queue_out, json.dumps(queue, indent=2, sort_keys=False) + "\n")
         t = report["totals"]
         print(f"snapshot {report['snapshot_id']}")
         print(f"  record files : {t['record_genes']:,}")
@@ -439,6 +499,14 @@ def main(argv=None):
         print(f"  manifest     : {a.out}")
         if a.report:
             print(f"  report       : {a.report}")
+        t = queue["totals"]
+        print(f"  rebuild queue: {t['genes']:,} genes / {t['variants_to_add']:,} variants"
+              + (f"  ({t['uncounted_genes']:,} uncounted)" if t["uncounted_genes"] else ""))
+        for e in queue["queue"][:10]:
+            print(f"    {e['deficit']:>7,}  {e['gene']:<12} {e['reason']:<20} "
+                  f"records {e['records']:,} / index {e['index_rows']:,}")
+        if a.queue_out:
+            print(f"  queue        : {a.queue_out}")
         if a.strict and (report["missing"] or report["empty"] or
                          report["corrupt"] or report["mismatch"]):
             return 1
