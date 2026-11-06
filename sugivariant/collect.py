@@ -274,7 +274,11 @@ def attach_enrichment(rec, ctx=None):
     rec["structural"] = EN.structural_context(
         rec.get("hgvs_p"), (ctx.get("structure") or {}).get("intervals"),
         rec.get("am_isoform_mismatch"), _canon)
-    rec["similar"] = EN.similar_variants(rec, ctx.get("recs") or [])
+    # Similar-variant links are presentation mesh, not evidence. Computing them per
+    # record here was O(N²) per gene (most of a whale's build); the app now derives
+    # them at serve time from a per-gene prep index (enrich.similar_index). Keep the
+    # key so every record has a stable shape.
+    rec["similar"] = []
     rec["timeline"] = EN.submission_timeline(rec.get("submissions") or [])
     # patient digest routed via the VARIANT's own condition (audit P1) — cached
     # per condition-MONDO; None for somatic/unannotated conditions (no germline

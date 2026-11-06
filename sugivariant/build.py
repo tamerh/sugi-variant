@@ -161,6 +161,12 @@ def build_gene(symbol, out_root):
         print(f"  {symbol}: no HGNC id — skip")
         return []
     recs = enriched_records(symbol, hgnc)
+    # The record build no longer computes the similar-variant mesh (it was O(N²));
+    # the static corpus still needs it, so derive it here once per gene with the
+    # same fast index the app uses.
+    sim_idx = EN.similar_index(recs)
+    for rec in recs:
+        rec["similar"] = EN.similar_variants_from_index(rec, sim_idx)
     # Render + write each.
     for rec in recs:
         meta = build_meta("variant", rec["canonical_slug"], VR._label(rec), _DATASETS)

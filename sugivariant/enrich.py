@@ -11,6 +11,7 @@ Nothing here is a clinical call: concordance/consensus are transparent
 descriptions of independent evidence, each shown with its source.
 """
 import bisect
+import heapq
 import re
 import threading
 from collections import Counter
@@ -2817,60 +2818,79 @@ def am_percentile(score, am_map):
     return {"top_pct": max(pct, 1), "n": len(vals)}
 
 
-def similar_variants(rec, recs):
-    """Up to 6 sibling variant pages most related to this one — same residue,
-    then same condition, then same variant type. Internal-mesh aid for both
-    personas + crawlers."""
+def _interest(cls):
+    cl = (cls or "").lower()
+    if "pathogenic" in cl and "conflict" not in cl:
+        return 3
+    if "uncertain" in cl or "conflict" in cl:
+        return 2
+    if "benign" in cl:
+        return 1
+    return 0
+
+
+def similar_index(recs):
+    """Per-gene prep for similar_variants.
+
+    Each tuple is (protein_pos, condition_ids, variant_type, stars, interest,
+    slug, record). Built once when a gene is loaded and reused for every variant
+    page, so the per-page cost is a scan plus an 8-item heap rather than a scan
+    plus a full sort and re-parsing HGVS for every candidate.
+    """
+    out = []
+    for r in recs:
+        out.append((protein_position(r.get("hgvs_p")),
+                    frozenset(c.get("mondo_id") for c in (r.get("conditions") or [])),
+                    r.get("variant_type"),
+                    _STAR_N.get((r.get("review_status") or "").strip().lower(), 0),
+                    _interest(r.get("classification")),
+                    r["canonical_slug"],
+                    r))
+    return out
+
+
+def similar_variants_from_index(rec, index):
+    """Up to 8 sibling pages from a prepped index. O(N log 8), not O(N log N).
+
+    Exact equivalent of the old sort-everything version: same score, same
+    tie-break (-score, -stars, -interest, slug), same relation label.
+    """
     pos = protein_position(rec.get("hgvs_p"))
-    conds = {c.get("mondo_id") for c in (rec.get("conditions") or [])}
+    conds = frozenset(c.get("mondo_id") for c in (rec.get("conditions") or []))
     vtype = rec.get("variant_type")
     me = rec["canonical_slug"]
-    scored = []
-    for r in recs:
-        if r["canonical_slug"] == me:
-            continue
-        s = 0
-        if pos is not None and protein_position(r.get("hgvs_p")) == pos:
-            s += 3
-        if conds & {c.get("mondo_id") for c in (r.get("conditions") or [])}:
-            s += 2
-        if vtype and r.get("variant_type") == vtype:
-            s += 1
-        if s:
-            scored.append((s, r))
-    # Rank within relation-score by what's most worth a click: more review stars, then
-    # the more clinically interesting call (P/LP or VUS/conflicting over benign), then
-    # slug for determinism. Keeps the alphabetical-tie problem from burying the useful
-    # same-condition neighbors under intronic/splice siblings.
-    def _interest(cls):
-        cl = (cls or "").lower()
-        if "pathogenic" in cl and "conflict" not in cl:
-            return 3
-        if "uncertain" in cl or "conflict" in cl:
-            return 2
-        if "benign" in cl:
-            return 1
-        return 0
-    scored.sort(key=lambda x: (
-        -x[0],
-        -_STAR_N.get((x[1].get("review_status") or "").strip().lower(), 0),
-        -_interest(x[1].get("classification")),
-        x[1]["canonical_slug"]))
+
+    def _candidates():
+        for p, c, v, stars, interest, slug, r in index:
+            if slug == me:
+                continue
+            same_pos = pos is not None and p == pos
+            same_cond = bool(conds & c)
+            same_type = bool(vtype and v == vtype)
+            if not (same_pos or same_cond or same_type):
+                continue
+            s = (3 if same_pos else 0) + (2 if same_cond else 0) + (1 if same_type else 0)
+            rel = "same residue" if same_pos else ("same condition" if same_cond else "same type")
+            yield (-s, -stars, -interest, slug), rel, r
+
     out = []
-    for _, r in scored[:8]:
-        # the dominant relation (why it's similar) — for a scannable "why click" cue
-        if pos is not None and protein_position(r.get("hgvs_p")) == pos:
-            rel = "same residue"
-        elif conds & {c.get("mondo_id") for c in (r.get("conditions") or [])}:
-            rel = "same condition"
-        else:
-            rel = "same type"
+    for _key, rel, r in heapq.nsmallest(8, _candidates(), key=lambda x: x[0]):
         out.append({"label": f"{r['gene_symbol']} {r.get('hgvs_p') or r.get('hgvs_c')}",
                     "slug": r["canonical_slug"],
                     "classification": r.get("classification"),
                     "stars": _STAR_N.get((r.get("review_status") or "").strip().lower(), 0),
                     "relation": rel})
     return out
+
+
+def similar_variants(rec, recs):
+    """Compatibility wrapper: prep a gene and return its similar list.
+
+    The live app uses similar_index() once per gene and
+    similar_variants_from_index() per page; this wrapper keeps the static build
+    and the tests on the same implementation.
+    """
+    return similar_variants_from_index(rec, similar_index(recs))
 
 
 def submission_timeline(submissions):

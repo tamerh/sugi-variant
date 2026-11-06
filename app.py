@@ -32,6 +32,8 @@ from sugivariant.present import evidence_groups, evidence_view  # noqa: E402
 from sugivariant.enrich import (review_stars, review_tier, tier_label,  # noqa: E402
                                 missense_short, disagreement_flag,
                                 DISAGREEMENT_CATEGORIES)
+from sugivariant.enrich import (similar_index as _build_similar_index,  # noqa: E402
+                                similar_variants_from_index as _similar_from_index)
 from sugivariant.enrich import (begin_build as _begin_build,   # noqa: E402
                                build_degraded as _build_degraded)
 from sugibiobtree.client import BiobtreeError          # noqa: E402
@@ -152,6 +154,10 @@ _GENE_CACHE = collections.OrderedDict()                # gene -> records, LRU or
 _GENE_CACHE_BYTES = 0
 _GENE_CACHE_BUDGET = int(os.environ.get("GENE_CACHE_MB", "1500")) * 1024 * 1024
 _GENE_CACHE_LOCK = threading.Lock()
+# Derived similar-variant indexes, one per loaded gene. Tied to the gene LRU:
+# evicted with its records and rebuilt on the next page. Never written to disk.
+_SIMILAR_INDEX = {}
+_SIMILAR_LOCK = threading.Lock()
 # Measured deserialized-RAM cost per enriched record (~15 KB by RSS delta); rounded up so the
 # byte budget is a safe upper bound on real memory (GENE_CACHE_MB ~= actual MB the cache uses).
 _BYTES_PER_VARIANT = 16000
@@ -180,8 +186,10 @@ def _cache_put(g, recs):
         _GENE_CACHE.move_to_end(g)
         _GENE_CACHE_BYTES += sz
         while _GENE_CACHE_BYTES > _GENE_CACHE_BUDGET and len(_GENE_CACHE) > 1:
-            _, ev = _GENE_CACHE.popitem(last=False)    # drop the least-recently-used gene
+            ev_gene, ev = _GENE_CACHE.popitem(last=False)  # drop the least-recently-used gene
             _GENE_CACHE_BYTES -= len(ev) * _BYTES_PER_VARIANT
+            with _SIMILAR_LOCK:
+                _SIMILAR_INDEX.pop(ev_gene, None)
 
 
 def _gene_of(slug):
@@ -196,6 +204,35 @@ _GENE_LOCKS, _LOCKS_LOCK = {}, threading.Lock()
 def _gene_lock(g):
     with _LOCKS_LOCK:
         return _GENE_LOCKS.setdefault(g, threading.Lock())
+
+
+def _similar_index_for(gene, recs):
+    """The per-gene prep index for similar-variant links, built once and cached.
+
+    Tied to the gene LRU: _cache_put drops it with the gene, and _records drops it
+    when a new record list replaces the old one. Never persisted.
+    """
+    g = gene.upper()
+    with _SIMILAR_LOCK:
+        idx = _SIMILAR_INDEX.get(g)
+    if idx is not None:
+        return idx
+    with _gene_lock(g):
+        with _SIMILAR_LOCK:
+            idx = _SIMILAR_INDEX.get(g)
+        if idx is None:
+            idx = _build_similar_index(recs)
+            with _SIMILAR_LOCK:
+                _SIMILAR_INDEX[g] = idx
+        return idx
+
+
+def _with_similar(r, gene, recs):
+    """Attach the serve-time similar list to a record exactly once per process."""
+    if not r.get("_sim_fresh"):
+        r["similar"] = _similar_from_index(r, _similar_index_for(gene, recs))
+        r["_sim_fresh"] = True
+    return r
 
 
 def _records(gene):
@@ -216,12 +253,16 @@ def _records(gene):
             try:
                 with gzip.open(path, "rb") as f:
                     recs = pickle.load(f)
+                with _SIMILAR_LOCK:
+                    _SIMILAR_INDEX.pop(g, None)   # new list: drop any old prep index
                 _cache_put(g, recs)          # LRU insert (may evict cold genes; they stay on disk)
                 return recs
             except Exception:
                 pass
         _begin_build()
         recs = enriched_records(g) or []
+        with _SIMILAR_LOCK:
+            _SIMILAR_INDEX.pop(g, None)       # rebuilt list: old index is stale
         if _build_degraded():
             # An upstream fetch FAILED during this build, so the records under-report
             # evidence (a missing gnomAD read used to render as "absent from gnomAD" —
@@ -282,7 +323,7 @@ def _resolve(slug):
     recs = _records(gene) if gene else []
     for r in recs:
         if r["canonical_slug"] == slug or slug in (r.get("slugs") or []):
-            return r
+            return _with_similar(r, gene, recs)
     # Not in the gene's own records — resolve via the index alias table.
     ix = _index()
     if ix:
@@ -291,7 +332,7 @@ def _resolve(slug):
             vcv = str(hits[0]["vcv"])
             for r in recs:                          # legacy/alias-only slug (e.g. pre-cap delins URL)
                 if str(r.get("variation_id")) == vcv:
-                    return r
+                    return _with_similar(r, gene, recs)
             # The VCV isn't under this gene at all — ClinVar's sort-gene differs from the
             # HGVS-derived gene (overlapping loci, e.g. MT-ATP8 filed under MT-ATP6). The
             # per-gene build will never contain it, so build the single variant directly.
