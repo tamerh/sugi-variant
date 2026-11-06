@@ -35,6 +35,22 @@ from urllib.parse import unquote
 
 SCHEMA = "sugi-variant-sv/1"
 
+# The four clinical dbVar VCFs are the gate. Within them, keep the same canonical
+# germline classes the small-variant BUILD_CLASSES admits. Somatic/oncology/drug
+# labels (evidence_only, risk factor, Tier I-III, drug response, Likely oncogenic,
+# protective, ...) are not germline ACMG classes and would describe a different
+# object than the rest of the site.
+GATE_KEEP = {
+    "pathogenic", "likely pathogenic", "pathogenic/likely pathogenic",
+    "uncertain significance", "conflicting classifications of pathogenicity",
+    "conflicting data from submitters", "benign", "likely benign",
+    "benign/likely benign",
+}
+
+
+def should_build(rec):
+    return (rec.get("significance") or "").strip().lower() in GATE_KEEP
+
 DB_SCHEMA = """
 CREATE TABLE IF NOT EXISTS sv(
   nssv TEXT PRIMARY KEY, nsv TEXT, chrom TEXT, start INTEGER, end INTEGER,
@@ -190,10 +206,11 @@ def gene_coords(symbol):
         return None
 
 
-def annotate_genes(conn, genes):
+def annotate_genes(conn, genes, verbose=False):
     """Insert sv_gene rows for the given gene symbols. Returns (gene, n_svs) list."""
     out = []
-    for g in genes:
+    total = len(genes)
+    for i, g in enumerate(genes, 1):
         c = gene_coords(g)
         if not c:
             out.append((g, 0))
@@ -204,32 +221,45 @@ def annotate_genes(conn, genes):
             conn.execute("INSERT OR IGNORE INTO sv_gene VALUES(?,?)", (g, rec["nssv"]))
             n += 1
         out.append((g, n))
+        if verbose and (i % 500 == 0 or i == total):
+            print(f"  annotated {i}/{total} genes", flush=True)
     conn.commit()
     return out
 
 
-def build(db_path, intervals, limit=200, genes=None, apply=True, verbose=True):
-    """Build a prototype SV corpus from dbVar intervals (or explicit NSSVs)."""
+def build(db_path, intervals=None, nssvs_file=None, limit=200, genes=None,
+          genes_file=None, apply=True, verbose=True):
+    """Build an SV corpus from dbVar intervals, or from an explicit NSSV list."""
     from sugibiobtree import map_all
     nssvs = []
-    # Spread the sample across the supplied intervals instead of filling the limit
-    # from the first one: a 1p36 interval alone can return hundreds of large CNVs.
-    per = max(1, limit // max(1, len(intervals))) if limit else None
-    for coord in intervals:
-        got = 0
-        for r in map_all(coord, ">>dbvar", cap=None):
-            nssv = r.get("id")
-            if nssv and nssv not in nssvs:
-                nssvs.append(nssv)
-                got += 1
-            if per and got >= per:
-                break
+    if nssvs_file:
+        with open(nssvs_file, encoding="utf-8") as f:
+            nssvs = [ln.strip() for ln in f if ln.strip()]
+    else:
+        # Spread the sample across the supplied intervals instead of filling the limit
+        # from the first one: a 1p36 interval alone can return hundreds of large CNVs.
+        intervals = intervals or []
+        per = max(1, limit // max(1, len(intervals))) if limit else None
+        for coord in intervals:
+            got = 0
+            for r in map_all(coord, ">>dbvar", cap=None):
+                nssv = r.get("id")
+                if nssv and nssv not in nssvs:
+                    nssvs.append(nssv)
+                    got += 1
+                if per and got >= per:
+                    break
     nssvs = nssvs[:limit] if limit else nssvs
+    genes = list(genes or [])
+    if genes_file:
+        with open(genes_file, encoding="utf-8") as f:
+            genes += [ln.strip().upper() for ln in f if ln.strip()]
+    genes = list(dict.fromkeys(genes))
     conn = open_db(db_path) if apply else None
     built = 0
     for nssv in nssvs:
         rec = collect(nssv)
-        if not rec:
+        if not rec or not should_build(rec):
             continue
         built += 1
         if verbose and (built % 50 == 0):
@@ -239,7 +269,7 @@ def build(db_path, intervals, limit=200, genes=None, apply=True, verbose=True):
     if conn:
         conn.commit()
         if genes:
-            for g, n in annotate_genes(conn, genes):
+            for g, n in annotate_genes(conn, genes, verbose=verbose):
                 if verbose:
                     print(f"  {g}: {n} overlapping SVs")
         conn.close()
@@ -294,10 +324,13 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("build")
     b.add_argument("--db", required=True)
-    b.add_argument("--intervals", required=True,
+    b.add_argument("--intervals",
                    help="comma-separated chr:pos points, e.g. 1:10001,22:19700000")
-    b.add_argument("--limit", type=int, default=200)
+    b.add_argument("--nssvs-file", help="one NSSV accession per line (full build)")
+    b.add_argument("--limit", type=int, default=200,
+                   help="0 means all")
     b.add_argument("--genes", default="", help="comma-separated symbols to annotate")
+    b.add_argument("--genes-file", help="one gene symbol per line to annotate")
     b.add_argument("--apply", action="store_true")
     for name in ("lookup", "overlap", "show"):
         p = sub.add_parser(name)
@@ -312,8 +345,11 @@ def main(argv=None):
 
     if a.cmd == "build":
         genes = [g.strip().upper() for g in a.genes.split(",") if g.strip()]
-        intervals = [x.strip() for x in a.intervals.split(",") if x.strip()]
-        return build(a.db, intervals, a.limit, genes, a.apply)
+        intervals = [x.strip() for x in (a.intervals or "").split(",") if x.strip()]
+        build(a.db, intervals=intervals, nssvs_file=a.nssvs_file,
+              limit=a.limit, genes=genes, genes_file=a.genes_file,
+              apply=a.apply)
+        return 0
 
     conn = open_ro(a.db)
     if a.cmd == "lookup":

@@ -5,6 +5,7 @@ the live prototype, not here.
 """
 from sugivariant.dbvar import (
     _insert, aliases, open_db, lookup, overlapping, record_from_attrs, render_md,
+    should_build,
 )
 
 
@@ -66,6 +67,15 @@ def test_insert_is_idempotent(tmp_path):
     conn.commit()
     assert len(lookup(conn, "nssv1")) == 1
     assert len(overlapping(conn, "1", 10001, 10002)) == 2
+
+
+def test_gate_keeps_germline_acmg_classes_only():
+    assert should_build({"significance": "Pathogenic"})
+    assert should_build({"significance": "Uncertain significance"})
+    assert should_build({"significance": "conflicting data from submitters"})
+    for skip in ("not provided", "drug response", "risk factor", "evidence_only",
+                 "Tier I - Strong", "protective", ""):
+        assert not should_build({"significance": skip}), skip
 
 
 def test_render_md_states_the_snv_predictor_boundary():
