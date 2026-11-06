@@ -888,7 +888,10 @@ def home(q: str = ""):
         if len(parts) > 1:
             from urllib.parse import quote
             return RedirectResponse(f"{BASE}/set?q={quote(q)}", status_code=307)
-        return _resolution_response(*resolve_query(q))
+        kind, term, hits = resolve_query(q)
+        if not hits and _sv_lookup(q):
+            return RedirectResponse(f"{BASE}/sv/{q}", status_code=307)
+        return _resolution_response(kind, term, hits)
     s = _corpus_stats()
     return HTMLResponse(_render("home.html", n_variants=s["variants"],
                                 n_genes=s["genes"], n_flagged=s["flagged"],
