@@ -11,6 +11,10 @@ criteria, verbatim. Every fact is shown with its source and dataset build date, 
 variant classes (including non-coding and mitochondrial), and it surfaces the variants where the
 independent signals disagree, as a quality-control signal for review.
 
+It also serves clinical **structural variants** from dbVar — deletions, duplications,
+insertions and inversions — with their overlapping genes and ClinVar accessions, as a separate
+corpus with its own pages (`/sv/NSSV…`). The SNV predictors do not apply to those.
+
 ## Publication
 
 Preprint

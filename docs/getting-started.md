@@ -26,6 +26,7 @@ Every page has a stable, shareable URL:
 | Variant | `/pten-p-arg130gln` (slug = gene + normalized HGVS) |
 | Variant by rsID | `/rs121909229` (redirects to the canonical slug) |
 | Gene | `/gene/PTEN` |
+| Structural variant | `/sv/NSSV15120701` (dbVar NSSV; nsv, VCV and locus also resolve) |
 | Evidence disagreements (per gene) | `/gene/PTEN#disagreements` |
 | Set | `/set?v=slug1,slug2,…` |
 
@@ -57,6 +58,24 @@ Paste or build a list of variants to compare them on one page:
 `/gene/<SYMBOL>` lists a gene's variants grouped by classification, and — near the top —
 its **evidence-disagreement** section: the variants where the computational evidence doesn't
 line up with the clinical call, a QC signal for a second look.
+
+## Structural variants
+
+Clinical structural variants from [dbVar](https://www.ncbi.nlm.nih.gov/dbvar/) live in a
+separate corpus, because a deletion or duplication is not a single-residue variant:
+
+- **Page** — `/sv/NSSV15120701` (dbVar NSSV). An `nsv…` region id, a ClinVar `VCV…`
+  accession, an exact SV coordinate, or a locus `chr:start-end` also resolves.
+- **Locus** — `/sv/9:72500000-72900000` lists every SV overlapping that interval.
+- **Gene hub** — a gene page lists the structural variants overlapping it, capped at the
+  100 most clinically significant.
+- **On the page** — type, size, breakpoints, clinical significance, origin, phenotypes,
+  ClinVar accessions, overlapped genes and the dbVar description.
+- **Not applied** — AlphaMissense, REVEL, SaProt and SpliceAI are SNV predictors and do not
+  apply to a structural variant; the page says so rather than showing an empty score.
+
+Only the canonical germline classes are included (pathogenic through benign; dbVar's
+somatic/oncology/drug-response labels are a separate future corpus).
 
 ## Scope reminder
 

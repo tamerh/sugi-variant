@@ -11,10 +11,16 @@ IDs all reconcile to the same canonical entities.
 
 ## Corpus
 
-The corpus is the **pathogenic-gated** slice of ClinVar: every variant classified
-**Pathogenic**, **Likely pathogenic**, or **Conflicting classifications of pathogenicity** —
-**463,882** variants across **6,537** genes, including protein-coding, **ncRNA** (`n.`) and
-**mitochondrial** (`m.`) loci. (Benign and VUS variants are out of scope by design.)
+The small-variant corpus is the ClinVar germline slice: every buildable classification —
+**Pathogenic**, **Likely pathogenic**, **Conflicting classifications of pathogenicity**,
+**Uncertain significance** and **Benign/Likely benign** — across protein-coding, **ncRNA**
+(`n.`) and **mitochondrial** (`m.`) loci (currently ~4.08M indexed variants across ~18,600
+genes).
+
+A separate **structural-variant corpus** comes from dbVar: clinical deletions,
+duplications, insertions, inversions and CNVs, gated to the same canonical germline classes
+(currently 82,672 SVs). dbVar's somatic/oncology/drug-response labels are out of scope for
+now and are not mixed into the germline pages.
 
 ## Sources
 
@@ -23,6 +29,7 @@ Each fact on a page traces to one source, carried with its dataset build date:
 | Domain | Source |
 |---|---|
 | Clinical classification, review status, submitters | **ClinVar** |
+| Structural variants (type, size, breakpoints, origin) | **dbVar** (NCBI) |
 | Expert-panel applied ACMG codes | **ClinGen VCEP** (reported verbatim, not re-tallied) |
 | Gene constraint, dosage, gene–disease validity | **gnomAD** · **ClinGen** · **GenCC** |
 | Population frequency | **gnomAD v4.1** |
@@ -48,6 +55,24 @@ Variants are addressable three ways, all resolved through a precomputed **SQLite
 Because HGVS isn't free-text-searchable upstream, each page's URL is a **deterministic slug**
 derived from `GENE` + normalized HGVS (e.g. `pten-p-arg130gln`); the coding form is a
 same-page alias. Over-long insertions are hashed so URLs stay bounded.
+
+## Structural variants
+
+Structural variants are a separate corpus, not more rows in the small-variant records:
+
+- **Identity** is the dbVar `NSSV…` accession; the parent region is `nsv…`.
+- **Location** is an interval. The corpus has its own SQLite store with an R-tree index, so
+  a point or locus query returns every SV whose span covers it.
+- **Genes are by overlap.** dbVar carries no gene assignment; the build intersects the
+  interval with Ensembl gene coordinates. A large CNV can overlap many genes.
+- **Page.** Type, size, breakpoints, clinical significance, origin, phenotypes, ClinVar
+  accessions, overlapped genes and the dbVar description.
+- **Not the SNV evidence.** AlphaMissense, REVEL, SaProt and SpliceAI are single-residue
+  predictors; the SV page states that they do not apply rather than showing an empty score.
+- **Same gate.** Only the canonical germline ACMG classes are built; dbVar's
+  somatic/oncology/drug-response labels are a separate future corpus.
+
+A gene page lists the SVs overlapping it, capped at the 100 most clinically significant.
 
 ## Interpretation rules
 

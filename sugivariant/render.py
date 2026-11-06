@@ -89,6 +89,10 @@ SOURCE_REFS = {
     "MaveDB":                               ("Esposito et al., Genome Biol 2019",   "https://www.mavedb.org/"),
     "CIViC":                                ("Griffith et al., Nat Genet 2017",     "https://civicdb.org/"),
     "Orphanet":                             ("Rath et al., 2012",                   "https://www.orpha.net/"),
+    # Structural variants are a separate corpus (dbVar), but the About page covers
+    # the whole product, so the archive is credited there without claiming that
+    # small-variant records read it.
+    "dbVar":                                ("Lappalainen et al., Nat Genet 2013",   "https://www.ncbi.nlm.nih.gov/dbvar/"),
 }
 
 
