@@ -51,7 +51,12 @@ def _write(records_path, recs):
 
 
 def _stored_vcvs(path):
-    """(variation_id, gene_symbol, hgvs_p) for every record in a stored pickle."""
+    """The identifying fields of every record in a stored pickle.
+
+    Returns a list of dicts (or None when the file cannot be read). The fields are
+    the ones the build itself dedupes and slugs on, so "is this variant served?"
+    can be answered with the same rule the build uses.
+    """
     try:
         with gzip.open(path, "rb") as f:
             recs = pickle.load(f)
@@ -60,54 +65,102 @@ def _stored_vcvs(path):
     out = []
     for r in recs or []:
         v = r.get("variation_id") or r.get("vcv")
-        if v is not None:
-            out.append((str(v), (r.get("gene_symbol") or "").upper(),
-                        (r.get("hgvs_p") or "").strip()))
+        if v is None:
+            continue
+        out.append({
+            "vcv": str(v),
+            "gene": (r.get("gene_symbol") or "").upper(),
+            "hgvs_c": (r.get("hgvs_c") or "").strip(),
+            "hgvs_p": (r.get("hgvs_p") or "").strip(),
+            "coord": (r.get("coordinate") or "").strip().upper(),
+        })
     return out
 
 
-def carrier_reshard(records_dir, gene, recs):
+def _served(row, own):
+    """Is `row` (a dropped record) still served by `own` (another gene's records)?
+
+    The build collapses ClinVar duplicates to one page, so a dropped VCV is not a
+    lost page when the other gene carries the same variant in any of the forms the
+    build itself treats as one:
+
+    - the same VCV;
+    - the same coding change (`hgvs_c`) -- two VCVs that differ only in the
+      nucleotide, or the same change annotated under a neighbouring gene
+      (LRTOMT c.529C>T served as LRRC51 c.529C>T);
+    - the same protein change (`hgvs_p`) -- two nucleotides, one residue.
+
+    Anything else is a real loss.
+    """
+    if not own:
+        return False
+    for o in own:
+        if o["vcv"] == row["vcv"]:
+            return True
+        if row["hgvs_c"] and o["hgvs_c"] == row["hgvs_c"]:
+            return True
+        if row["hgvs_p"] and o["gene"] == row["gene"] and o["hgvs_p"] == row["hgvs_p"]:
+            return True
+    return False
+
+
+def _rows(recs):
+    """The identifying fields of a freshly built record list (see _stored_vcvs)."""
+    out = []
+    for r in recs or []:
+        v = r.get("variation_id") or r.get("vcv")
+        if v is None:
+            continue
+        out.append({"vcv": str(v),
+                    "gene": (r.get("gene_symbol") or "").upper(),
+                    "hgvs_c": (r.get("hgvs_c") or "").strip(),
+                    "hgvs_p": (r.get("hgvs_p") or "").strip(),
+                    "coord": (r.get("coordinate") or "").strip().upper()})
+    return out
+
+
+def carrier_reshard(records_dir, gene, recs, pending=(), fresh=None):
     """Is a shrinking write a legitimate reshard, or a real collapse?
 
     A gene's pickle can legitimately carry another gene's records: ClinVar files
     that overlap the locus come back under the host gene, and `gene_symbol` then
     comes from the HGVS transcript (the "carrier-gene defect"). When those carrier
     rows are dropped from the host gene, the record count falls, but nothing is
-    lost *if* the other gene's own pickle already serves every dropped variant.
+    lost when the gene each row belongs to already serves it.
 
-    A variant counts as served when the other gene's pickle carries its VCV **or**
-    a record with the same protein change (`hgvs_p`): two ClinVar VCVs that differ
-    only in the nucleotide change (c.135G>A vs c.135G>C, both p.Pro45=) are one
-    page by the build's own slug dedupe, so dropping the second VCV loses no page.
+    A mutual pair (CORO7 / CORO7-PAM16) cannot be judged against two stale files:
+    each holds the other's records, and neither old file serves the other's rows.
+    So when the carrier gene is itself waiting in this run, `fresh(gene)` supplies
+    what that gene is about to become, and coverage is judged against that.
 
-    Returns (safe, dropped, uncovered) where `uncovered` names the carrier genes
-    whose own pickle does not yet serve the dropped variants. The caller must
-    still refuse when `safe` is False.
+    Returns (safe, dropped, uncovered). `uncovered` counts the dropped variants per
+    gene that nothing else serves; the caller must still refuse when `safe` is
+    False. Rows belonging to the host gene itself are always uncovered, so a
+    genuine collapse can never be waved through as a reshard.
     """
-    path = os.path.join(records_dir, f"{gene}.pkl.gz")
-    stored = _stored_vcvs(path)
+    stored = _stored_vcvs(os.path.join(records_dir, f"{gene}.pkl.gz"))
     if stored is None:
         return False, 0, {}
     new = {str(r.get("variation_id") or r.get("vcv")) for r in recs
            if (r.get("variation_id") or r.get("vcv")) is not None}
-    dropped = [row for row in stored if row[0] not in new]
+    dropped = [row for row in stored if row["vcv"] not in new]
     if not dropped:
         return True, 0, {}
-    by_gene = {}
     host = (gene or "").upper()
-    own_rows = 0
-    for v, g, p in dropped:
-        if not g or g == host:
+    by_gene, own_rows = {}, 0
+    for row in dropped:
+        if not row["gene"] or row["gene"] == host:
             own_rows += 1        # the gene's own lost variants: never a reshard
             continue
-        by_gene.setdefault(g, set()).add((v, p))
+        by_gene.setdefault(row["gene"], []).append(row)
     uncovered = {gene: own_rows} if own_rows else {}
-    for g, want in by_gene.items():
-        own = _stored_vcvs(os.path.join(records_dir, f"{g}.pkl.gz"))
-        have_v = {v for v, _, _ in own} if own else set()
-        have_p = {f"{gg}|{pp}" for _, gg, pp in own if pp} if own else set()
-        missing = {v for v, p in want
-                   if v not in have_v and not (p and f"{g}|{p}" in have_p)}
+    for g, rows in by_gene.items():
+        own = None
+        if fresh and g in pending:
+            own = fresh(g)
+        if own is None:
+            own = _stored_vcvs(os.path.join(records_dir, f"{g}.pkl.gz"))
+        missing = [r for r in rows if not _served(r, own)]
         if missing:
             uncovered[g] = len(missing)
     return not uncovered, len(dropped), uncovered
@@ -137,6 +190,22 @@ def main(argv=None):
 
     conn = open_db(a.index) if a.apply else None
     t0 = time.time()
+    written = set()
+    fresh_cache = {}
+
+    def _fresh(gene):
+        """What this run's rebuild of `gene` produces, for mutual-pair coverage.
+
+        Only consulted for genes still waiting in this run, and cached: a gene is
+        built at most once more, and only when a reshard actually needs it.
+        """
+        if gene not in fresh_cache:
+            try:
+                fresh_cache[gene] = _rows(enriched_records(gene) or [])
+            except Exception:
+                fresh_cache[gene] = None
+        return fresh_cache[gene]
+
     for i, g in enumerate(todo, 1):
         path = os.path.join(a.records, f"{g}.pkl.gz")
         before = stored_record_count(path)
@@ -155,7 +224,9 @@ def main(argv=None):
             continue
         collapsed = records_collapsed(path, len(recs))
         if collapsed:
-            safe, dropped, uncovered = carrier_reshard(a.records, g, recs)
+            pending = set(todo[i:]) - written - {g}
+            safe, dropped, uncovered = carrier_reshard(
+                a.records, g, recs, pending=pending, fresh=_fresh)
             if not safe:
                 print(f"  {g:<12} REFUSED {len(recs)} would replace {collapsed} "
                       f"(uncovered carrier {uncovered})", flush=True)
@@ -171,6 +242,7 @@ def main(argv=None):
         if a.apply:
             _write(path, recs)
             index_gene(conn, g, recs=recs)
+            written.add(g)
             done.add(g)
             prog["done"] = sorted(done)
             prog.setdefault("failed", {}).pop(g, None)

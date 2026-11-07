@@ -24,8 +24,9 @@ def _write(records_dir, gene, rows):
         pickle.dump(rows, f)
 
 
-def _rec(vcv, gene, hgvs_p=None, hgvs_c=None):
-    return {"variation_id": vcv, "gene_symbol": gene, "hgvs_p": hgvs_p, "hgvs_c": hgvs_c}
+def _rec(vcv, gene, hgvs_p=None, hgvs_c=None, coord=None):
+    return {"variation_id": vcv, "gene_symbol": gene, "hgvs_p": hgvs_p,
+            "hgvs_c": hgvs_c, "coordinate": coord}
 
 
 def test_no_stored_file_is_not_a_reshard(tmp_path):
@@ -68,6 +69,27 @@ def test_same_protein_change_counts_as_served(tmp_path):
         str(tmp_path), "HOST", [_rec("1", "HOST")])
     assert safe is True
     assert uncovered == {}
+
+
+def test_same_coding_change_under_a_neighbour_gene_is_served(tmp_path):
+    # LRTOMT c.529C>T is the same variant the neighbouring annotation calls
+    # LRRC51 c.529C>T; one page exists, so the other VCV is not a lost page.
+    _write(tmp_path, "HOST", [_rec("1", "HOST"), _rec("10", "OTHER", hgvs_c="c.529C>T")])
+    _write(tmp_path, "OTHER", [_rec("20", "ELSEWHERE", hgvs_c="c.529C>T")])
+    safe, _dropped, uncovered = QR.carrier_reshard(
+        str(tmp_path), "HOST", [_rec("1", "HOST")])
+    assert safe is True
+    assert uncovered == {}
+
+
+def test_a_different_variant_at_the_same_residue_is_not_served(tmp_path):
+    _write(tmp_path, "HOST", [_rec("1", "HOST"),
+                              _rec("10", "OTHER", hgvs_c="c.5833C>T", hgvs_p="p.Gln1945Ter")])
+    _write(tmp_path, "OTHER", [_rec("20", "OTHER", hgvs_c="c.5834C>T", hgvs_p="p.Gln1945Arg")])
+    safe, _dropped, uncovered = QR.carrier_reshard(
+        str(tmp_path), "HOST", [_rec("1", "HOST")])
+    assert safe is False
+    assert uncovered == {"OTHER": 1}
 
 
 def test_a_real_collapse_still_refuses(tmp_path):
