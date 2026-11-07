@@ -1,9 +1,9 @@
 # Sugi Variant
 
 A **free, deterministic reference page for every ClinVar germline variant** —
-**4,125,521** variants across **18,837** genes (protein-coding, ncRNA and mitochondrial),
-from **312,788** pathogenic or likely pathogenic through **2,236,650** of uncertain
-significance. Each page cross-sources ClinVar, gnomAD, AlphaMissense, conservation,
+**4,164,662** variants across **19,015** genes (protein-coding, ncRNA and mitochondrial),
+from **330,749** pathogenic or likely pathogenic through **2,506,487** of uncertain
+or conflicting significance. Each page cross-sources ClinVar, gnomAD, AlphaMissense, conservation,
 SpliceAI, ClinGen and more into one place, and flags the variants where the computational
 evidence and the clinical call **disagree** — a review signal, never a reclassification.
 
