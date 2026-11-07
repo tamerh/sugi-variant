@@ -166,6 +166,9 @@ def carrier_reshard(records_dir, gene, recs, pending=(), fresh=None):
     return not uncovered, len(dropped), uncovered
 
 
+_FRESH_MAX_STORED = 5000   # see _fresh(): never rebuild a whale to judge a reshard
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--queue", required=True)
@@ -204,10 +207,17 @@ def main(argv=None):
         built at most once more, and only when a reshard actually needs it.
         """
         if gene not in fresh_cache:
-            try:
-                fresh_cache[gene] = _rows(enriched_records(gene) or [])
-            except Exception:
+            # Never rebuild a whale just to judge a reshard: fall back to its
+            # current pickle instead. This runs unattended over the whole corpus,
+            # where one accidental TTN build would cost hours.
+            path = os.path.join(a.records, f"{gene}.pkl.gz")
+            if (stored_record_count(path) or 0) > _FRESH_MAX_STORED:
                 fresh_cache[gene] = None
+            else:
+                try:
+                    fresh_cache[gene] = _rows(enriched_records(gene) or [])
+                except Exception:
+                    fresh_cache[gene] = None
         return fresh_cache[gene]
 
     for i, g in enumerate(todo, 1):
