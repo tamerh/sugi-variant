@@ -269,3 +269,26 @@ def test_read_index_is_read_only(tmp_path):
     assert out["gene_meta"] == {"AAA": 2}
     assert out["variant_counts"] == {"AAA": 2}
     assert out["total"] == 2
+
+
+def test_rebuild_queue_reports_stale_genes_as_a_separate_refresh():
+    """A gene whose pickle and index agree is invisible to the page diff, so a
+    ClinVar release that adds variants there never reaches the queue. The refresh
+    list is the only place that backlog is visible, and it must not be mixed into
+    the page gaps (that would bury them)."""
+    def state(gene, n, issues, stale_on, pages=0):
+        return {"status": issues[0] if issues else "ok", "issues": issues,
+                "stale_on": stale_on, "n": n, "index_rows": n, "index_slugs": n,
+                "pages_missing": pages, "pages_stale": 0, "rows_missing": 0,
+                "alias_only": 0}
+    manifest = {"release": "v1", "corpora": {"small_variant": {"gene_state": {
+        "BIG": state("BIG", 900, ["stale"], ["clinvar", "gnomad_variant"]),
+        "SMALL": state("SMALL", 10, ["stale"], ["clinvar"]),
+        "GAP": state("GAP", 100, ["mismatch"], [], pages=5),
+        "FRESH": state("FRESH", 50, [], []),
+    }}}}
+    q = rebuild_queue(manifest)
+    assert [e["gene"] for e in q["queue"]] == ["GAP"]          # page gap stays alone
+    assert [e["gene"] for e in q["refresh"]] == ["SMALL", "BIG"]  # smallest first
+    assert q["refresh"][1]["datasets"] == ["clinvar", "gnomad_variant"]
+    assert q["totals"]["refresh_genes"] == 2

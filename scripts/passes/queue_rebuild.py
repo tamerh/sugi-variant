@@ -173,11 +173,15 @@ def main(argv=None):
     ap.add_argument("--index", required=True)
     ap.add_argument("--progress", required=True)
     ap.add_argument("--limit", type=int, default=0, help="0 means all")
+    ap.add_argument("--include-refresh", action="store_true",
+                    help="also rebuild the queue's `refresh` list (stale datasets)")
     ap.add_argument("--apply", action="store_true")
     a = ap.parse_args(argv)
 
     q = _load_json(a.queue, {})
     entries = list(q.get("queue") or []) + list(q.get("reindex") or [])
+    if a.include_refresh:
+        entries += list(q.get("refresh") or [])
     # One gene once, preserving queue order (largest gaps first).
     genes = list(dict.fromkeys(e["gene"] for e in entries if e.get("gene")))
     prog = _load_json(a.progress, {"done": [], "failed": {}})

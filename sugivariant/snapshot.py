@@ -299,7 +299,7 @@ def build_manifest(records_dir, index_db, current_versions=None,
                 known_empty.append(g)
                 status = "known_empty"
             state = {"path": None, "size": None, "mtime": None, "n": None,
-                     "index_rows": idx_n, "stamp": None,
+                     "index_rows": idx_n, "stamp": None, "stale_on": [],
                      "status": status, "issues": issues}
         else:
             n = r["n"]
@@ -334,6 +334,7 @@ def build_manifest(records_dir, index_db, current_versions=None,
             status = next((s for s in _STATUS_ORDER if s in issues), "ok")
             state = {"path": r["path"], "size": r["size"], "mtime": r["mtime"],
                      "n": n, "index_rows": idx_n, "stamp": r["stamp"],
+                     "stale_on": stale_on or [],
                      "status": status, "issues": issues}
         idx_slugs = index["slug_counts"].get(g, 0)
         state["index_slugs"] = idx_slugs
@@ -448,9 +449,13 @@ def rebuild_queue(manifest):
       alias_only     index VCVs whose slug already exists in the pickle
                      (duplicates resolving to an existing page -- reindex, no rebuild)
 
-    Freshness is NOT a rebuild reason here. A dataset version bump marks almost
-    every gene stale (18.8k on the dev cache) and belongs to a separate,
-    materiality-driven pass; each row carries its stale flag for context.
+    Freshness is NOT a rebuild reason for ``queue``: a dataset version bump marks
+    almost every gene stale, and mixing that into the page gaps would drown them.
+    It is reported separately in ``refresh`` -- the genes whose stamp is behind the
+    current dataset versions, with the datasets that moved. That is a whole-corpus
+    refresh (its own scheduled run), and it is the only way new variants in an
+    existing gene appear: a gene whose pickle and index agree is invisible to the
+    page diff even when its data is two ClinVar releases old.
 
     Requires counted records (``--count-records`` or ``--count-sample``).
     Uncounted genes with index rows are reported in ``uncounted`` rather than
@@ -488,6 +493,22 @@ def rebuild_queue(manifest):
         elif (rows or 0) > 0 or alias > 0:
             alias_entries.append({**base, "reason": "alias_only", "pages": 0,
                                   "rows": rows or 0, "alias_only": alias})
+    refresh_entries = []
+    for g, s in state.items():
+        if s.get("status") in ("known_empty", "orphan"):
+            continue
+        if "stale" not in (s.get("issues") or []):
+            continue
+        refresh_entries.append({
+            "gene": g,
+            "reason": "stale_dataset",
+            "datasets": (s.get("stale_on") or []),
+            "records": s.get("n"),
+            "index_rows": s.get("index_rows") or 0,
+        })
+    # Smallest genes first: most of the corpus is refreshed early, and an
+    # interrupted run leaves only the whales to resume.
+    refresh_entries.sort(key=lambda e: (e["records"] if e["records"] is not None else 0, e["gene"]))
     entries.sort(key=lambda e: (-e["pages"], -e["rows"], e["gene"]))
     reindex_entries.sort(key=lambda e: (-e["pages_stale"], -e["rows"], e["gene"]))
     alias_entries.sort(key=lambda e: (-e["alias_only"], -e["rows"], e["gene"]))
@@ -509,11 +530,13 @@ def rebuild_queue(manifest):
             "alias_only_genes": len(alias_entries),
             "alias_only_rows": sum(e["alias_only"] for e in alias_entries),
             "uncounted_genes": len(uncounted),
+            "refresh_genes": len(refresh_entries),
         },
         "queue": entries,
         "reindex": reindex_entries,
         "alias_only": alias_entries,
         "uncounted": sorted(uncounted),
+        "refresh": refresh_entries,
     }
 
 
