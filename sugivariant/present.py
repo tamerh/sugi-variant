@@ -183,3 +183,94 @@ def evidence_groups(rec):
         "region": bool((rec.get("repeat") or {}).get("tandem")
                        or (rec.get("repeat") or {}).get("segdup")),
     }
+
+
+# ── transcripts ──────────────────────────────────────────────────────────────
+# MANE Select is a reporting convention, not a claim that other isoforms do not
+# matter: ~73% of records annotate the variant on two or more RefSeq accessions.
+# This turns the flat `hgvs_expressions` list into rows a reader can use — one per
+# accession, its coding change, and the ROLE it plays. It deliberately does not
+# derive a protein change per transcript: a c. string cannot be translated without
+# that transcript's CDS, and inventing one would be a new error where clinical
+# readers look (see docs/transcript-scope.md).
+
+import re as _re
+
+_TRANSCRIPT_EXPR = _re.compile(
+    r"^(?P<acc>(?:NM|NR|XM|XR)_\d+|LRG_\d+t\d+)(?:\.(?P<ver>\d+))?:(?P<change>[cnm]\.\S+)$")
+_GENOMIC_EXPR = _re.compile(
+    r"^(?P<acc>[A-Z]{1,2}_\d+(?:\.\d+)?|LRG_\d+|M\d+):(?P<change>g\.\S+)$")
+
+ROLE_MANE = "MANE Select"
+ROLE_PLUS = "MANE Plus Clinical"      # upstream flag not yet available; see docs
+ROLE_REPORTED = "ClinVar-reported"
+_ROLE_ORDER = {ROLE_MANE: 0, ROLE_PLUS: 1, ROLE_REPORTED: 2}
+
+
+def _base(acc):
+    return (acc or "").split(".")[0]
+
+
+def transcript_view(rec):
+    """Per-transcript rows for the page, or None when the record has no expressions.
+
+    Shape:
+      rows     [{accession, version, versions[older], change, roles[]}]
+      genomic  [{accession, change}]      (the locus, not an isoform)
+      note     the boundary sentence, always present when rows is non-empty
+    """
+    exprs = [e.strip() for e in (rec.get("hgvs_expressions") or []) if e]
+    if not exprs:
+        return None
+    tx, genomic, seen_g = {}, [], set()
+    for e in exprs:
+        m = _TRANSCRIPT_EXPR.match(e)
+        if m:
+            acc, ver, change = m.group("acc"), m.group("ver"), m.group("change")
+            row = tx.get(acc)
+            if row is None:
+                tx[acc] = {"accession": acc, "version": ver, "versions": [],
+                           "change": change, "roles": []}
+                continue
+            cur = row["version"]
+            if ver and (cur is None or int(ver) > int(cur)):
+                if cur and cur not in row["versions"]:
+                    row["versions"].append(cur)
+                row["version"] = ver
+            elif ver and cur and int(ver) < int(cur) and ver not in row["versions"]:
+                row["versions"].append(ver)
+            continue
+        g = _GENOMIC_EXPR.match(e)
+        if g:
+            key = (g.group("acc"), g.group("change"))
+            if key not in seen_g:
+                seen_g.add(key)
+                genomic.append({"accession": g.group("acc"), "change": g.group("change")})
+
+    rows = list(tx.values())
+    mane = rec.get("mane") or {}
+    mane_acc = _base(mane.get("mrna"))
+    reported = _base(mane.get("clinvar_transcript"))
+    for r in rows:
+        if mane_acc and r["accession"] == mane_acc:
+            r["roles"].append(ROLE_MANE)
+        if reported and r["accession"] == reported:
+            r["roles"].append(ROLE_REPORTED)
+    rows.sort(key=lambda r: (min((_ROLE_ORDER.get(x, 9) for x in r["roles"]), default=9),
+                             r["accession"]))
+    for r in rows:
+        r["versions"].sort()
+        r["also"] = ", ".join("." + v for v in r["versions"])
+
+    if not rows:
+        note = None
+    else:
+        who = mane.get("clinvar_transcript") or "the transcript ClinVar reported on"
+        if len(rows) > 1:
+            note = (f"Numbering is transcript-specific: the protein change and consequence "
+                    f"above are on {who}, while exon and constraint context are on MANE "
+                    f"Select. We do not choose an interpretation between isoforms.")
+        else:
+            note = (f"Numbering is transcript-specific: the change above is on {who}.")
+    return {"rows": rows, "genomic": genomic,
+            "mane_missing": bool(rows) and not mane_acc, "note": note}

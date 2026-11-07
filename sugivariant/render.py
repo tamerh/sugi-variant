@@ -4,6 +4,7 @@ gene/drug/disease renderers: every fact verbatim from the collected record.
 import re
 
 from sugivariant import links
+from sugivariant.present import transcript_view
 from sugivariant.util import kv_table, table
 
 # A delins/ins/dup can carry a huge inserted sequence (satellite DNA, etc.). For
@@ -557,9 +558,24 @@ def render_body(v, jsonld_tag=""):
                             if v.get("chromosome") else None)),
               ("ClinVar", f"[VCV{v['variation_id']}](https://www.ncbi.nlm.nih.gov/clinvar/variation/{v['variation_id']}/)"),
           ])]
-    exprs = v.get("hgvs_expressions") or []
-    if exprs:
-        L.append("\n**All HGVS expressions:** " + ", ".join(f"`{e}`" for e in exprs))
+    # Transcript-explicit view: the same rows the HTML renders, so a reader on a
+    # different isoform sees their numbering and which transcript the page's
+    # consequence belongs to. No per-transcript protein change: a c. string cannot
+    # be translated without that transcript's CDS (docs/transcript-scope.md).
+    tv = transcript_view(v)
+    if tv and tv["rows"]:
+        L += ["", "### Transcripts", "",
+              "| Transcript | Change | Role |", "|---|---|---|"]
+        for t in tv["rows"]:
+            acc = t["accession"] + (f".{t['version']}" if t["version"] else "")
+            if t["also"]:
+                acc += f" (also {t['also']})"
+            L.append(f"| `{acc}` | `{t['change']}` | {' · '.join(t['roles'])} |")
+        if tv["genomic"]:
+            L.append("| genomic | " + " · ".join(
+                f"`{g['accession']}:{g['change']}`" for g in tv["genomic"]) + " | |")
+        if tv["note"]:
+            L += ["", tv["note"]]
 
     # Computational & population evidence — the cross-source concordance readout.
     # Renders when there's a concordance verdict OR a molecular-consequence read

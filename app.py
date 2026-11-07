@@ -30,7 +30,8 @@ from sugivariant.render import page_title as _page_title  # noqa: E402
 from sugivariant.slug import _norm, _norm_hgvs            # noqa: E402
 from sugivariant.enrich import refresh_record as _refresh  # noqa: E402
 from sugivariant.enrich import records_collapsed  # noqa: E402
-from sugivariant.present import evidence_groups, evidence_view  # noqa: E402
+from sugivariant.present import (  # noqa: E402
+    evidence_groups, evidence_view, transcript_view)
 from sugivariant.enrich import (review_stars, review_tier, tier_label,  # noqa: E402
                                 missense_short, disagreement_flag,
                                 DISAGREEMENT_CATEGORIES)
@@ -459,6 +460,7 @@ def _render(tpl, **ctx):
     if tpl == "variant.html" and "ui" not in ctx and ctx.get("v") is not None:
         ctx["ui"] = evidence_view(ctx["v"], ctx.get("freq_g"))
         ctx["ui"]["groups"] = evidence_groups(ctx["v"])
+        ctx["ui"]["transcripts"] = transcript_view(ctx["v"])
     return env.get_template(tpl).render(**ctx)
 
 

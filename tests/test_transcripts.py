@@ -1,0 +1,95 @@
+"""The transcript block: one row per accession, roles named, nothing inferred.
+
+The data is already on every record (`hgvs_expressions`); what matters is that we
+group it by transcript, keep the highest version, label MANE Select and
+ClinVar-reported, and never invent a protein change per transcript (a c. string
+cannot be translated without that transcript's CDS).
+"""
+from sugivariant.present import ROLE_MANE, ROLE_REPORTED, transcript_view
+
+RUNX1 = {
+    "hgvs_expressions": [
+        "LRG_482:g.1190396T>C",
+        "NC_000021.8:g.36171613A>G",
+        "NC_000021.9:g.34799316A>G",
+        "NG_011402.2:g.1190396T>C",
+        "NM_001001890.3:c.871T>C",
+        "NM_001754.4:c.952T>C",
+        "NM_001754.5:c.952T>C",
+    ],
+    "mane": {"mrna": "NM_001754", "clinvar_transcript": "NM_001754",
+             "clinvar_on_mane": True},
+}
+
+
+def test_one_row_per_accession_and_highest_version_wins():
+    tv = transcript_view(RUNX1)
+    accessions = [r["accession"] for r in tv["rows"]]
+    assert accessions == ["NM_001754", "NM_001001890"]
+    mane = tv["rows"][0]
+    assert (mane["version"], mane["versions"], mane["also"]) == ("5", ["4"], ".4")
+    assert mane["change"] == "c.952T>C"
+
+
+def test_roles_name_the_transcript_not_a_rank():
+    tv = transcript_view(RUNX1)
+    assert tv["rows"][0]["roles"] == [ROLE_MANE, ROLE_REPORTED]
+    assert tv["rows"][1]["roles"] == []          # alternative: no role claimed
+
+
+def test_mane_is_first_even_when_another_accession_sorts_lower():
+    rec = dict(RUNX1, mane={"mrna": "NM_001001890", "clinvar_transcript": "NM_001754"})
+    tv = transcript_view(rec)
+    assert tv["rows"][0]["accession"] == "NM_001001890"
+    assert ROLE_MANE in tv["rows"][0]["roles"]
+    assert ROLE_REPORTED in tv["rows"][1]["roles"]
+
+
+def test_genomic_expressions_are_not_transcript_rows():
+    tv = transcript_view(RUNX1)
+    assert all(r["accession"].startswith("NM_") for r in tv["rows"])
+    genomic = {(g["accession"], g["change"]) for g in tv["genomic"]}
+    assert ("NC_000021.9", "g.34799316A>G") in genomic
+    assert ("LRG_482", "g.1190396T>C") in genomic
+    assert ("NG_011402.2", "g.1190396T>C") in genomic
+
+
+def test_lrg_transcript_and_lrg_locus_are_told_apart():
+    rec = {"hgvs_expressions": ["LRG_482t1:c.430C>T", "LRG_482:g.1190396T>C"]}
+    tv = transcript_view(rec)
+    assert [r["accession"] for r in tv["rows"]] == ["LRG_482t1"]
+    assert [g["accession"] for g in tv["genomic"]] == ["LRG_482"]
+
+
+def test_no_protein_change_is_derived_per_transcript():
+    tv = transcript_view(RUNX1)
+    for row in tv["rows"]:
+        assert not any(k.startswith("p") for k in row)
+        assert "p." not in row["change"]
+
+
+def test_genomic_only_record_has_no_transcript_rows():
+    rec = {"hgvs_expressions": ["NC_000006.12:g.26093233G>T"]}
+    tv = transcript_view(rec)
+    assert tv["rows"] == []
+    assert tv["genomic"] == [{"accession": "NC_000006.12", "change": "g.26093233G>T"}]
+    assert tv["note"] is None
+
+
+def test_no_expressions_means_no_block():
+    assert transcript_view({"hgvs_expressions": []}) is None
+    assert transcript_view({}) is None
+
+
+def test_gene_without_mane_says_so():
+    rec = {"hgvs_expressions": ["NR_123456.1:n.10A>G"]}
+    tv = transcript_view(rec)
+    assert tv["mane_missing"] is True
+    assert tv["rows"][0]["roles"] == []
+
+
+def test_note_names_the_reported_transcript():
+    tv = transcript_view(RUNX1)
+    assert "NM_001754" in tv["note"]
+    assert "MANE" in tv["note"]
+    assert "do not choose" in tv["note"]
