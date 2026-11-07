@@ -387,12 +387,23 @@ def _resolve(slug):
     for r in recs:
         if r["canonical_slug"] == slug or slug in (r.get("slugs") or []):
             return _with_similar(r, gene, recs)
-    # Not in the gene's own records — resolve via the index alias table.
+    # Not in the gene's own records — resolve via the index alias table. This is also
+    # how a coordinate-shaped URL resolves at all: `21:34880635:g:a` has no gene prefix
+    # to slice, so _gene_of() returns None and the index row is the only thing that
+    # knows which gene pickle serves it.
     ix = _index()
     if ix:
         hits = IX.lookup(ix, slug)
         if hits:
             vcv = str(hits[0]["vcv"])
+            if not any(str(r.get("variation_id")) == vcv for r in recs):
+                # The prefix _gene_of() sliced is not the gene that serves this row
+                # (a coordinate slug like 21:34880635:g:a slices to "21"). Trust the
+                # index row's gene and load that pickle instead.
+                hit_gene = (hits[0].get("gene") or "").lower()
+                if hit_gene and hit_gene != gene:
+                    gene = hit_gene
+                    recs = _records(gene)
             for r in recs:                          # legacy/alias-only slug (e.g. pre-cap delins URL)
                 if str(r.get("variation_id")) == vcv:
                     return _with_similar(r, gene, recs)
@@ -415,7 +426,9 @@ def _resolve_page(slug):
     and warm the full gene in the background so the next hit is complete."""
     gene = _gene_of(slug)
     if not gene:
-        return None
+        # A coordinate-shaped URL carries no gene prefix. The index row still knows
+        # which pickle serves it, so let _resolve() take it from there.
+        return _resolve(slug) if _index() else None
     if RELEASE_MODE:
         return _resolve(slug)           # read the pickle or return None; no build
     g = gene.upper()

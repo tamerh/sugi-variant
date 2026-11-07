@@ -79,3 +79,27 @@ def test_a_wrong_verb_on_a_page_lands_on_the_page_not_on_an_error():
     # Only the method is forgiven. A genuinely unknown slug is still a 404 error page,
     # or this handler would paper over every miss with a redirect loop.
     assert c.get("/definitely-not-a-real-variant-slug").status_code == 404
+
+
+def test_a_coordinate_slug_resolves_through_the_index(monkeypatch):
+    """A URL like /21:34880635:g:a has no gene prefix to slice, so the old path
+    returned 404 before ever consulting the index. The index row knows the gene.
+    This is the RUNX1 case: VCV 2879097 lost its page to a duplicate, its old
+    coordinate URL was re-pointed at VCV 2181528 by the merge pass."""
+    import app as A
+
+    rec = {"variation_id": 2181528, "gene_symbol": "RUNX1",
+           "canonical_slug": "runx1-p-leu144", "slugs": ["runx1-p-leu144"]}
+    monkeypatch.setattr(A, "_index", lambda: object())
+    monkeypatch.setattr(A, "IX", type("IX", (), {
+        "lookup": staticmethod(lambda ix, key: [
+            {"vcv": 2181528, "gene": "RUNX1", "slug": "runx1-p-leu144"}]
+            if key == "21:34880635:g:a" else []),
+    }))
+    monkeypatch.setattr(A, "_records",
+                        lambda g: [rec] if (g or "").upper() == "RUNX1" else [])
+    monkeypatch.setattr(A, "_with_similar", lambda r, g, recs: r)
+
+    assert A._gene_of("21:34880635:g:a") is None      # nothing to slice
+    assert A._resolve("21:34880635:g:a") is rec       # the index row supplies the gene
+    assert A._resolve("21:34880635:g:a.md") is None   # unknown key stays a miss
