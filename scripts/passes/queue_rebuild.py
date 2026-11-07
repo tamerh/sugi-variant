@@ -178,6 +178,9 @@ def main(argv=None):
     ap.add_argument("--limit", type=int, default=0, help="0 means all")
     ap.add_argument("--include-refresh", action="store_true",
                     help="also rebuild the queue's `refresh` list (stale datasets)")
+    ap.add_argument("--shard", metavar="K/N",
+                    help="process only every Nth gene, offset K (0-based): run N "
+                         "workers with --shard 0/N .. (N-1)/N over disjoint genes")
     ap.add_argument("--apply", action="store_true")
     a = ap.parse_args(argv)
 
@@ -187,6 +190,11 @@ def main(argv=None):
         entries += list(q.get("refresh") or [])
     # One gene once, preserving queue order (largest gaps first).
     genes = list(dict.fromkeys(e["gene"] for e in entries if e.get("gene")))
+    if a.shard:
+        k, n = (int(x) for x in a.shard.split("/"))
+        if n < 1 or not 0 <= k < n:
+            ap.error("--shard must be K/N with 0 <= K < N")
+        genes = [g for i, g in enumerate(genes) if i % n == k]
     prog = _load_json(a.progress, {"done": [], "failed": {}})
     done = set(prog.get("done") or [])
     todo = [g for g in genes if g not in done]
