@@ -498,7 +498,16 @@ def _load_release():
     _RELEASE_META = data
     sv = ((data.get("corpora") or {}).get("structural_variant") or {})
     if sv.get("db"):
-        SV_DB = pathlib.Path(sv["db"])
+        # The manifest records the path the build saw, which is the HOST path. Inside
+        # the prod container the same cache is mounted at CACHE_DIR, so a missing
+        # absolute path is resolved by name against this process's cache directory.
+        # Without this, release mode in a container silently loses the SV corpus.
+        db = pathlib.Path(sv["db"])
+        if not db.exists():
+            alt = CACHE_DIR / db.name
+            if alt.exists():
+                db = alt
+        SV_DB = db
     env.globals["release"] = _RELEASE_VERSION
     env.globals["released_at"] = _RELEASE_DATE
     rd = corpus.get("records_dir")
