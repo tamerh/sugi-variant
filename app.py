@@ -448,6 +448,24 @@ def _resolve_page(slug):
     return rec
 
 
+def release_line_md():
+    """`Release v1.5.0 · BioBTree v2.20.0 · last updated 2026-11-07` for the .md twins.
+
+    One place so the HTML footer, the variant .md and the SV .md cannot drift. The
+    biotree version is the annotation release the corpus was built against, so a
+    reader can tell what the evidence dates are as well as when we published.
+    """
+    if not (RELEASE_MODE and _RELEASE_VERSION):
+        return ""
+    parts = [f"Release {_RELEASE_VERSION}"]
+    bb = (_RELEASE_META or {}).get("biobtree_version")
+    if bb:
+        parts.append(f"BioBTree {bb}")
+    if _RELEASE_DATE:
+        parts.append(f"last updated {_RELEASE_DATE}")
+    return "_" + " · ".join(parts) + "_"
+
+
 def _render(tpl, **ctx):
     """Render a template, deriving the variant page's presentation states here rather
     than at each call site.
@@ -512,6 +530,7 @@ def _load_release():
         SV_DB = db
     env.globals["release"] = _RELEASE_VERSION
     env.globals["released_at"] = _RELEASE_DATE
+    env.globals["biobtree_version"] = (_RELEASE_META or {}).get("biobtree_version")
     rd = corpus.get("records_dir")
     if rd:
         try:
@@ -809,6 +828,9 @@ async def _release_header(request, call_next):
             resp.headers["X-Sugi-Variant-Version"] = str(_RELEASE_VERSION)
         if _RELEASE_DATE:
             resp.headers["X-Sugi-Variant-Released-At"] = str(_RELEASE_DATE)
+        bb = (_RELEASE_META or {}).get("biobtree_version")
+        if bb:
+            resp.headers["X-Sugi-BioBTree-Version"] = str(bb)
     return resp
 
 
@@ -1296,8 +1318,7 @@ def sv_md(key: str):
     headers = {"Cache-Control": "public, max-age=3600",
                "Access-Control-Allow-Origin": "*",
                "Content-Type": "text/markdown; charset=utf-8"}
-    release_line = (f"_Release {_RELEASE_VERSION} · last updated {_RELEASE_DATE}_"
-                    if RELEASE_MODE and _RELEASE_VERSION else "")
+    release_line = release_line_md()
     if len(rows) > 1:
         md = "# Structural variants\n\n"
         if release_line:
@@ -1341,8 +1362,7 @@ def variant_md(slug: str):
         raise StarletteHTTPException(404, f"No variant page for “{slug}”.")
     from sugivariant.render import render_body
     title = rec.get("name") or f"{rec.get('gene_symbol', '')} {rec.get('hgvs_p') or rec.get('hgvs_c') or ''}".strip()
-    release_line = (f"_Release {_RELEASE_VERSION} · last updated {_RELEASE_DATE}_\n\n"
-                    if RELEASE_MODE and _RELEASE_VERSION else "")
+    release_line = (release_line_md() + "\n\n") if release_line_md() else ""
     md = (f"# {title}\n\n{_PUB}/{rec['canonical_slug']}\n\n"
           f"{release_line}" + render_body(rec))
     return PlainTextResponse(md, headers={"Cache-Control": "public, max-age=3600",

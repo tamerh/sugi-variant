@@ -93,3 +93,23 @@ def test_note_names_the_reported_transcript():
     assert "NM_001754" in tv["note"]
     assert "MANE" in tv["note"]
     assert "do not choose" in tv["note"]
+
+
+def test_footer_and_md_name_the_biobtree_version(monkeypatch):
+    """A reader should see which BioBTree annotation release the corpus was built
+    against, not just when we published it."""
+    import app as A
+
+    monkeypatch.setattr(A, "RELEASE_MODE", True)
+    monkeypatch.setattr(A, "_RELEASE_VERSION", "v1.5.0")
+    monkeypatch.setattr(A, "_RELEASE_DATE", "2026-11-07")
+    monkeypatch.setattr(A, "_RELEASE_META", {"biobtree_version": "v2.20.0"})
+    monkeypatch.setitem(A.env.globals, "release", "v1.5.0")
+    monkeypatch.setitem(A.env.globals, "released_at", "2026-11-07")
+    monkeypatch.setitem(A.env.globals, "biobtree_version", "v2.20.0")
+
+    assert A.release_line_md() == "_Release v1.5.0 · BioBTree v2.20.0 · last updated 2026-11-07_"
+    html = A.env.get_template("base.html").render(base="", nav="variant")
+    assert "Release <strong>v1.5.0</strong>" in html
+    assert "BioBTree v2.20.0" in html
+    assert "last updated 2026-11-07" in html
