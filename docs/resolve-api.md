@@ -50,6 +50,51 @@ Structural hits carry `nssv`, `nsv`, `chromosome`, `start`, `end`, `svtype` and
 `significance` instead of the small-variant fields, with the same
 `canonical_url` / `markdown_url` pair.
 
+## Gene queries
+
+A bare gene symbol is a valid query and resolves to the gene hub rather than
+`not_found`:
+
+```json
+{"kind": "gene", "not_found": false,
+ "hits": [{"kind": "gene", "gene": "BRCA1", "variants": 11591,
+           "canonical_url": "https://sugi.bio/variant/gene/BRCA1",
+           "note": "gene-level match; add an HGVS, rsID or coordinate for a variant page"}]}
+```
+
+It is one page, so `ambiguous` is false — but the query is under-specified, and the
+note says so. Do not treat a gene hit as a variant answer.
+
+## Fetching one section
+
+`.md` pages accept `?section=<name>` (case-insensitive), which returns just that
+block. This is what a batch needs: a full variant page is ~16k characters, while
+`?section=Identity` is ~1.1k.
+
+```
+GET /variant/brca1-p-leu1570pro.md?section=Identity
+```
+
+Every `.md` response carries `X-Sugi-Sections` listing the available blocks. An
+unknown section is a `404` whose body lists them, so a client can fall back
+deliberately instead of silently receiving the whole page.
+
+## A query can resolve to a different HGVS
+
+Two ClinVar VCVs can share one page — most often the same protein change on
+slightly different nucleotides, or the same variant annotated on different
+transcripts. The page keeps one of them; the other's HGVS resolves to that page
+through an alias. `BRCA1 c.68_69del` therefore returns `brca1-p-glu23fs`, whose
+record carries `c.67del`. That is the same variant, not a wrong match: report the
+page's own HGVS, not the one in the query.
+
+## Structural variants: clinical corpus only
+
+`/sv` covers dbVar entries with a clinical assertion, gated to the germline ACMG
+classes. A valid-looking dbVar id outside that set (for example `nsv483076`, study
+nstd41, BAC aCGH, no clinical assertion) is `not_found` — it is out of scope, not
+missing.
+
 ## Keys
 
 | Key | Example |
