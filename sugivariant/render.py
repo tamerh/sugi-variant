@@ -1077,6 +1077,27 @@ def render_gene_md(ctx, url="", release_line=""):
     if url:
         L += [url, ""]
 
+    # ---- Counts: the unit, before the number. A count without its basis is the
+    # easiest thing for an agent to quote wrongly.
+    counts = ctx.get("counts") or {}
+    if counts:
+        L += ["## Counts {#counts}", "", "| Field | Value |", "| --- | --- |",
+              f"| Count basis | {counts.get('count_basis')} |",
+              f"| ClinVar build | {counts.get('clinvar_build') or 'not recorded'} |",
+              f"| Release | {counts.get('release') or (release_line or '').strip('_')} |",
+              f"| Total variants | {counts.get('total', total):,} |"]
+        for cls, n in (counts.get("by_class") or {}).items():
+            L.append(f"| {cls} | {n:,} |")
+        if counts.get("unclassified"):
+            L.append(f"| Unclassified | {counts['unclassified']:,} |")
+        L.append(f"| Classes sum to total | {'yes' if counts.get('counts_are_disjoint') else 'no'} |")
+        sv = counts.get("structural_variants") or {}
+        L.append(f"| Structural variants (separate corpus, not in total) | {sv.get('total', 0):,} |")
+        L.append("")
+        L += ["**Not counted here:**", ""]
+        L += [f"- {x}" for x in counts.get("excluded") or []]
+        L.append("")
+
     # ---- Summary: exact counts, the part a question like "how many" needs.
     L += ["## Summary", "", "| Field | Value |", "| --- | --- |",
           f"| Gene | {g} |",

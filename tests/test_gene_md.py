@@ -56,3 +56,34 @@ def test_a_gene_with_no_flagged_or_sv_rows_still_renders():
     assert "## Evidence disagreements" not in md
     assert "## Structural variants" not in md
     assert "## Summary" in md
+
+
+def test_counts_state_the_basis_before_the_number():
+    """"How many pathogenic BRCA1 variants" must have one defensible answer. The unit
+    is the page, not the ClinVar VCV, and the block has to say so."""
+    ctx = _ctx()
+    ctx["counts"] = {
+        "count_basis": "distinct variant pages: one page per protein change, from "
+                       "ClinVar VCVs whose HGVS transcript gene is BRCA1",
+        "clinvar_build": "db_v56", "release": "v1.8.4",
+        "total": 11591, "by_class": {"Pathogenic": 2506, "Benign": 719},
+        "unclassified": 0, "counts_are_disjoint": True,
+        "structural_variants": {"total": 628, "separate_corpus": True},
+        "excluded": ["structural variants and CNVs: a separate corpus"],
+    }
+    md = render_gene_md(ctx)
+    assert "## Counts {#counts}" in md
+    assert "| Count basis |" in md and "one page per protein change" in md
+    assert "| ClinVar build | db_v56 |" in md
+    assert "| Total variants | 11,591 |" in md
+    assert "| Classes sum to total | yes |" in md
+    assert "| Structural variants (separate corpus, not in total) | 628 |" in md
+    assert "**Not counted here:**" in md
+
+
+def test_a_non_disjoint_count_says_so():
+    ctx = _ctx()
+    ctx["counts"] = {"count_basis": "x", "total": 100, "by_class": {"A": 10},
+                     "unclassified": 0, "counts_are_disjoint": False,
+                     "structural_variants": {"total": 0}, "excluded": []}
+    assert "| Classes sum to total | no |" in render_gene_md(ctx)

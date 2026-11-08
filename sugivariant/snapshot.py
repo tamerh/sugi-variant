@@ -607,7 +607,8 @@ def serve_manifest(manifest, sv_db=None):
         "created_at": manifest.get("created_at"),
         "records_dir": corpus.get("records_dir"),
         "index_db": corpus.get("index_db"),
-        "corpora": {"small_variant": {"genes": genes, "status": corpus.get("status")}},
+        "corpora": {"small_variant": {"genes": genes, "status": corpus.get("status"),
+                                      "datasets": corpus.get("datasets")}},
     }
     if sv_db:
         n = None

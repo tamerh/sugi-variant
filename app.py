@@ -1060,6 +1060,65 @@ _PUB = "https://sugi.bio" + (BASE or "/variant")
 env.globals["pub"] = _PUB   # absolute public base, for canonical citation URLs
 
 
+def _gene_counts(g):
+    """The counts block for a gene, from the index. None when there is no index."""
+    ix = _index()
+    if not ix:
+        return None
+    rows = ix.execute("SELECT classification, COUNT(*) FROM variant WHERE gene=? "
+                      "GROUP BY classification", (g,)).fetchall()
+    class_counts = [((r[0] or ""), r[1]) for r in rows]
+    total = sum(n for _c, n in class_counts)
+    unclassified = sum(n for c, n in class_counts if not c)
+    sv_conn = _sv_index()
+    sv_total = SV.gene_sv_count(sv_conn, g) if sv_conn else 0
+    return _counts_block(g, class_counts, total, unclassified, sv_total)
+
+
+def _clinvar_build():
+    """The ClinVar dataset version this corpus was built from (e.g. db_v56).
+
+    Release mode reads it from the manifest; outside release mode it comes from the
+    picked stamps, so a page never claims a version it was not built from.
+    """
+    ds = (((_RELEASE_META or {}).get("corpora") or {}).get("small_variant") or {}).get("datasets") or {}
+    return ds.get("clinvar")
+
+
+def _counts_block(gene, class_counts, total, unclassified, sv_total):
+    """The count statement a reader (or a benchmark) can quote without guessing.
+
+    Our unit is the PAGE, not the ClinVar VCV: two VCVs that share a protein change
+    become one page. That is why this number can sit below ClinVar's own
+    variant_summary count for the same gene, and the basis line has to say so.
+    """
+    by_class = {c: n for c, n in class_counts if n}
+    disjoint = total == sum(by_class.values()) + (unclassified or 0)
+    return {
+        "count_basis": (
+            "distinct variant pages: one page per protein change (or per coding "
+            "change where ClinVar reports no protein form), from ClinVar VCVs whose "
+            "HGVS transcript gene is " + gene + ", restricted to the germline ACMG "
+            "classes this corpus publishes"),
+        "clinvar_build": _clinvar_build(),
+        "release": _RELEASE_VERSION,
+        "total": total,
+        "by_class": by_class,
+        "unclassified": unclassified or 0,
+        "counts_are_disjoint": bool(disjoint),
+        "structural_variants": {"total": sv_total or 0, "separate_corpus": True},
+        "excluded": [
+            "structural variants and CNVs: a separate corpus, not counted here",
+            "VCVs with no germline ACMG classification (not provided, drug response, "
+            "risk factor, somatic/oncology labels)",
+            "VCVs collapsed into another page because they share the same protein "
+            "change: the page is counted once, so our total can be lower than "
+            "ClinVar's VCV count for the same gene",
+            "variants ClinVar files under a different HGVS transcript gene",
+        ],
+    }
+
+
 def _hit_small(r):
     gene = r.get("gene_symbol") or r.get("gene")
     slug = r.get("canonical_slug") or r.get("slug")
@@ -1114,7 +1173,8 @@ def resolve_json(q: str = "", gene: str = "", slug: str = "", limit: int = 10):
                 if kind == "gene" and recs:
                     hits = [{"kind": "gene", "gene": h["gene"], "variants": h["variants"],
                              "canonical_url": f"{_PUB}/gene/{h['gene']}",
-                             "markdown_url": f"{_PUB}/gene/{h['gene']}.md", "cached": True,
+                             "markdown_url": f"{_PUB}/gene/{h['gene']}.md",
+                             "counts": _gene_counts(h["gene"]), "cached": True,
                              "note": "gene-level match; add an HGVS, rsID or coordinate "
                                      "for a variant page"}
                             for h in recs]
@@ -1309,7 +1369,11 @@ def _gene_hub_context(gene: str):
     sv_conn = _sv_index()
     sv_total = SV.gene_sv_count(sv_conn, g) if sv_conn else 0
     sv_rows = SV.gene_svs(sv_conn, g, limit=_SV_CAP) if sv_conn else []
+    class_counts = [(grp["cls"], grp["total"]) for grp in groups]
+    unclassified = sum(1 for r in rows if not r.get("classification"))
+    counts = _counts_block(g, class_counts, len(rows), unclassified, sv_total)
     return {"gene": g, "groups": groups, "total": len(rows), "flagged": flagged,
+            "counts": counts,
             "cap": _HUB_CAP, "dgroups": dgroups, "dcounts": dcounts, "dcap": _DZ_CAP,
             "cats": DISAGREEMENT_CATEGORIES, "meta": CAT_META,
             "sv_rows": sv_rows, "sv_total": sv_total, "sv_cap": _SV_CAP}

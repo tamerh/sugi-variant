@@ -8,6 +8,7 @@
     <p class="breadcrumb"><a href="{{ base }}/">Sugi Variant</a><span>/</span>{{ gene }}</p>
     <h1 class="set-title">{{ gene }} <span class="set-title-n">— {{ total }} ClinVar variant{{ 's' if total != 1 }}</span></h1>
     <p class="set-sub">All ClinVar germline {{ gene }} variants across every classification, each assembled from ClinVar, gnomAD, AlphaMissense, conservation and more.{% if flagged %} <a href="#disagreements" class="set-flag-hl">{{ flagged }} flagged for review →</a>{% endif %}</p>
+    {% if counts %}<p class="section-sub">Count basis: {{ counts.count_basis }}. Structural variants are a separate corpus{% if counts.structural_variants and counts.structural_variants.total %} ({{ '{:,}'.format(counts.structural_variants.total) }} overlap this gene){% endif %} and are not included in this total. <a href="{{ base }}/gene/{{ gene }}.md?section=Counts">Counts</a></p>{% endif %}
     <p class="dz-summary" style="margin:.5rem 0 0">
       {% for grp in groups %}<span class="vv-pill vv-pill-cls vv-cls-{{ cls_class(grp.cls) }}">{{ grp.total }}</span> {{ grp.cls|replace('Conflicting classifications of pathogenicity','Conflicting') }}{% if not loop.last %} · {% endif %}{% endfor %}
     </p>
