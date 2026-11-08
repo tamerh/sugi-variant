@@ -65,11 +65,19 @@ A bare gene symbol is a valid query and resolves to the gene hub rather than
 It is one page, so `ambiguous` is false — but the query is under-specified, and the
 note says so. Do not treat a gene hit as a variant answer.
 
-**A gene hit has `markdown_url: null` by design** — there is no per-gene `.md`, only
-the variant and SV pages have twins. A client that fetches `markdown_url`
-unconditionally will report a fetch error for a perfectly good gene match. Branch on
-`hit.kind`: `"gene"` → report the gene hub and `variants` count; `"variant"` or
-`"structural_variant"` → fetch the `.md`.
+**A gene hit is fetchable too.** `/gene/<SYMBOL>.md` is the hub's Markdown twin, so a
+client can treat every hit the same way: fetch `markdown_url`. The hit also carries
+`variants` (the exact count), which answers "how many variants does BRCA1 have"
+without fetching anything.
+
+```
+GET /variant/gene/BRCA1.md              # 64 KB, capped lists, counts exact
+GET /variant/gene/BRCA1.md?section=Summary   # 523 B
+```
+
+Sections: `Summary`, `Variants`, `Evidence disagreements`, `Structural variants`,
+`Sources` — listed in `X-Sugi-Sections`. Lists are capped and say how many they
+omitted; the counts above them are exact.
 
 ## Fetching one section
 
