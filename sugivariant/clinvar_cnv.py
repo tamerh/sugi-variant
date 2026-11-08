@@ -137,6 +137,11 @@ def build(db_path, records_dir=None, genes=None, limit=0, apply=False, shard=Non
         genes = genes[:limit]
 
     conn = SV.open_db(db_path) if apply else SV.open_ro(db_path)
+    if apply:
+        # Sharded writers share one sv.db. WAL lets them read while one writes, and a
+        # per-gene commit keeps the write lock off the network-bound enumeration.
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=30000")
     seen, added, linked, skipped = set(), 0, 0, 0
     for i, gene in enumerate(genes, 1):
         hgnc = _hgnc_id(gene)
@@ -173,9 +178,7 @@ def build(db_path, records_dir=None, genes=None, limit=0, apply=False, shard=Non
                 SV._insert(conn, rec)
                 conn.execute("INSERT OR IGNORE INTO sv_gene VALUES(?,?)",
                              (gene, rec["nssv"]))
-                if added % 200 == 0:
-                    conn.commit()
-        if apply and i % 25 == 0:
+        if apply:
             conn.commit()
         if i % 500 == 0:
             print(f"  {i}/{len(genes)} genes · added {added} · linked {linked} · skipped {skipped}",
