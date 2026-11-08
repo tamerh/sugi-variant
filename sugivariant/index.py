@@ -91,6 +91,16 @@ def variant_keys(rec):
     keys = set(rec.get("slugs") or [])
     if rec.get("rsid"):
         keys.add(rec["rsid"].lower())
+    # The ClinVar accession itself. A live record is reachable through the variant
+    # table, but a VCV that the build collapsed into another page has no row at all,
+    # so only an alias can make "VCV002902147" resolve. Also covers a duplicate whose
+    # rsID differs from the page it collapsed into.
+    vid = rec.get("variation_id") or rec.get("vcv")
+    if vid is not None:
+        try:
+            keys.add(f"vcv{int(vid):09d}")
+        except (TypeError, ValueError):
+            pass
     if rec.get("coordinate"):
         keys.add(rec["coordinate"])
     g = _norm(rec["gene_symbol"])
