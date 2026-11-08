@@ -184,7 +184,11 @@ def build(db_path, records_dir=None, genes=None, limit=0, apply=False, shard=Non
             if apply:
                 # BEGIN IMMEDIATE serialises the id allocation in _insert (it reads
                 # MAX(id) then writes it): two shards doing that concurrently chose
-                # the same id and one failed on the UNIQUE constraint.
+                # the same id and one failed on the UNIQUE constraint. open_db leaves
+                # an implicit transaction open (the ALTER TABLE migration), and the
+                # linked-VCV aliases above start one, so close any open one first.
+                if conn.in_transaction:
+                    conn.commit()
                 conn.execute("BEGIN IMMEDIATE")
                 SV._insert(conn, rec)
                 conn.execute("INSERT OR IGNORE INTO sv_gene VALUES(?,?)",
