@@ -75,9 +75,34 @@ GET /variant/gene/BRCA1.md              # 64 KB, capped lists, counts exact
 GET /variant/gene/BRCA1.md?section=Summary   # 523 B
 ```
 
-Sections: `Summary`, `Variants`, `Evidence disagreements`, `Structural variants`,
-`Sources` — listed in `X-Sugi-Sections`. Lists are capped and say how many they
-omitted; the counts above them are exact.
+Sections: `Counts`, `Summary`, `Variants`, `Evidence disagreements`,
+`Structural variants`, `Sources` — listed in `X-Sugi-Sections`. Lists are capped and
+say how many they omitted; the counts above them are exact.
+
+### The gene hit's `counts` object
+
+A gene total is only quotable with its unit. Our unit is the **page**, not the
+ClinVar VCV: two VCVs that share a protein change become one page, so our number can
+sit below ClinVar's own `variant_summary` count for the same gene.
+
+```json
+"counts": {
+  "count_basis": "distinct variant pages: one page per protein change …, from ClinVar
+                  VCVs whose HGVS transcript gene is BRCA1, restricted to the germline
+                  ACMG classes this corpus publishes",
+  "clinvar_build": "db_v56",
+  "release": "v1.8.4",
+  "total": 11591,
+  "by_class": {"Pathogenic": 2506, "…": "…"},
+  "unclassified": 0,
+  "counts_are_disjoint": true,
+  "structural_variants": {"total": 628, "separate_corpus": true},
+  "excluded": ["…"]
+}
+```
+
+`counts_are_disjoint: true` means `total == sum(by_class) + unclassified`. The
+`structural_variants` total is a **separate corpus** and is never part of `total`.
 
 ## Fetching one section
 
