@@ -218,6 +218,11 @@ def main(argv=None):
     print(f"{'APPLY' if a.apply else 'DRY RUN'} -- {len(todo)} of {len(genes)} genes "
           f"({len(done)} already done)", flush=True)
 
+    # Genes a rebuild proved unbuildable (no enumerable ClinVar set). Recorded so the
+    # audit stops reporting their index slugs as missing pages -- re-running can never
+    # create them.
+    ub_path = os.path.join(a.records, "unbuildable.json")
+    unbuildable = set(_load_json(ub_path, {}).get("genes") or [])
     conn = open_db(a.index) if a.apply else None
     t0 = time.time()
     written = set()
@@ -256,8 +261,11 @@ def main(argv=None):
             _save_json(a.progress, prog)
             continue
         if not recs:
-            print(f"  {g:<12} 0 records -- skipped", flush=True)
+            print(f"  {g:<12} 0 records -- unbuildable (recorded)", flush=True)
             prog.setdefault("failed", {})[g] = "0 records"
+            unbuildable.add(g)
+            _save_json(ub_path, {"schema": "sugi-variant-unbuildable/1",
+                                 "genes": sorted(unbuildable)})
             _save_json(a.progress, prog)
             continue
         collapsed = records_collapsed(path, len(recs))
@@ -282,6 +290,10 @@ def main(argv=None):
             index_gene(conn, g, recs=recs, extra_aliases=_dup_aliases(duplicate_rows))
             written.add(g)
             done.add(g)
+            if g in unbuildable:                    # it built now, so it is buildable
+                unbuildable.discard(g)
+                _save_json(ub_path, {"schema": "sugi-variant-unbuildable/1",
+                                     "genes": sorted(unbuildable)})
             prog["done"] = sorted(done)
             prog.setdefault("failed", {}).pop(g, None)
             _save_json(a.progress, prog)

@@ -292,3 +292,21 @@ def test_rebuild_queue_reports_stale_genes_as_a_separate_refresh():
     assert [e["gene"] for e in q["refresh"]] == ["SMALL", "BIG"]  # smallest first
     assert q["refresh"][1]["datasets"] == ["clinvar", "gnomad_variant"]
     assert q["totals"]["refresh_genes"] == 2
+
+
+def test_genes_proven_unbuildable_leave_the_work_queue(tmp_path):
+    """A gene whose rebuild produced no buildable variant must stop counting as
+    "missing pages": re-running can never create them, and leaving it in the queue
+    inflates the gap with pages that cannot exist."""
+    import json as _json
+    rec, idx = _fixture(tmp_path)
+    # DDD is the fixture's gene with index rows and no record file.
+    with open(os.path.join(rec, "unbuildable.json"), "w") as f:
+        _json.dump({"schema": "sugi-variant-unbuildable/1", "genes": ["DDD"]}, f)
+    manifest, _ = build_manifest(rec, idx, count_records=True)
+    q = rebuild_queue(manifest)
+    assert "DDD" not in [e["gene"] for e in q["queue"]]
+    assert [e["gene"] for e in q["unbuildable"]] == ["DDD"]
+    assert q["totals"]["unbuildable_genes"] == 1
+    assert q["totals"]["unbuildable_pages"] == 5
+    assert q["totals"]["pages_to_add"] == 2                    # FFF's tail only

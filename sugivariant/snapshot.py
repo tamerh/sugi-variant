@@ -446,6 +446,9 @@ def rebuild_queue(manifest):
 
       pages_behind   index slugs with no pickle record (the real gap)
       no_record      no pickle at all; every index slug is missing
+      unbuildable    a rebuild was attempted and produced no buildable variant
+                     (no enumerable ClinVar set). Listed separately: re-running can
+                     never fix it, so it must not sit in the work queue forever.
       alias_only     index VCVs whose slug already exists in the pickle
                      (duplicates resolving to an existing page -- reindex, no rebuild)
 
@@ -463,7 +466,19 @@ def rebuild_queue(manifest):
     """
     corpus = ((manifest or {}).get("corpora") or {}).get(CORPUS) or {}
     state = corpus.get("gene_state") or {}
-    entries, alias_entries, reindex_entries, uncounted = [], [], [], []
+    # Genes a rebuild proved unbuildable. The audit cannot know this without building
+    # them, so the queue runner records it and the queue honours it -- otherwise those
+    # genes are re-attempted on every refresh and inflate "missing pages" with pages
+    # that cannot exist.
+    unbuildable = set()
+    _rdir = corpus.get("records_dir") or (manifest or {}).get("records_dir")
+    if _rdir:
+        try:
+            with open(os.path.join(_rdir, "unbuildable.json"), encoding="utf-8") as f:
+                unbuildable = set(json.load(f).get("genes") or [])
+        except Exception:
+            unbuildable = set()
+    entries, alias_entries, reindex_entries, uncounted, unbuildable_entries = [], [], [], [], []
     for g, s in state.items():
         if s.get("status") in ("known_empty", "orphan"):
             continue
@@ -476,7 +491,12 @@ def rebuild_queue(manifest):
         stale = "stale" in (s.get("issues") or [])
         base = {"gene": g, "records": n, "index_rows": s.get("index_rows") or 0,
                 "index_slugs": idx_slugs, "pages_stale": pages_stale, "stale": stale}
-        if s.get("status") == "missing" and idx_slugs > 0:
+        if s.get("status") == "missing" and idx_slugs > 0 and g in unbuildable:
+            unbuildable_entries.append({**base, "reason": "unbuildable", "records": 0,
+                                        "pages": pages if pages is not None else idx_slugs,
+                                        "rows": rows if rows is not None else (s.get("index_rows") or 0),
+                                        "alias_only": 0})
+        elif s.get("status") == "missing" and idx_slugs > 0:
             entries.append({**base, "reason": "no_record", "records": 0,
                             "pages": pages if pages is not None else idx_slugs,
                             "rows": rows if rows is not None else (s.get("index_rows") or 0),
@@ -531,12 +551,15 @@ def rebuild_queue(manifest):
             "alias_only_rows": sum(e["alias_only"] for e in alias_entries),
             "uncounted_genes": len(uncounted),
             "refresh_genes": len(refresh_entries),
+            "unbuildable_genes": len(unbuildable_entries),
+            "unbuildable_pages": sum(e["pages"] for e in unbuildable_entries),
         },
         "queue": entries,
         "reindex": reindex_entries,
         "alias_only": alias_entries,
         "uncounted": sorted(uncounted),
         "refresh": refresh_entries,
+        "unbuildable": unbuildable_entries,
     }
 
 
@@ -556,6 +579,18 @@ def serve_manifest(manifest, sv_db=None):
     """
     corpus = ((manifest or {}).get("corpora") or {}).get(CORPUS) or {}
     state = corpus.get("gene_state") or {}
+    # Genes a rebuild proved unbuildable. The audit cannot know this without building
+    # them, so the queue runner records it and the queue honours it -- otherwise those
+    # genes are re-attempted on every refresh and inflate "missing pages" with pages
+    # that cannot exist.
+    unbuildable = set()
+    _rdir = corpus.get("records_dir") or (manifest or {}).get("records_dir")
+    if _rdir:
+        try:
+            with open(os.path.join(_rdir, "unbuildable.json"), encoding="utf-8") as f:
+                unbuildable = set(json.load(f).get("genes") or [])
+        except Exception:
+            unbuildable = set()
     genes = {}
     for g, s in state.items():
         if s.get("path") and s.get("status") in SERVABLE:
@@ -591,6 +626,18 @@ def verify_manifest(manifest, records_dir, index_db, count_records=False, sample
     """Re-check a manifest against the files/index it describes. Returns a report."""
     corpus = ((manifest or {}).get("corpora") or {}).get(CORPUS) or {}
     state = corpus.get("gene_state") or {}
+    # Genes a rebuild proved unbuildable. The audit cannot know this without building
+    # them, so the queue runner records it and the queue honours it -- otherwise those
+    # genes are re-attempted on every refresh and inflate "missing pages" with pages
+    # that cannot exist.
+    unbuildable = set()
+    _rdir = corpus.get("records_dir") or (manifest or {}).get("records_dir")
+    if _rdir:
+        try:
+            with open(os.path.join(_rdir, "unbuildable.json"), encoding="utf-8") as f:
+                unbuildable = set(json.load(f).get("genes") or [])
+        except Exception:
+            unbuildable = set()
     genes = sorted(state)
     if sample and len(genes) > sample:
         genes = random.Random(0).sample(genes, sample)
