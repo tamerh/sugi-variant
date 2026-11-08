@@ -1,18 +1,18 @@
 {% extends "base.html" %}
-{% block title %}{% if v %}dbVar {{ v.nssv }} — {{ v.svtype or 'structural variant' }}{% else %}Structural variants{% endif %}{% endblock %}
-{% block description %}{% if v %}dbVar {{ v.nssv }}, a {{ (v.svtype or 'structural variant')|lower }} at chr{{ v.chrom }}:{{ v.start }}-{{ v.end }}{% if v.significance %}, classified {{ v.significance }}{% endif %}.{% else %}dbVar structural variants overlapping this locus.{% endif %}{% endblock %}
+{% block title %}{% if v %}{{ src.label }} {{ src.accession }} — {{ v.svtype or 'structural variant' }}{% else %}Structural variants{% endif %}{% endblock %}
+{% block description %}{% if v %}Clinical {{ (v.svtype or 'structural variant')|lower }} at chr{{ v.chrom }}:{{ v.start }}-{{ v.end }}{% if v.significance %}, classified {{ v.significance }}{% endif %} ({{ src.label }} {{ src.accession }}).{% else %}Clinical structural variants overlapping this locus.{% endif %}{% endblock %}
 {% block content %}
 <div class="prose-page container">
   <header class="prose-header">
     <nav class="breadcrumb"><a href="{{ base }}/">Sugi Variant</a> <span>›</span> <a href="{{ base }}/sv">structural variants</a></nav>
     {% if v %}
-      <h1 class="prose-title">dbVar {{ v.nssv }} <span class="vd-hgvs">{{ v.svtype }}</span></h1>
+      <h1 class="prose-title">{{ src.label }} <a href="{{ src.accession_url }}">{{ src.accession }}</a> <span class="vd-hgvs">{{ v.svtype }}</span></h1>
       <p class="prose-tagline">
         {{ v.svtype }} at chr{{ v.chrom }}:{{ v.start }}–{{ v.end }}{% if sv_size(v) %} ({{ sv_size(v) }}){% endif %}{% if v.significance %} · {{ v.significance }}{% endif %}
       </p>
     {% else %}
       <h1 class="prose-title">Structural variants</h1>
-      <p class="prose-tagline">dbVar records matching this locus.</p>
+      <p class="prose-tagline">Clinical structural variants matching this locus.</p>
     {% endif %}
   </header>
 
@@ -25,7 +25,7 @@
         <tr><th>Clinical significance</th><td>{{ v.significance or '—' }}</td></tr>
         <tr><th>Origin</th><td>{{ v.origin or '—' }}</td></tr>
         {% if v.somatic %}<tr><th>Somatic</th><td>yes</td></tr>{% endif %}
-        <tr><th>dbVar region</th><td>{{ v.nsv or '—' }}</td></tr>
+        {% if src.region %}<tr><th>{{ src.label }} region</th><td>{{ src.region }}</td></tr>{% endif %}
         <tr><th>ClinVar</th><td>
           {% if v.clinvar %}
             {% for a in v.clinvar %}{% set u = clinvar_url(a) %}{% if u %}<a href="{{ u }}">{{ a }}</a>{% else %}{{ a }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
@@ -43,15 +43,15 @@
       {% endif %}
 
       {% if v.description %}
-        <h2>dbVar description</h2>
+        <h2>{{ src.label }} description</h2>
         <p>{{ v.description }}</p>
       {% endif %}
 
       <h2>Interpretation</h2>
-      <p>This page reports the dbVar record and its ClinVar accession. The small-variant
+      <p>This page reports the {{ src.label }} record and its ClinVar accession. The small-variant
         in-silico predictors (AlphaMissense, REVEL, SaProt, SpliceAI) do not apply to a
         structural variant; no ACMG code is assigned here.</p>
-      <p class="section-sub">Source: <a href="https://www.ncbi.nlm.nih.gov/dbvar/">dbVar</a>
+      <p class="section-sub">Source: <a href="{{ src.url }}">{{ src.label }}</a>
         (NCBI, public domain); ClinVar accessions link to NCBI.</p>
     {% else %}
       {% if hits %}

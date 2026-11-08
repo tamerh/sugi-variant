@@ -55,7 +55,7 @@ DB_SCHEMA = """
 CREATE TABLE IF NOT EXISTS sv(
   nssv TEXT PRIMARY KEY, nsv TEXT, chrom TEXT, start INTEGER, end INTEGER,
   svtype TEXT, svlen TEXT, significance TEXT, origin TEXT, somatic INTEGER,
-  description TEXT, phenotypes TEXT, clinvar TEXT);
+  description TEXT, phenotypes TEXT, clinvar TEXT, source TEXT DEFAULT 'dbvar');
 CREATE TABLE IF NOT EXISTS sv_id(nssv TEXT PRIMARY KEY, id INTEGER UNIQUE);
 CREATE VIRTUAL TABLE IF NOT EXISTS sv_interval USING rtree(id, start, end);
 CREATE TABLE IF NOT EXISTS sv_alias(key TEXT, nssv TEXT, PRIMARY KEY(key, nssv));
@@ -101,6 +101,7 @@ def record_from_attrs(nssv, attrs):
         "description": _txt(d.get("description")) or None,
         "phenotypes": _list(d.get("phenotype_ids")),
         "clinvar": _list(d.get("clinvar_accessions")),
+        "source": "dbvar",
     }
 
 
@@ -130,6 +131,7 @@ def aliases(rec):
 
 def _insert(conn, rec):
     cur = conn.cursor()
+    src = rec.get("source") or "dbvar"
     row = cur.execute("SELECT id FROM sv_id WHERE nssv=?", (rec["nssv"],)).fetchone()
     if row:
         ident = row[0]
@@ -140,12 +142,12 @@ def _insert(conn, rec):
         ident = (cur.execute("SELECT COALESCE(MAX(id),0)+1 FROM sv_id").fetchone()[0])
         cur.execute("INSERT INTO sv_id VALUES(?,?)", (rec["nssv"], ident))
     cur.execute(
-        "INSERT OR REPLACE INTO sv VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT OR REPLACE INTO sv VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (rec["nssv"], rec.get("nsv"), rec["chrom"], rec["start"], rec["end"],
          rec.get("svtype"), rec.get("svlen"), rec.get("significance"),
          rec.get("origin"), rec.get("somatic"), rec.get("description"),
          json.dumps(rec.get("phenotypes") or []),
-         json.dumps(rec.get("clinvar") or [])))
+         json.dumps(rec.get("clinvar") or []), src))
     cur.execute("INSERT INTO sv_interval VALUES(?,?,?)", (ident, rec["start"], rec["end"]))
     cur.executemany("INSERT OR IGNORE INTO sv_alias VALUES(?,?)",
                     [(k, rec["nssv"]) for k in aliases(rec)])
@@ -155,7 +157,13 @@ def _insert(conn, rec):
 def open_db(path):
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout=15000")
     conn.executescript(DB_SCHEMA)
+    # Migration for a db built before ClinVar CNVs joined the corpus.
+    try:
+        conn.execute("ALTER TABLE sv ADD COLUMN source TEXT DEFAULT 'dbvar'")
+    except sqlite3.OperationalError:
+        pass
     return conn
 
 
@@ -302,13 +310,32 @@ def build(db_path, intervals=None, nssvs_file=None, limit=200, genes=None,
     return built
 
 
+def source_view(rec):
+    """How to name and link the corpus this page came from.
+
+    A ClinVar CNV has no dbVar accession, so the page must not print one: the identity
+    is the VCV, and the link goes to ClinVar. A dbVar NSSV keeps the archive link.
+    """
+    if (rec.get("source") or "dbvar") == "clinvar":
+        vcv = next(iter(rec.get("clinvar") or [rec.get("nssv")]), rec.get("nssv"))
+        num = str(vcv)[3:].lstrip("0") if str(vcv).upper().startswith("VCV") else ""
+        return {"label": "ClinVar", "accession": vcv, "region": None,
+                "url": "https://www.ncbi.nlm.nih.gov/clinvar/",
+                "accession_url": (f"https://www.ncbi.nlm.nih.gov/clinvar/variation/{num}/"
+                                  if num else "https://www.ncbi.nlm.nih.gov/clinvar/")}
+    return {"label": "dbVar", "accession": rec.get("nssv"), "region": rec.get("nsv"),
+            "url": "https://www.ncbi.nlm.nih.gov/dbvar/",
+            "accession_url": f"https://www.ncbi.nlm.nih.gov/dbvar/variants/{rec.get('nssv')}/"}
+
+
 def render_md(rec, genes=None, release_line=""):
     size = ""
     try:
         size = f"{abs(int(rec['svlen'])):,} bp"
     except (TypeError, ValueError, KeyError):
         pass
-    L = [f"# dbVar {rec['nssv']} — {rec.get('svtype') or 'structural variant'}", ""]
+    src = source_view(rec)
+    L = [f"# {src['label']} {src['accession']} — {rec.get('svtype') or 'structural variant'}", ""]
     if release_line:
         L += [release_line, ""]
     L += [
@@ -322,7 +349,7 @@ def render_md(rec, genes=None, release_line=""):
         ("Clinical significance", rec.get("significance")),
         ("Origin", rec.get("origin")),
         ("Somatic", "yes" if rec.get("somatic") else None),
-        ("dbVar region", rec.get("nsv")),
+        (f"{src['label']} region", src["region"]),
         ("ClinVar", ", ".join(rec.get("clinvar") or []) or None),
         ("Phenotypes", ", ".join(rec.get("phenotypes") or []) or None),
     ]
@@ -335,9 +362,9 @@ def render_md(rec, genes=None, release_line=""):
     else:
         L.append("No gene overlap annotated in this prototype build.")
     if rec.get("description"):
-        L += ["", "## dbVar description", "", rec["description"]]
+        L += ["", f"## {src['label']} description", "", rec["description"]]
     L += ["", "## Interpretation", "",
-          "This page reports the dbVar record and its ClinVar accession. The "
+          f"This page reports the {src['label']} record and its ClinVar accession. The "
           "small-variant in-silico predictors (AlphaMissense, REVEL, SaProt, "
           "SpliceAI) do not apply to a structural variant; no ACMG code is "
           "assigned here.", ""]

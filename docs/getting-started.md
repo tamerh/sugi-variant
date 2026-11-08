@@ -61,16 +61,19 @@ line up with the clinical call, a QC signal for a second look.
 
 ## Structural variants
 
-Clinical structural variants from [dbVar](https://www.ncbi.nlm.nih.gov/dbvar/) live in a
-separate corpus, because a deletion or duplication is not a single-residue variant:
+Clinical structural variants live in a separate corpus, because a deletion or
+duplication is not a single-residue variant. It has two sources, and every clinical
+CNV gets exactly one page: [dbVar](https://www.ncbi.nlm.nih.gov/dbvar/) entries at
+their `NSSV…`, and ClinVar CNV submissions with no dbVar counterpart at their
+`VCV…`:
 
-- **Page** — `/sv/NSSV15120701` (dbVar NSSV). An `nsv…` region id, a ClinVar `VCV…`
+- **Page** — `/sv/NSSV15120701` (dbVar) or `/sv/VCV005020085` (ClinVar-only CNV). An `nsv…` region id, a ClinVar `VCV…`
   accession, an exact SV coordinate, or a locus `chr:start-end` also resolves.
 - **Locus** — `/sv/9:72500000-72900000` lists every SV overlapping that interval.
 - **Gene hub** — a gene page lists the structural variants overlapping it, capped at the
   100 most clinically significant.
 - **On the page** — type, size, breakpoints, clinical significance, origin, phenotypes,
-  ClinVar accessions, overlapped genes and the dbVar description.
+  ClinVar accessions, overlapped genes and the source description.
 - **Not applied** — AlphaMissense, REVEL, SaProt and SpliceAI are SNV predictors and do not
   apply to a structural variant; the page says so rather than showing an empty score.
 

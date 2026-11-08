@@ -1,20 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Structural variants{% endblock %}
-{% block description %}Clinical dbVar structural variants — deletions, duplications, insertions and inversions — with their overlapping genes and ClinVar accessions.{% endblock %}
+{% block description %}Clinical structural variants — deletions, duplications, insertions and inversions from dbVar and ClinVar CNV submissions — with their overlapping genes and ClinVar accessions.{% endblock %}
 {% block content %}
 <div class="prose-page container">
   <header class="prose-header">
     <nav class="breadcrumb"><a href="{{ base }}/">Sugi Variant</a> <span>›</span> structural variants</nav>
     <h1 class="prose-title">Structural variants</h1>
-    <p class="prose-tagline">{{ total }} clinical dbVar structural variants — deletions, duplications, insertions and inversions — with their overlapping genes and ClinVar accessions.</p>
+    <p class="prose-tagline">{{ total }} clinical structural variants — deletions, duplications, insertions and inversions from dbVar and ClinVar CNV submissions — with their overlapping genes and ClinVar accessions.</p>
   </header>
   <div class="prose-body">
     <p>Structural variants are a separate corpus from the per-residue variant pages. Each page
-      reports the dbVar record (type, size, breakpoints, significance, origin, phenotypes), its
+      reports the source record (type, size, breakpoints, significance, origin, phenotypes), its
       ClinVar accessions and every gene whose Ensembl span overlaps the interval. The SNV
       predictors (AlphaMissense, REVEL, SaProt, SpliceAI) do not apply.</p>
 
-    <p>Open a variant at <code>/sv/&lt;NSSV…&gt;</code>, a dbVar region at
+    <p>Every clinical CNV has one page: an entry linked to dbVar is served at its NSSV,
+      and a ClinVar-only CNV at its <code>VCV…</code>. Open a variant at
+      <code>/sv/&lt;NSSV…&gt;</code>, a dbVar region at
       <code>/sv/&lt;nsv…&gt;</code>, a ClinVar accession, or a locus such as
       <code>/sv/9:72500000-72900000</code>. Gene pages also list the structural variants
       overlapping the gene.</p>

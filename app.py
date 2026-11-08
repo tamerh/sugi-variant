@@ -1378,7 +1378,9 @@ def sv_page(key: str):
         rec, genes, hits = rows[0], _sv_genes(rows[0]["nssv"]), None
     else:
         rec, genes, hits = None, None, rows
-    return HTMLResponse(_render("sv.html", v=rec, genes=genes, hits=hits, nav="variant"))
+    src = SV.source_view(rec) if rec else None
+    return HTMLResponse(_render("sv.html", v=rec, genes=genes, hits=hits, src=src,
+                                nav="variant"))
 
 
 def _md_headings(md):
