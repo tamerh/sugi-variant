@@ -1060,3 +1060,97 @@ def render_body(v, jsonld_tag=""):
           "reflect these databases as of the page's build date and may change. Free "
           "reference use — not medical advice; consult the primary submitters and a clinician.*"]
     return "\n".join(L)
+
+
+def render_gene_md(ctx, url="", release_line=""):
+    """Markdown twin of a gene hub: the same facts, one page, capped and honest.
+
+    A resolver hit of kind "gene" had nothing to fetch, so a generic client reported a
+    fetch error for a valid answer. This gives that identifier a page like every other.
+    Every list is capped and SAYS how many it omitted; the counts above it are exact.
+    """
+    g = ctx.get("gene") or ""
+    total = ctx.get("total") or 0
+    L = [f"# {g} — {total:,} ClinVar germline variants", ""]
+    if release_line:
+        L += [release_line, ""]
+    if url:
+        L += [url, ""]
+
+    # ---- Summary: exact counts, the part a question like "how many" needs.
+    L += ["## Summary", "", "| Field | Value |", "| --- | --- |",
+          f"| Gene | {g} |",
+          f"| Variants in this corpus | {total:,} |",
+          f"| Flagged for review (evidence disagreement) | {ctx.get('flagged') or 0:,} |",
+          f"| Overlapping structural variants | {ctx.get('sv_total') or 0:,} |", ""]
+    cls_counts = [(grp["cls"], grp["total"]) for grp in ctx.get("groups") or []]
+    if cls_counts:
+        L += ["By ClinVar classification:", "", "| Classification | Variants |", "| --- | --- |"]
+        L += [f"| {c} | {n:,} |" for c, n in cls_counts]
+        L.append("")
+
+    # ---- Variants: capped per classification, with the omitted count stated. The .md
+    # cap is deliberately smaller than the HTML hub's: a full hub is ~316 KB for BRCA1,
+    # which is fine to browse and wrong to hand an agent in a batch. Counts stay exact.
+    cap = min(ctx.get("cap") or 200, 50)
+    groups = ctx.get("groups") or []
+    if groups:
+        L += ["## Variants {#variants}", "",
+              f"Showing at most {cap} per classification, pathogenic first. "
+              "The count beside each heading is the exact number in the corpus.", ""]
+        for grp in groups:
+            shown = (grp.get("shown") or [])[:cap]
+            L += [f"### {grp['cls']} — {grp['total']:,}"
+                  + (f" (showing {len(shown):,} of {grp['total']:,})"
+                     if grp["total"] > len(shown) else ""), ""]
+            L += ["| Variant | Review | Condition |", "| --- | --- | --- |"]
+            for r in shown:
+                name = f"{g} {r.get('hgvs_p') or r.get('hgvs_c') or ''}".strip()
+                stars = r.get("stars")
+                review = f"{'★' * stars}" if stars else "—"
+                cond = (r.get("primary_condition") or "—").replace("|", "/")
+                L.append(f"| [{name}](https://sugi.bio/variant/{r['slug']}) | {review} | {cond} |")
+            L.append("")
+
+    # ---- Disagreements: the QC view, capped by category.
+    dgroups = ctx.get("dgroups") or {}
+    dcounts = ctx.get("dcounts") or {}
+    cats = ctx.get("cats") or []
+    meta = ctx.get("meta") or {}
+    if any(dcounts.get(c) for c in cats):
+        L += ["## Evidence disagreements {#disagreements}", "",
+              "Where the independent signals do not line up. A review flag, never a "
+              "reclassification: ClinVar's call is unchanged.", ""]
+        for cat in cats:
+            n = dcounts.get(cat) or 0
+            if not n:
+                continue
+            label = (meta.get(cat) or {}).get("label") or cat
+            L += [f"### {label} — {n:,}", ""]
+            for r in (dgroups.get(cat) or [])[:20]:
+                name = f"{g} {r.get('hgvs_p') or r.get('hgvs_c') or ''}".strip()
+                L.append(f"- [{name}](https://sugi.bio/variant/{r['slug']}) — "
+                         f"{r.get('classification') or 'unclassified'}")
+            shown_n = len((dgroups.get(cat) or [])[:20])
+            if n > shown_n:
+                L += ["", f"_Showing {shown_n:,} of {n:,}._"]
+            L.append("")
+
+    # ---- Structural variants.
+    sv_total = ctx.get("sv_total") or 0
+    if sv_total:
+        sv_rows = (ctx.get("sv_rows") or [])[:25]
+        L += ["## Structural variants {#sv}", "",
+              f"{sv_total:,} clinical structural variants overlap this gene"
+              + (f"; showing the {len(sv_rows):,} most clinically significant."
+                 if sv_total > len(sv_rows) else "."), ""]
+        L += ["| SV | Type | Significance |", "| --- | --- | --- |"]
+        for r in sv_rows:
+            L.append(f"| [{r['nssv']}](https://sugi.bio/variant/sv/{r['nssv']}) | "
+                     f"{r.get('svtype') or '—'} | {r.get('significance') or '—'} |")
+        L.append("")
+
+    L += ["## Sources {#sources}", "",
+          "Every fact on the variant pages traces to one source, carried with its "
+          "dataset build date. See https://sugi.bio/variant/about for the list.", ""]
+    return "\n".join(L)

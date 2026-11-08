@@ -42,6 +42,7 @@ from sugivariant.enrich import (begin_build as _begin_build,   # noqa: E402
 from sugibiobtree.client import BiobtreeError          # noqa: E402
 from sugivariant import index as IX                       # noqa: E402
 from sugivariant import dbvar as SV                       # noqa: E402
+from sugivariant import render as VR                      # noqa: E402
 
 ROOT = pathlib.Path(__file__).parent
 BASE = os.environ.get("BASE_PATH", "").rstrip("/")
@@ -1113,7 +1114,7 @@ def resolve_json(q: str = "", gene: str = "", slug: str = "", limit: int = 10):
                 if kind == "gene" and recs:
                     hits = [{"kind": "gene", "gene": h["gene"], "variants": h["variants"],
                              "canonical_url": f"{_PUB}/gene/{h['gene']}",
-                             "markdown_url": None, "cached": True,
+                             "markdown_url": f"{_PUB}/gene/{h['gene']}.md", "cached": True,
                              "note": "gene-level match; add an HGVS, rsID or coordinate "
                                      "for a variant page"}
                             for h in recs]
@@ -1255,8 +1256,7 @@ _HUB_CAP = 300   # per-classification display cap (sitemap carries the full set)
 _SV_CAP = 100    # structural-variant rows on a gene hub (DMD has 1,785)
 
 
-@app.get("/gene/{gene}", response_class=HTMLResponse)
-def gene_hub(gene: str):
+def _gene_hub_context(gene: str):
     g = gene.upper().strip("/")
     ix = _index()
     rows = IX.gene_rows(ix, g) if ix else None
@@ -1309,10 +1309,48 @@ def gene_hub(gene: str):
     sv_conn = _sv_index()
     sv_total = SV.gene_sv_count(sv_conn, g) if sv_conn else 0
     sv_rows = SV.gene_svs(sv_conn, g, limit=_SV_CAP) if sv_conn else []
-    return _render("gene_hub.html", gene=g, groups=groups, total=len(rows),
-                   flagged=flagged, cap=_HUB_CAP, dgroups=dgroups, dcounts=dcounts,
-                   dcap=_DZ_CAP, cats=DISAGREEMENT_CATEGORIES, meta=CAT_META,
-                   sv_rows=sv_rows, sv_total=sv_total, sv_cap=_SV_CAP)
+    return {"gene": g, "groups": groups, "total": len(rows), "flagged": flagged,
+            "cap": _HUB_CAP, "dgroups": dgroups, "dcounts": dcounts, "dcap": _DZ_CAP,
+            "cats": DISAGREEMENT_CATEGORIES, "meta": CAT_META,
+            "sv_rows": sv_rows, "sv_total": sv_total, "sv_cap": _SV_CAP}
+
+
+def _md_response(md, section, extra_headers=None):
+    """Shared `?section=` handling and X-Sugi-Sections for every .md twin."""
+    headings = _md_headings(md)
+    headers = {"Cache-Control": "public, max-age=3600",
+               "Access-Control-Allow-Origin": "*",
+               "Content-Type": "text/markdown; charset=utf-8",
+               "X-Sugi-Sections": ", ".join(headings)}
+    if extra_headers:
+        headers.update(extra_headers)
+    if section:
+        block = _md_section(md, section)
+        if block is None:
+            return PlainTextResponse(
+                f"No section {section!r}. Available: {', '.join(headings)}\n",
+                status_code=404, headers=headers)
+        md = block
+    return PlainTextResponse(md, headers=headers)
+
+
+@app.get("/gene/{gene}.md", response_class=PlainTextResponse)
+def gene_md(gene: str, section: str = ""):
+    """Markdown twin of a gene hub, so a gene identifier is fetchable like a page.
+
+    A resolver hit of kind "gene" had no `.md` to fetch, which made a generic client
+    report a fetch error for a perfectly good answer. This closes that: same sections,
+    same `?section=`, same cap discipline (a capped list says how many it omitted).
+    """
+    ctx = _gene_hub_context(gene)
+    ctx_gene = ctx["gene"]
+    return _md_response(VR.render_gene_md(ctx, url=f"{_PUB}/gene/{ctx_gene}",
+                                          release_line=release_line_md()), section)
+
+
+@app.get("/gene/{gene}", response_class=HTMLResponse)
+def gene_hub(gene: str):
+    return _render("gene_hub.html", nav="variant", **_gene_hub_context(gene))
 
 
 @app.get("/sv", response_class=HTMLResponse)
