@@ -212,13 +212,77 @@ def _base(acc):
 
 
 def transcript_view(rec):
-    """Per-transcript rows for the page, or None when the record has no expressions.
+    """Per-transcript rows for the page, or None when the record has nothing to show.
+
+    Two sources, in order:
+      1. `hgvs_transcripts` (built from ClinVar's structured HGVS blocks) carries the
+         protein change, the consequence and the MANE flags per transcript. The build
+         keeps only the anchored rows and records the full count separately.
+      2. `hgvs_expressions` (older records) carries only coding changes, so the table
+         falls back to those and says nothing it cannot support.
 
     Shape:
-      rows     [{accession, version, versions[older], change, roles[]}]
-      genomic  [{accession, change}]      (the locus, not an isoform)
-      note     the boundary sentence, always present when rows is non-empty
+      rows       [{accession, version, also, change, protein, consequence, roles[]}]
+      genomic    [{accession, change}]      (the locus, not an isoform)
+      others     how many further transcripts exist but are not listed
+      note       the boundary sentence
     """
+    mane = rec.get("mane") or {}
+    reported = _base(mane.get("clinvar_transcript"))
+    structured = rec.get("hgvs_transcripts") or []
+    if structured:
+        return _structured_view(rec, structured, mane, reported)
+    return _expressions_view(rec, mane, reported)
+
+
+def _roles(row, reported):
+    out = []
+    if row.get("mane_select"):
+        out.append(ROLE_MANE)
+    if row.get("mane_plus_clinical"):
+        out.append(ROLE_PLUS)
+    if reported and _base(row.get("transcript")) == reported:
+        out.append(ROLE_REPORTED)
+    return out
+
+
+def _structured_view(rec, rows_in, mane, reported):
+    rows = []
+    for x in rows_in:
+        tx = (x.get("transcript") or "").strip()
+        if not tx:
+            continue
+        acc, _, ver = tx.partition(".")
+        rows.append({
+            "accession": acc,
+            "version": ver or None,
+            "also": "",
+            "change": (x.get("hgvs_c") or "").split(":", 1)[-1],
+            "protein": (x.get("hgvs_p") or "").split(":", 1)[-1],
+            "consequence": x.get("consequence"),
+            "roles": _roles(x, reported),
+        })
+    rows.sort(key=lambda r: (min((_ROLE_ORDER.get(x, 9) for x in r["roles"]), default=9),
+                             r["accession"]))
+    total = rec.get("transcript_count") or len(rows)
+    others = max(0, total - len(rows))
+    who = mane.get("clinvar_transcript") or "the transcript ClinVar reported on"
+    note = (f"Numbering is transcript-specific: the protein change and consequence "
+            f"shown are the transcript's own, not MANE's projected onto it. The page's "
+            f"single consequence and exon context above are on {who}.")
+    if others:
+        note += (f" ClinVar annotates this variant on {total:,} transcripts; the table "
+                 f"shows the clinically anchored ones (MANE Select, MANE Plus Clinical, "
+                 f"and the reported transcript).")
+    if len(rows) > 1:
+        note += " We do not choose an interpretation between isoforms."
+    return {"rows": rows, "genomic": [], "others": others, "note": note,
+            "has_protein": any(r["protein"] for r in rows),
+            "has_consequence": any(r["consequence"] for r in rows),
+            "mane_missing": bool(rows) and not mane.get("mrna")}
+
+
+def _expressions_view(rec, mane, reported):
     exprs = [e.strip() for e in (rec.get("hgvs_expressions") or []) if e]
     if not exprs:
         return None
@@ -230,7 +294,8 @@ def transcript_view(rec):
             row = tx.get(acc)
             if row is None:
                 tx[acc] = {"accession": acc, "version": ver, "versions": [],
-                           "change": change, "roles": []}
+                           "change": change, "protein": None, "consequence": None,
+                           "roles": []}
                 continue
             cur = row["version"]
             if ver and (cur is None or int(ver) > int(cur)):
@@ -248,9 +313,7 @@ def transcript_view(rec):
                 genomic.append({"accession": g.group("acc"), "change": g.group("change")})
 
     rows = list(tx.values())
-    mane = rec.get("mane") or {}
     mane_acc = _base(mane.get("mrna"))
-    reported = _base(mane.get("clinvar_transcript"))
     for r in rows:
         if mane_acc and r["accession"] == mane_acc:
             r["roles"].append(ROLE_MANE)
@@ -272,5 +335,6 @@ def transcript_view(rec):
                     f"Select. We do not choose an interpretation between isoforms.")
         else:
             note = (f"Numbering is transcript-specific: the change above is on {who}.")
-    return {"rows": rows, "genomic": genomic,
-            "mane_missing": bool(rows) and not mane_acc, "note": note}
+    return {"rows": rows, "genomic": genomic, "others": 0, "note": note,
+            "has_protein": False, "has_consequence": False,
+            "mane_missing": bool(rows) and not mane_acc}

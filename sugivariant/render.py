@@ -564,16 +564,30 @@ def render_body(v, jsonld_tag=""):
     # be translated without that transcript's CDS (docs/transcript-scope.md).
     tv = transcript_view(v)
     if tv and tv["rows"]:
+        cols = ["Transcript", "Change"]
+        if tv["has_protein"]:
+            cols.append("Protein")
+        if tv["has_consequence"]:
+            cols.append("Consequence")
+        cols.append("Role")
         L += ["", "### Transcripts", "",
-              "| Transcript | Change | Role |", "|---|---|---|"]
+              "| " + " | ".join(cols) + " |", "|" + "---|" * len(cols)]
         for t in tv["rows"]:
             acc = t["accession"] + (f".{t['version']}" if t["version"] else "")
             if t["also"]:
                 acc += f" (also {t['also']})"
-            L.append(f"| `{acc}` | `{t['change']}` | {' · '.join(t['roles'])} |")
+            cells = [f"`{acc}`", f"`{t['change']}`"]
+            if tv["has_protein"]:
+                cells.append(f"`{t['protein']}`" if t["protein"] else "—")
+            if tv["has_consequence"]:
+                cells.append(t["consequence"] or "—")
+            cells.append(" · ".join(t["roles"]))
+            L.append("| " + " | ".join(cells) + " |")
         if tv["genomic"]:
-            L.append("| genomic | " + " · ".join(
-                f"`{g['accession']}:{g['change']}`" for g in tv["genomic"]) + " | |")
+            cells = ["genomic", " · ".join(
+                f"`{g['accession']}:{g['change']}`" for g in tv["genomic"])]
+            cells += ["—"] * (len(cols) - 3) + [""]
+            L.append("| " + " | ".join(cells) + " |")
         if tv["note"]:
             L += ["", tv["note"]]
 

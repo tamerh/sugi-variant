@@ -657,6 +657,7 @@ def _vcv_hits(key):
 # resolves gene-first (enumerate + slug-match, all on our side). See the biobtree
 # key-scheme note — raw HGVS is not searchable, so we normalize it to OUR slug.
 _RSID_RE = re.compile(r"^rs\d+$", re.I)
+_GENE_QUERY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9-]{1,14}$")
 
 
 def _hgvs_keys(rec):
@@ -709,6 +710,16 @@ def resolve_query(q):
     if _RSID_RE.match(q):
         return ("rsid", q.lower(), resolve_rsid(q.lower()))
 
+    # A bare gene symbol is a real query, not an unparseable one: send it to the
+    # gene hub instead of "not found". It answers "which variant do you mean" with
+    # the page that lists them.
+    if len([t for t in re.split(r"[\s,]+", q) if t]) == 1 and _GENE_QUERY_RE.match(q):
+        ix = _index()
+        g = q.upper()
+        n = IX.gene_count(ix, g) if ix else 0
+        if n:
+            return ("gene", g, [{"kind": "gene", "gene": g, "variants": n}])
+
     coord = IX.norm_coordinate(q)
     if coord:
         # A coordinate has NO biobtree→ClinVar edge, so only the index can resolve
@@ -745,6 +756,8 @@ def resolve_query(q):
 def _resolution_response(kind, term, hits):
     """One hit → redirect to its page; else render the results/disambiguation page."""
     if len(hits) == 1:
+        if hits[0].get("kind") == "gene":
+            return RedirectResponse(f"{BASE}/gene/{hits[0]['gene']}", status_code=307)
         return RedirectResponse(f"{BASE}/{hits[0]['canonical_slug']}", status_code=307)
     return HTMLResponse(_render("results.html", kind=kind, term=term, hits=hits))
 
@@ -1096,10 +1109,19 @@ def resolve_json(q: str = "", gene: str = "", slug: str = "", limit: int = 10):
             if sv:
                 hits = [_hit_sv(r) for r in sv]
             else:
-                _kind, _term, recs = resolve_query(q)
-                hits = [_hit_small(r) for r in recs]
-                if not hits:
-                    hits = [_hit_small(r) for r in (_vcv_hits(q) or _index_hits(q) or [])]
+                kind, _term, recs = resolve_query(q)
+                if kind == "gene" and recs:
+                    hits = [{"kind": "gene", "gene": h["gene"], "variants": h["variants"],
+                             "canonical_url": f"{_PUB}/gene/{h['gene']}",
+                             "markdown_url": None, "cached": True,
+                             "note": "gene-level match; add an HGVS, rsID or coordinate "
+                                     "for a variant page"}
+                            for h in recs]
+                else:
+                    hits = [_hit_small(r) for r in recs]
+                    if not hits:
+                        hits = [_hit_small(r)
+                                for r in (_vcv_hits(q) or _index_hits(q) or [])]
     if gene:
         g = gene.upper()
         hits = [h for h in hits
@@ -1309,8 +1331,10 @@ def sv_home():
 
 
 @app.get("/sv/{key}.md", response_class=PlainTextResponse)
-def sv_md(key: str):
-    """Markdown twin of a dbVar structural-variant page (NSSV / nsv / VCV / locus)."""
+def sv_md(key: str, section: str = ""):
+    """Markdown twin of a dbVar structural-variant page (NSSV / nsv / VCV / locus).
+
+    `?section=` works as it does on a variant page."""
     rows = _sv_lookup(key)
     if not rows:
         return PlainTextResponse("This structural variant is not in the current release.\n",
@@ -1330,6 +1354,15 @@ def sv_md(key: str):
         return PlainTextResponse(md + "\n", headers=headers)
     rec = rows[0]
     md = SV.render_md(rec, _sv_genes(rec["nssv"]), release_line=release_line)
+    headings = _md_headings(md)
+    headers["X-Sugi-Sections"] = ", ".join(headings)
+    if section:
+        block = _md_section(md, section)
+        if block is None:
+            return PlainTextResponse(
+                f"No section {section!r}. Available: {', '.join(headings)}\n",
+                status_code=404, headers=headers)
+        md = block
     return PlainTextResponse(md, headers=headers)
 
 
@@ -1348,11 +1381,48 @@ def sv_page(key: str):
     return HTMLResponse(_render("sv.html", v=rec, genes=genes, hits=hits, nav="variant"))
 
 
+def _md_headings(md):
+    """Level-2 headings of a rendered .md page, anchor and spacing stripped."""
+    out = []
+    for line in md.splitlines():
+        if line.startswith("## "):
+            name = line[3:].split("{#", 1)[0].strip()
+            if name:
+                out.append(name)
+    return out
+
+
+def _md_section(md, want):
+    """The `## <want>` block of a .md page, or None. Case-insensitive, anchor-free.
+
+    Agents fetch pages to cite them; a batch of 30 pages is ~230k characters, so the
+    caller needs to ask for one section rather than receive everything. This is the
+    server side of that, so the client stays a thin fetch.
+    """
+    lines = md.splitlines()
+    key = (want or "").strip().lower().rstrip("s")
+    start = None
+    for i, line in enumerate(lines):
+        if line.startswith("## "):
+            name = line[3:].split("{#", 1)[0].strip().lower().rstrip("s")
+            if name == key:
+                start = i
+                break
+    if start is None:
+        return None
+    end = next((j for j in range(start + 1, len(lines)) if lines[j].startswith("## ")),
+               len(lines))
+    return "\n".join(lines[start:end]).strip() + "\n"
+
+
 @app.get("/{slug}.md", response_class=PlainTextResponse)
-def variant_md(slug: str):
+def variant_md(slug: str, section: str = ""):
     """Markdown twin of a variant page — the same prose the page renders, as plain text
     for LLMs and AI agents (which ingest Markdown better than HTML), at the same URL as
-    the page + '.md'. Deterministic; GET + cached; CORS-open."""
+    the page + '.md'. Deterministic; GET + cached; CORS-open.
+
+    `?section=Identity` returns just that block (case-insensitive). Without it the whole
+    page is returned; `X-Sugi-Sections` names the blocks a caller can ask for."""
     rec = _resolve_page(slug.lower().strip("/"))
     if not rec:
         if RELEASE_MODE:
@@ -1365,9 +1435,19 @@ def variant_md(slug: str):
     release_line = (release_line_md() + "\n\n") if release_line_md() else ""
     md = (f"# {title}\n\n{_PUB}/{rec['canonical_slug']}\n\n"
           f"{release_line}" + render_body(rec))
-    return PlainTextResponse(md, headers={"Cache-Control": "public, max-age=3600",
-                                          "Access-Control-Allow-Origin": "*",
-                                          "Content-Type": "text/markdown; charset=utf-8"})
+    headings = _md_headings(md)
+    headers = {"Cache-Control": "public, max-age=3600",
+               "Access-Control-Allow-Origin": "*",
+               "Content-Type": "text/markdown; charset=utf-8",
+               "X-Sugi-Sections": ", ".join(headings)}
+    if section:
+        block = _md_section(md, section)
+        if block is None:
+            return PlainTextResponse(
+                f"No section {section!r}. Available: {', '.join(headings)}\n",
+                status_code=404, headers=headers)
+        md = block
+    return PlainTextResponse(md, headers=headers)
 
 
 @app.get("/{slug}", response_class=HTMLResponse)

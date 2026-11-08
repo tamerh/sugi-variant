@@ -102,8 +102,13 @@ def variant_keys(rec):
     return {k for k in keys if k}
 
 
-def index_gene(conn, gene, recs=None):
-    """(Re)index one gene: replace its rows + aliases. Returns the record count."""
+def index_gene(conn, gene, recs=None, extra_aliases=None):
+    """(Re)index one gene: replace its rows + aliases. Returns the record count.
+
+    `extra_aliases` maps a lookup key to a VCV that DOES have a row — used for the
+    VCVs the build collapsed into another's page. Their own HGVS never becomes a
+    record, so without this an exact citation of it ("BRCA1 c.68_69del") finds
+    nothing even though the variant is served one slug away."""
     recs = recs if recs is not None else (enriched_records(gene) or [])
     cur = conn.cursor()
     vcvs = [int(r["variation_id"]) for r in recs if r.get("variation_id")]
@@ -128,6 +133,9 @@ def index_gene(conn, gene, recs=None):
              r.get("rsid"), r.get("coordinate"), cond, flag["category"] if flag else None))
         cur.executemany("INSERT OR IGNORE INTO alias VALUES(?,?)",
                         [(k.lower(), vcv) for k in variant_keys(r)])  # lookup() lowercases
+    if extra_aliases:
+        cur.executemany("INSERT OR IGNORE INTO alias VALUES(?,?)",
+                        [(k.lower(), int(v)) for k, v in extra_aliases.items()])
     # gene_meta must describe the rows AS FILED, not as enumerated. collect() takes
     # gene_symbol from the HGVS transcript, so enumerating TTN-AS1 files every row under
     # TTN; keying meta on the enumerated name produced 1,067 "phantom" genes claiming

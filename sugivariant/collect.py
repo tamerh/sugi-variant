@@ -64,6 +64,52 @@ def _order_conditions(conditions, vcep, primary_id=None, primary_name=None):
                   key=lambda c: (c.get("name") or "").strip().lower() not in vcep_diseases)
 
 
+_NAME_TX = re.compile(r"^\s*((?:NM|NR|XM|XR|NC|NG|LRG)_[0-9]+(?:t[0-9]+)?)(?:\.\d+)?\s*\(")
+
+
+def reported_transcript(name):
+    """The transcript ClinVar put in the variant's own name (`NM_001754.5(GENE):c.…`).
+
+    This is the transcript the page's single p. change belongs to, so it anchors the
+    transcript table even when it is neither MANE Select nor MANE Plus Clinical."""
+    m = _NAME_TX.match(name or "")
+    return m.group(1) if m else None
+
+
+def anchored_transcripts(rows, reported):
+    """Keep only the clinically anchored transcripts from a variant's full list.
+
+    A variant can be annotated on 300+ transcripts (BRCA1: 371), and storing them all
+    would bloat every record for rows nobody reads. The three anchors are the ones a
+    reader can act on: MANE Select, MANE Plus Clinical, and the transcript ClinVar
+    itself reported on. `transcript_count` on the record keeps the full number so the
+    page can say how many were omitted rather than implying three exist.
+    """
+    base = (reported or "").split(".")[0]
+    out, seen = [], set()
+    for x in rows or []:
+        tx = (x.get("transcript") or "").strip()
+        if not tx:
+            continue
+        txb = tx.split(".")[0]
+        if txb in seen:
+            continue
+        if not (x.get("mane_select") or x.get("mane_plus_clinical")
+                or (base and txb == base)):
+            continue
+        seen.add(txb)
+        out.append({
+            "transcript": tx,
+            "hgvs_c": x.get("hgvs_c"),
+            "hgvs_p": x.get("hgvs_p"),
+            "consequence": x.get("consequence"),
+            "so_id": x.get("so_id"),
+            "mane_select": bool(x.get("mane_select")),
+            "mane_plus_clinical": bool(x.get("mane_plus_clinical")),
+        })
+    return out
+
+
 def collect(variation_id):
     """Full page record for a ClinVar variation id, or None if it's not a
     buildable classification / can't resolve a slug."""
@@ -114,6 +160,11 @@ def collect(variation_id):
         "hgvs_c": c_form,
         "hgvs_p": p_form,
         "hgvs_expressions": v.get("hgvs_expressions") or [],
+        # Anchored only: MANE Select / MANE Plus Clinical / ClinVar-reported. The
+        # count keeps the full number so the page can state how many were omitted.
+        "hgvs_transcripts": anchored_transcripts(v.get("hgvs_transcripts") or [],
+                                                 reported_transcript(v.get("name"))),
+        "transcript_count": len(v.get("hgvs_transcripts") or []),
         "rsid": v.get("dbsnp_id"),
         "chromosome": v.get("chromosome"),
         "start": v.get("start"),

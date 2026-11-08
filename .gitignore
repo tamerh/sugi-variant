@@ -2,6 +2,9 @@ cache/
 __pycache__/
 docs/internal/
 
+# Agent instructions — machine-local, like variant.sh; names paths and prod rules.
+AGENTS.md
+
 # dev + deployment/build tooling — kept local, out of the public repo
 # variant.sh is the operations entry point and the handover doc in one; it names
 # server paths, so it stays out of the public repo.

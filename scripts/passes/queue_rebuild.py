@@ -42,6 +42,21 @@ def _save_json(path, obj):
     os.replace(tmp, path)
 
 
+def _dup_aliases(duplicates):
+    """Lookup keys of the VCVs this build collapsed into another's page, aimed at the
+    VCV that kept the page. Their HGVS is cited even though it has no record."""
+    from sugivariant.index import variant_keys
+    out = {}
+    for rec, survivor in duplicates or []:
+        try:
+            vcv = int(survivor)
+        except (TypeError, ValueError):
+            continue
+        for k in variant_keys(rec):
+            out.setdefault(k, vcv)
+    return out
+
+
 def _write(records_path, recs):
     tmp = f"{records_path}.{os.getpid()}.tmp"
     with gzip.open(tmp, "wb") as f:
@@ -232,8 +247,9 @@ def main(argv=None):
         path = os.path.join(a.records, f"{g}.pkl.gz")
         before = stored_record_count(path)
         t = time.time()
+        duplicate_rows = []
         try:
-            recs = enriched_records(g) or []
+            recs = enriched_records(g, duplicates=duplicate_rows) or []
         except Exception as e:
             print(f"  {g:<12} ERROR {type(e).__name__}: {str(e)[:100]}", flush=True)
             prog.setdefault("failed", {})[g] = f"{type(e).__name__}: {e}"
@@ -263,7 +279,7 @@ def main(argv=None):
               flush=True)
         if a.apply:
             _write(path, recs)
-            index_gene(conn, g, recs=recs)
+            index_gene(conn, g, recs=recs, extra_aliases=_dup_aliases(duplicate_rows))
             written.add(g)
             done.add(g)
             prog["done"] = sorted(done)

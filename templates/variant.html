@@ -149,13 +149,15 @@
                   <tr>
                     <td><code>{{ t.accession }}{% if t.version %}.{{ t.version }}{% endif %}</code>{% if t.also %} <span class="dd-note">(also {{ t.also }})</span>{% endif %}</td>
                     <td><code>{{ t.change }}</code></td>
+                    {% if tv.has_protein %}<td><code>{{ t.protein or '—' }}</code></td>{% endif %}
+                    {% if tv.has_consequence %}<td>{{ t.consequence or '—' }}</td>{% endif %}
                     <td>{% if t.roles %}<span class="dd-note">{{ t.roles|join(' · ') }}</span>{% endif %}</td>
                   </tr>
                 {% endfor %}
                 {% if tv.genomic %}
                   <tr>
                     <td><span class="dd-note">genomic</span></td>
-                    <td colspan="2"><code>{% for g in tv.genomic %}{{ g.accession }}:{{ g.change }}{% if not loop.last %} · {% endif %}{% endfor %}</code></td>
+                    <td colspan="{{ (2 if tv.has_protein else 1) + (1 if tv.has_consequence else 0) + 1 }}"><code>{% for g in tv.genomic %}{{ g.accession }}:{{ g.change }}{% if not loop.last %} · {% endif %}{% endfor %}</code></td>
                   </tr>
                 {% endif %}
                 </tbody>

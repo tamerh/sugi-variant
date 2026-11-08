@@ -91,20 +91,30 @@ def _write(out_root, rel_slug, page_md):
         f.write(page_md)
 
 
-def enriched_records(symbol, hgnc=None):
+def enriched_records(symbol, hgnc=None, duplicates=None):
     """Every buildable variant for a gene, fully enriched — the single record-
     assembly path shared by the static build AND the dynamic Sugi Variant app.
-    Returns [] if the gene has no HGNC id."""
+    Returns [] if the gene has no HGNC id.
+
+    `duplicates`, when a list, collects `(dropped_record, survivor_variation_id)` for
+    every VCV collapsed into another's page. Those VCVs keep no record, but their
+    HGVS is what a reader or an AI assistant may quote ("BRCA1 c.68_69del"), so the
+    indexer turns them into aliases of the page that does serve the variant."""
     hgnc = hgnc or _hgnc_id(symbol)
     if not hgnc:
         return []
     # Pass 1 — collect every buildable variant (pure ClinVar record).
-    recs, seen_slug = [], set()
+    recs, seen_slug = [], {}
     for vid, cls, name in VC.enumerate_gene(hgnc):
         rec = VC.collect(vid)
-        if not rec or rec["canonical_slug"] in seen_slug:
+        if not rec:
             continue
-        seen_slug.add(rec["canonical_slug"])
+        slug = rec["canonical_slug"]
+        if slug in seen_slug:
+            if duplicates is not None:
+                duplicates.append((rec, seen_slug[slug]))
+            continue
+        seen_slug[slug] = rec["variation_id"]
         recs.append(rec)
     # Dedup ClinVar records of the SAME variant (same coding change): the record
     # WITH the protein form wins so the canonical page is the p-slug and the
