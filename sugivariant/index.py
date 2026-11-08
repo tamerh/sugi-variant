@@ -69,7 +69,10 @@ def open_ro(path):
     # A reindex writes this file in place, so a reader can meet a write lock. Without a
     # busy_timeout SQLite raises "database is locked" after Python's 5s default and that
     # surfaces as a 500; wait it out instead.
-    conn.execute("PRAGMA busy_timeout=15000")
+    # Sharded writers share this file. A gene with thousands of VCVs holds the write
+    # lock for its whole DELETE+INSERT, so 15s timed a shard out mid-gene and it died
+    # with "database is locked"; 2 minutes covers the longest single-gene write.
+    conn.execute("PRAGMA busy_timeout=120000")
     return conn
 
 
