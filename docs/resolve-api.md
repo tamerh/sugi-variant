@@ -65,6 +65,12 @@ A bare gene symbol is a valid query and resolves to the gene hub rather than
 It is one page, so `ambiguous` is false — but the query is under-specified, and the
 note says so. Do not treat a gene hit as a variant answer.
 
+**A gene hit has `markdown_url: null` by design** — there is no per-gene `.md`, only
+the variant and SV pages have twins. A client that fetches `markdown_url`
+unconditionally will report a fetch error for a perfectly good gene match. Branch on
+`hit.kind`: `"gene"` → report the gene hub and `variants` count; `"variant"` or
+`"structural_variant"` → fetch the `.md`.
+
 ## Fetching one section
 
 `.md` pages accept `?section=<name>` (case-insensitive), which returns just that
