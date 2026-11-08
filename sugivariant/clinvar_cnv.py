@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sqlite3
 import sys
 
 from sugibiobtree import entry
@@ -140,8 +141,14 @@ def build(db_path, records_dir=None, genes=None, limit=0, apply=False, shard=Non
     if apply:
         # Sharded writers share one sv.db. WAL lets them read while one writes, and a
         # per-gene commit keeps the write lock off the network-bound enumeration.
-        conn.execute("PRAGMA journal_mode=WAL")
+        # Switching the journal mode needs a brief exclusive lock, so a shard that
+        # starts while another is writing must not die on it: either the pragma
+        # succeeds or the file is already WAL.
         conn.execute("PRAGMA busy_timeout=30000")
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+        except sqlite3.OperationalError:
+            pass
     seen, added, linked, skipped = set(), 0, 0, 0
     for i, gene in enumerate(genes, 1):
         hgnc = _hgnc_id(gene)
@@ -175,6 +182,10 @@ def build(db_path, records_dir=None, genes=None, limit=0, apply=False, shard=Non
                 continue
             added += 1
             if apply:
+                # BEGIN IMMEDIATE serialises the id allocation in _insert (it reads
+                # MAX(id) then writes it): two shards doing that concurrently chose
+                # the same id and one failed on the UNIQUE constraint.
+                conn.execute("BEGIN IMMEDIATE")
                 SV._insert(conn, rec)
                 conn.execute("INSERT OR IGNORE INTO sv_gene VALUES(?,?)",
                              (gene, rec["nssv"]))
