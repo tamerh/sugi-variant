@@ -128,8 +128,8 @@ def build(db_path, records_dir=None, genes=None, limit=0, apply=False, shard=Non
     if not genes:
         if not records_dir:
             raise SystemExit("need --records or --genes")
-        genes = sorted(os.path.basename(p).rsplit(".", 1)[0]
-                       for p in os.listdir(records_dir) if p.endswith(".pkl.gz"))
+        genes = sorted(p[:-len(".pkl.gz")] for p in os.listdir(records_dir)
+                       if p.endswith(".pkl.gz"))
     if shard:
         k, n = (int(x) for x in shard.split("/"))
         genes = [g for i, g in enumerate(genes) if i % n == k]
@@ -182,6 +182,8 @@ def build(db_path, records_dir=None, genes=None, limit=0, apply=False, shard=Non
                   flush=True)
     if apply:
         conn.commit()
+    if genes and not seen:
+        print("WARNING: no gene resolved to an HGNC id -- check --records", flush=True)
     print(f"{'APPLY' if apply else 'DRY RUN'} -- genes {len(genes)} · CNV pages {added} · "
           f"already in dbVar {linked} · skipped {skipped}", flush=True)
     return {"added": added, "linked": linked, "skipped": skipped}
