@@ -142,7 +142,8 @@ def test_footer_and_md_name_the_biobtree_version(monkeypatch):
     monkeypatch.setitem(A.env.globals, "released_at", "2026-11-07")
     monkeypatch.setitem(A.env.globals, "biobtree_version", "v2.20.0")
 
-    assert A.release_line_md() == "_Release v1.5.0 · BioBTree v2.20.0 · last updated 2026-11-07_"
+    assert A.release_line_md() == ("_Release v1.5.0 · BioBTree v2.20.0 · "
+                                   "last updated 2026-11-07_")
     html = A.env.get_template("base.html").render(base="", nav="variant")
     # Rendered as Atlas-style chips rather than one sentence.
     assert "Release <strong>v1.5.0</strong>" in html

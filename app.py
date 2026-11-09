@@ -462,6 +462,9 @@ def release_line_md():
     bb = (_RELEASE_META or {}).get("biobtree_version")
     if bb:
         parts.append(f"BioBTree {bb}")
+    cv = ((_RELEASE_META or {}).get("corpora") or {}).get("small_variant", {}).get("datasets", {}).get("clinvar")
+    if cv:
+        parts.append(f"ClinVar {cv}")
     if _RELEASE_DATE:
         parts.append(f"last updated {_RELEASE_DATE}")
     return "_" + " · ".join(parts) + "_"
