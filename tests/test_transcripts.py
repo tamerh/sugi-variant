@@ -129,24 +129,22 @@ def test_note_names_the_reported_transcript():
     assert "do not choose" in tv["note"]
 
 
-def test_footer_and_md_name_the_biobtree_version(monkeypatch):
-    """A reader should see which BioBTree annotation release the corpus was built
-    against, not just when we published it."""
+def test_the_page_block_and_md_line_name_the_versions(monkeypatch):
+    """Versions live in one page-level block (Atlas shape), not the site footer, and
+    the .md twin carries the same facts."""
     import app as A
+    from pathlib import Path
 
     monkeypatch.setattr(A, "RELEASE_MODE", True)
     monkeypatch.setattr(A, "_RELEASE_VERSION", "v1.5.0")
     monkeypatch.setattr(A, "_RELEASE_DATE", "2026-11-07")
     monkeypatch.setattr(A, "_RELEASE_META", {"biobtree_version": "v2.20.0"})
-    monkeypatch.setitem(A.env.globals, "release", "v1.5.0")
-    monkeypatch.setitem(A.env.globals, "released_at", "2026-11-07")
-    monkeypatch.setitem(A.env.globals, "biobtree_version", "v2.20.0")
-
     assert A.release_line_md() == ("_Release v1.5.0 · BioBTree v2.20.0 · "
                                    "last updated 2026-11-07_")
-    html = A.env.get_template("base.html").render(base="", nav="variant")
-    # Rendered as Atlas-style chips rather than one sentence.
-    assert "Release <strong>v1.5.0</strong>" in html
-    assert "BioBTree v2.20.0" in html
-    assert "updated 2026-11-07" in html
-    assert 'class="chip"' in html
+    root = Path(A.__file__).resolve().parent
+    footer = (root / "templates/base.html").read_text()
+    block = (root / "templates/_sources_line.html").read_text()
+    assert "Release <strong>" not in footer          # nothing in the main footer
+    assert "About this page" in block and "Sources" in block
+    for field in ("Generated", "Sugi Variant", "BioBTree", "ClinVar"):
+        assert field in block

@@ -625,7 +625,19 @@ table.pf-tbl tr.is-max td{color:var(--fg,#0f172a);background:rgba(63,127,212,.07
   background:var(--bg-soft,#f6f7f8);border-left:4px solid var(--fg);
   color:var(--fg,#111);font-size:.88rem;line-height:1.55}
 .method-note p{margin:0}
-/* ─── Atlas-style version/source chips (page footer) ───────────────────────── */
+/* ─── Page footer: "About this page" + "Sources" (Atlas shape) ──────────────── */
+.page-about{border-top:1px solid var(--border,#e5e7eb);margin:2.5rem 0 0;padding:1.5rem 0 0}
+.page-about-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:2.5rem}
+@media (max-width:800px){.page-about-grid{grid-template-columns:1fr;gap:1.5rem}}
+.page-about h2{font-size:1rem;margin:0 0 .5rem;font-weight:600}
+.page-about p{font-size:.87rem;line-height:1.55;color:var(--muted,#64748b);margin:0 0 .75rem}
+.page-about-meta{display:grid;grid-template-columns:auto 1fr;gap:.2rem .9rem;margin:.85rem 0 0;font-size:.85rem}
+.page-about-meta dt{color:var(--muted,#64748b)}
+.page-about-meta dd{margin:0;font-variant-numeric:tabular-nums}
+.count-pill{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.75rem;font-weight:600;
+           background:var(--accent-soft,#eff6ff);color:var(--accent,#2563eb);
+           padding:.1rem .5rem;border-radius:999px;vertical-align:middle;margin-left:.25rem}
+.page-about-blurb{margin-bottom:.6rem}
 .chips{display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;margin:.35rem 0 0}
 .chip{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.78rem;
       color:var(--muted,#64748b);background:var(--bg-elev,#fff);

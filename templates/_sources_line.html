@@ -1,13 +1,32 @@
-{# Compact per-variant sources footer — keeps attribution + traceability reachable
-   without the full box grid (which lives on /about#sources and /method). #}
-<p class="src-mini section-sub" id="sources">
-  <span class="chips">
-    <span class="chip">{{ data_provenance()|length }} datasets</span>
-    {% set _r = data_asof_range() %}{% if _r[0] %}<span class="chip">data {{ _r[0] }}–{{ _r[1] }}</span>{% endif %}
-    {% if source_asof() %}<span class="chip">ClinVar {{ source_asof() }}</span>{% endif %}
-    <a class="chip" href="{{ base }}/about#sources">full sources &amp; versions →</a>
-  </span>
-  <span class="src-credit">ClinVar · gnomAD · AlphaMissense (Cheng et al., CC BY 4.0) · REVEL (ODbL) · ClinGen,
-    plus Sugi Variant's own cross-source analysis.</span>
-</p>
+{# The page's own footer: what built this page, and from what. Mirrors the Atlas
+   "About this page" + "Sources" block, in one place, instead of a version sentence
+   in the site footer and a separate sources paragraph. #}
+<section class="page-about" id="sources">
+  <div class="page-about-grid">
+    <div>
+      <h2>About this page</h2>
+      <p>Built deterministically by <strong>Sugi Variant</strong> from primary biomedical
+        databases via <a href="https://sugi.bio">BioBTree</a>. Every fact traces to a
+        source, carried with its dataset build date. Provided for research and reference,
+        not medical advice or a diagnosis. Data may be incomplete, especially for rare
+        variants. Classification is ClinVar's, as filed; we do not reclassify.</p>
+      <dl class="page-about-meta">
+        {% if released_at %}<dt>Generated</dt><dd>{{ released_at }}</dd>{% endif %}
+        {% if release %}<dt>Sugi Variant</dt><dd>{{ release }}</dd>{% endif %}
+        {% if biobtree_version %}<dt>BioBTree</dt><dd>{{ biobtree_version }}</dd>{% endif %}
+        {% if clinvar_build %}<dt>ClinVar</dt><dd>{{ clinvar_build }}{% if source_asof() %} ({{ source_asof() }}){% endif %}</dd>{% endif %}
+      </dl>
+    </div>
+    <div>
+      {% set _prov = data_provenance() %}
+      <h2>Sources <span class="count-pill">{{ _prov|length }}</span></h2>
+      <p class="page-about-blurb">This page pulls from {{ _prov|length }} datasets indexed by BioBTree:</p>
+      <div class="chips">
+        {% for name, lic, built in _prov %}<span class="chip" title="{{ lic }}{% if built %} · built {{ built }}{% endif %}">{{ name }}</span>{% endfor %}
+      </div>
+      <p class="src-credit">AlphaMissense © Google DeepMind, CC BY 4.0 · REVEL, ODbL.
+        Licences and per-dataset dates on the <a href="{{ base }}/about#sources">sources page</a>.</p>
+    </div>
+  </div>
+</section>
 {% if v is defined and v.gene_symbol and canonical is defined %}{% include "_cite.html" %}{% endif %}
