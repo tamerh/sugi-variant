@@ -139,6 +139,8 @@ def test_the_page_block_and_md_line_name_the_versions(monkeypatch):
     monkeypatch.setattr(A, "_RELEASE_VERSION", "v1.5.0")
     monkeypatch.setattr(A, "_RELEASE_DATE", "2026-11-07")
     monkeypatch.setattr(A, "_RELEASE_META", {"biobtree_version": "v2.20.0"})
+    # The .md line stays deterministic from the manifest: release, biotree, date.
+    # The ClinVar build date is a live-source fact and lives in the page block.
     assert A.release_line_md() == ("_Release v1.5.0 · BioBTree v2.20.0 · "
                                    "last updated 2026-11-07_")
     root = Path(A.__file__).resolve().parent

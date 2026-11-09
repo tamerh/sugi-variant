@@ -12,9 +12,11 @@
         variants. Classification is ClinVar's, as filed; we do not reclassify.</p>
       <dl class="page-about-meta">
         {% if released_at %}<dt>Generated</dt><dd>{{ released_at }}</dd>{% endif %}
-        {% if release %}<dt>Sugi Variant</dt><dd>{{ release }}</dd>{% endif %}
+        <dt>Sugi Variant</dt><dd>{{ release or 'dev' }}</dd>
         {% if biobtree_version %}<dt>BioBTree</dt><dd>{{ biobtree_version }}</dd>{% endif %}
-        {% if clinvar_build %}<dt>ClinVar</dt><dd>{{ clinvar_build }}{% if source_asof() %} ({{ source_asof() }}){% endif %}</dd>{% endif %}
+        {# The dataset's internal build id (db_v56) means nothing to a reader; the
+           date is the fact they want. #}
+        {% if source_built() %}<dt>ClinVar</dt><dd>{{ source_built() }}</dd>{% elif source_asof() %}<dt>ClinVar</dt><dd>{{ source_asof() }}</dd>{% endif %}
       </dl>
     </div>
     <div>
@@ -24,9 +26,6 @@
       <div class="chips">
         {% for name, lic, built in _prov %}<span class="chip" title="{{ lic }}{% if built %} · built {{ built }}{% endif %}">{{ name }}</span>{% endfor %}
       </div>
-      <p class="src-credit">AlphaMissense © Google DeepMind, CC BY 4.0 · REVEL, ODbL.
-        Licences and per-dataset dates on the <a href="{{ base }}/about#sources">sources page</a>.</p>
     </div>
   </div>
 </section>
-{% if v is defined and v.gene_symbol and canonical is defined %}{% include "_cite.html" %}{% endif %}

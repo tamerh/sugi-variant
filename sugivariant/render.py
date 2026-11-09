@@ -150,6 +150,14 @@ def source_asof(name_prefix="ClinVar"):
     return None
 
 
+def source_built(name_prefix="ClinVar"):
+    """Full build date (YYYY-MM-DD) of one named source, or None."""
+    for n, _lic, b in data_provenance():
+        if b and n.startswith(name_prefix):
+            return b[:10]
+    return None
+
+
 def data_asof_range():
     """(oldest, newest) YYYY-MM across cited sources — for showing the real spread."""
     dates = sorted(b for _n, _lic, b in data_provenance() if b and not b.startswith("0001"))

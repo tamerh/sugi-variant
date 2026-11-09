@@ -95,13 +95,15 @@ env.globals["atlas_disease"] = lambda name: _links.disease_url(name=name)
 # Data-source attribution (AlphaMissense CC BY 4.0 + REVEL ODbL require it) — single
 # source of truth in render.py so HTML and the markdown twin can't drift.
 from sugivariant.render import (data_provenance, source_refs, data_asof,  # noqa: E402
-                               data_asof_range, source_asof, anc_name, one_in,
+                               data_asof_range, source_asof, source_built,
+                               anc_name, one_in,
                                GRPMAX_EXCLUDED)
 env.globals["data_provenance"] = data_provenance
 env.globals["source_refs"] = source_refs
 env.globals["data_asof"] = data_asof
 env.globals["data_asof_range"] = data_asof_range
 env.globals["source_asof"] = source_asof
+env.globals["source_built"] = source_built
 env.globals["tier_label"] = tier_label
 # `v.spliceai` is ALWAYS a dict carrying a status now, so {% if v.spliceai %} is true for
 # "absent" and "snv_only" too — which had the page claim SpliceAI "carries the signal" on
@@ -462,9 +464,6 @@ def release_line_md():
     bb = (_RELEASE_META or {}).get("biobtree_version")
     if bb:
         parts.append(f"BioBTree {bb}")
-    cv = ((_RELEASE_META or {}).get("corpora") or {}).get("small_variant", {}).get("datasets", {}).get("clinvar")
-    if cv:
-        parts.append(f"ClinVar {cv}")
     if _RELEASE_DATE:
         parts.append(f"last updated {_RELEASE_DATE}")
     return "_" + " · ".join(parts) + "_"
@@ -553,6 +552,16 @@ def _load_release():
 
 if RELEASE_MODE:
     _load_release()
+else:
+    # Dev (build-on-demand) shows the same provenance block, so the versions are not
+    # blank just because there is no manifest. One meta call, cached by enrich.
+    try:
+        from sugivariant.enrich import _dataset_meta
+        from sugivariant.util import biobtree_version as _bb_version
+        env.globals["biobtree_version"] = _bb_version()
+        env.globals["clinvar_build"] = (_dataset_meta().get("clinvar") or {}).get("data_db_version")
+    except Exception:
+        pass
 
 
 
