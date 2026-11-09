@@ -625,3 +625,12 @@ table.pf-tbl tr.is-max td{color:var(--fg,#0f172a);background:rgba(63,127,212,.07
   background:var(--bg-soft,#f6f7f8);border-left:4px solid var(--fg);
   color:var(--fg,#111);font-size:.88rem;line-height:1.55}
 .method-note p{margin:0}
+/* ─── Atlas-style version/source chips (page footer) ───────────────────────── */
+.chips{display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;margin:.35rem 0 0}
+.chip{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.78rem;
+      color:var(--muted,#64748b);background:var(--bg-elev,#fff);
+      border:1px solid var(--border,#e5e7eb);padding:.2rem .55rem;border-radius:4px;
+      text-decoration:none;line-height:1.4;transition:background .12s ease,border-color .12s ease,color .12s ease}
+a.chip:hover{background:var(--accent-soft,#eff6ff);border-color:var(--accent,#2563eb);color:var(--accent,#2563eb)}
+.chip strong{font-weight:600;color:inherit}
+.src-credit{margin:.35rem 0 0;font-size:.78rem;color:var(--muted,#64748b)}

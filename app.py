@@ -532,6 +532,9 @@ def _load_release():
     env.globals["release"] = _RELEASE_VERSION
     env.globals["released_at"] = _RELEASE_DATE
     env.globals["biobtree_version"] = (_RELEASE_META or {}).get("biobtree_version")
+    # Inline: _clinvar_build() is defined below and this runs at import time.
+    _ds = (corpus.get("datasets") or {})
+    env.globals["clinvar_build"] = _ds.get("clinvar")
     rd = corpus.get("records_dir")
     if rd:
         try:

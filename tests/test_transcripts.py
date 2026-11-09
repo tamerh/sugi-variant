@@ -144,6 +144,8 @@ def test_footer_and_md_name_the_biobtree_version(monkeypatch):
 
     assert A.release_line_md() == "_Release v1.5.0 · BioBTree v2.20.0 · last updated 2026-11-07_"
     html = A.env.get_template("base.html").render(base="", nav="variant")
+    # Rendered as Atlas-style chips rather than one sentence.
     assert "Release <strong>v1.5.0</strong>" in html
     assert "BioBTree v2.20.0" in html
-    assert "last updated 2026-11-07" in html
+    assert "updated 2026-11-07" in html
+    assert 'class="chip"' in html
