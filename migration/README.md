@@ -72,8 +72,36 @@ The app will store the **body fragment**, not a re-rendered page. Two ways to ge
 The bootstrap extraction is what Phase 1a uses; the layout refactor is what makes it
 permanent and removes the HTML parsing.
 
+## 4. Passthrough verifier — `verify_atlas_passthrough.py`
+
+Phase 1a serves the tree verbatim from the app (`sugivariant/atlas_web.py`, enabled by
+`ATLAS_ROOT`) and this script proves it:
+
+```bash
+ATLAS_ROOT=/data2/atlas-migration/atlas-html \
+ATLAS_REDIRECTS=/data2/atlas-migration/redirects.json \
+  python -m uvicorn app:app --port 8095 &
+
+python migration/verify_atlas_passthrough.py --base http://127.0.0.1:8095 \
+    --oracle /data2/atlas-migration/oracle-20261127.jsonl \
+    --redirects /data2/atlas-migration/redirects.json --sample 300
+```
+
+Result 2026-11-27:
+
+| check | result |
+|---|---|
+| byte parity (sha256) | **54,360 / 54,360** identical |
+| trailing-slash 301 | 25 / 25 |
+| `.md` twins | 25 / 25 identical, `text/markdown` |
+| `/atlas/*` redirects | **218 / 218**, targets 200 |
+| `/biobtree/*` legacy targets | 145 / 145 resolve (rules stay in nginx) |
+
+The source tree is a frozen copy at `/data2/atlas-migration/atlas-html` so the gate does
+not depend on what production serves while we work.
+
 ## What is not done here
 
-- No app routes yet (Phase 1a).
-- No pickles yet (Phase 1b).
+- No pickles yet (Phase 1b); the app still reads the HTML tree.
+- No fragment/shell rendering and no CSS merge (Phase 1b).
 - No changes to the Atlas build, to nginx, or to production.

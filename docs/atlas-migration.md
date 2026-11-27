@@ -186,7 +186,7 @@ Tooling in `migration/` (`atlas_oracle.py`, `nginx_redirects.py`), outputs in
   `fragment` output format in the Atlas web repo, which is the permanent form.
 - **Exit met:** snapshot + table + method committed; nothing served.
 
-### Phase 1a — routing and semantics, no renderer (2–3 days)
+### Phase 1a — routing and semantics, no renderer — **done 2026-11-27**
 
 - App serves `/atlas/{type}/{slug}/`; body temporarily from today's rendered HTML.
 - 404/301/trailing-slash normalisation; `ETag` from content hash;
@@ -195,7 +195,18 @@ Tooling in `migration/` (`atlas_oracle.py`, `nginx_redirects.py`), outputs in
 - Response headers: release, version, released-at, biobtree.
 - Side-by-side diff vs nginx on a sample: status, content-type, canonical, title, H1,
   body hash.
-- **Exit:** every sampled URL matches; all redirect rules pass; fully reversible.
+- **Exit met, measured against the oracle on a frozen copy of the tree** (5.7 GB at
+  `/data2/atlas-migration/atlas-html`, read-only):
+  - **54,360 / 54,360 pages byte-identical** (sha256 vs the oracle)
+  - **218 / 218 `/atlas/*` redirects** 301 to their successor, and every successor is 200
+  - **145 / 145 `/biobtree/*` legacy targets** resolve (the rules themselves stay in nginx)
+  - 25/25 trailing-slash 301s, 25/25 `.md` twins identical and `text/markdown`
+  - 9 tests in `tests/test_atlas_web.py` (404, 301, traversal, ETag/304, disabled mode)
+- Enabled only when `ATLAS_ROOT` is set, so a deployment that does not opt in is
+  unchanged. HTML responses inherit the app's ETag middleware; `.md` carries its own.
+- Preview: `dev.sugi.bio/variant/atlas/…` (dev basic-auth), no nginx change. Internal
+  links inside the stored HTML are absolute `/atlas/…`, so navigation leaves the
+  preview for the live site — expected until the fragment/shell phase.
 
 ### Phase 1b — the pickle corpus (≈1 week)
 

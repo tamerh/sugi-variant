@@ -43,6 +43,7 @@ from sugibiobtree.client import BiobtreeError          # noqa: E402
 from sugivariant import index as IX                       # noqa: E402
 from sugivariant import dbvar as SV                       # noqa: E402
 from sugivariant import render as VR                      # noqa: E402
+from sugivariant import atlas_web as ATW                  # noqa: E402
 
 ROOT = pathlib.Path(__file__).parent
 BASE = os.environ.get("BASE_PATH", "").rstrip("/")
@@ -1055,6 +1056,45 @@ def about():
 @app.get("/method", response_class=HTMLResponse)
 def method():
     return _render("method.html", nav="method", preprint_body=PREPRINT_BODY)
+
+
+# ── Atlas passthrough (Phase 1a) ────────────────────────────────────────────────
+# Enabled only when ATLAS_ROOT is set. Serves the existing static tree byte-for-byte
+# under the app's release headers, so the URL semantics (301, trailing slash, 404,
+# .md twin, ETag) are proven before any renderer is involved. See
+# docs/atlas-migration.md and sugivariant/atlas_web.py.
+
+_ATLAS_CACHE = "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800"
+
+
+@app.get("/atlas", include_in_schema=False)
+def atlas_no_slash():
+    return RedirectResponse(f"{BASE}/atlas/", status_code=301)
+
+
+@app.get("/atlas/{rel:path}", include_in_schema=False)
+def atlas_page(rel: str, request: Request):
+    if not ATW.enabled():
+        raise StarletteHTTPException(404, "Atlas is not served by this deployment.")
+    action, value = ATW.target_for(rel)
+    if action == "redirect":
+        return RedirectResponse(value if value.startswith("http")
+                                else f"{BASE}{value}", status_code=301)
+    if action == "404":
+        raise StarletteHTTPException(404, "Not found.")
+    got = ATW.read(value)
+    if got is None:
+        raise StarletteHTTPException(404, "Not found.")
+    body, ctype, etag = got
+    if ctype.startswith("text/html"):
+        # The app's ETag middleware computes the validator from the body and applies
+        # the CDN policy; setting a second ETag here would make the two disagree on
+        # revalidation. Let it own HTML.
+        return Response(content=body, media_type=ctype)
+    headers = {"Cache-Control": _ATLAS_CACHE, "ETag": etag}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    return Response(content=body, media_type=ctype, headers=headers)
 
 
 @app.get("/genes", response_class=HTMLResponse)
