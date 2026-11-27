@@ -17,6 +17,11 @@
 
   var items = [], sel = -1, curInput = null, timer = null;
 
+  // An Atlas entity opens its own page; only a variant is added to a set.
+  function isOpenOnly(it) {
+    return it.kind === "gene" || String(it.kind || "").indexOf("atlas_") === 0;
+  }
+
   function hide() { box.style.display = "none"; sel = -1; items = []; }
   function esc(s) {
     return (s || "").replace(/[&<>"]/g, function (c) {
@@ -53,14 +58,14 @@
     // Row is a <div> (not a link) so it carries no underline and can hold two
     // independent action buttons. Variants → Add (to the set) + Open; genes → Open.
     box.innerHTML = items.map(function (it, i) {
-      var isGene = it.kind === "gene";
+      var isGene = isOpenOnly(it);
       var cls = "ac-item" + (i === sel ? " ac-sel" : "") + (isGene ? "" : " ac-add");
       var acts = isGene
         ? '<span class="ac-act ac-act-open" data-act="open">Open</span>'
         : '<span class="ac-act ac-act-add" data-act="add">Add</span>' +
           '<span class="ac-act ac-act-open" data-act="open">Open</span>';
       return '<div class="' + cls + '" role="option" data-i="' + i + '">' +
-        '<span class="ac-kind ac-' + it.kind + '">' + it.kind + "</span>" +
+        '<span class="ac-kind ac-' + it.kind + '">' + esc(it.badge || it.kind) + "</span>" +
         '<span class="ac-label">' + esc(it.label) + "</span>" +
         (it.sub ? '<span class="ac-sub">' + esc(it.sub) + "</span>" : "") +
         '<span class="ac-acts">' + acts + "</span></div>";
@@ -99,7 +104,7 @@
   function pick(input, i, act) {
     var it = items[i];
     if (!it) return;
-    if (act === "open" || it.kind === "gene") { open(i); return; }
+    if (act === "open" || isOpenOnly(it)) { open(i); return; }
     add(input, i);
   }
   function onInput(e) {

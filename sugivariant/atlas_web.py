@@ -272,13 +272,16 @@ def find(query: str, limit: int = 5) -> list[dict]:
             UNION ALL
             SELECT type, slug, 1 FROM entity WHERE lower(title) LIKE ?
         )
-        SELECT e.type, e.slug, e.title, e.canonical, e.bytes, MAX(h.rank) AS rank
+        SELECT e.type, e.slug, e.title,
+               (SELECT a.name FROM alias a
+                 WHERE a.type = e.type AND a.slug = e.slug LIMIT 1) AS name,
+               e.canonical, e.bytes, MAX(h.rank) AS rank
         FROM hits h JOIN entity e ON e.type = h.type AND e.slug = h.slug
         GROUP BY e.type, e.slug
         ORDER BY rank DESC, (e.type = 'gene') DESC, length(e.slug), e.slug
         LIMIT ?"""
     sql_plain = """
-        SELECT type, slug, title, canonical, bytes,
+        SELECT type, slug, title, NULL AS name, canonical, bytes,
                CASE WHEN lower(slug) = lower(?) THEN 3 ELSE 1 END AS rank
         FROM entity WHERE lower(slug) = lower(?) OR lower(title) LIKE ?
         ORDER BY rank DESC, (type = 'gene') DESC, length(slug), slug LIMIT ?"""
@@ -288,7 +291,7 @@ def find(query: str, limit: int = 5) -> list[dict]:
         # An index built before the alias table existed still resolves by slug/title.
         rows = db.execute(sql_plain, (q, q, like, max(1, limit))).fetchall()
     return [{"type": r[0], "slug": r[1], "title": r[2],
-             "canonical": r[3], "bytes": r[4]} for r in rows]
+             "name": r[3] or r[1], "canonical": r[4], "bytes": r[5]} for r in rows]
 
 
 def entity(etype: str, slug: str) -> dict | None:

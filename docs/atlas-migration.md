@@ -244,15 +244,37 @@ Tooling in `migration/` (`atlas_oracle.py`, `nginx_redirects.py`), outputs in
   console errors. Only the TOC's sticky `top` is normalised, because that is a measurement
   of the shell the app owns.
 
-### Phase 2 — one manifest and one search (3–5 days)
+### Phase 2 — one manifest and one search — **done 2026-11-27**
 
-- `release.json` grows `corpora.atlas` (type → entity → path + hash). 54k entries is a
-  few MB: load lazily or put it behind `atlas_index.db`.
-- Pagefind rebuilt per release and served by the app.
-- One sitemap index: atlas entity sitemaps (50k chunks) + variant gene sitemaps.
-- `/resolve.json` resolves gene / disease / drug entities.
-- **Exit:** one manifest describes everything; release + rollback exercised end to end
-  on dev.
+- **Manifest.** `release.json` grows `corpora.atlas`: cache/index/root/redirects paths,
+  54,351 entities by type, fragment and on-disk bytes, `with_markdown`, `built_at`, the
+  363 redirect rules and sha256 anchors for the index, the site home, the search data and
+  the table. No entity list: the index is the membership, and 54k entries in the manifest
+  would only add something that can drift from it.
+- **Release mode.** The app adopts the block, resolves a missing path by basename under
+  `CACHE_DIR/atlas` (a container mounts the cache elsewhere; same rule as `sv.db`), and
+  re-checks the anchors at startup. A mismatch is a 503 on `/atlas` naming the reason,
+  not stale pages. Membership is the released index: a page that exists in the tree but
+  is not in the release 404s. Proved with a subset index (KCNA2 removed): 404 for KCNA2,
+  200 for BRCA1, with the KCNA2 tree file still on disk.
+- **Sitemaps.** `/sitemap.xml` advertises `/sitemap-atlas-1.xml` and `-2.xml` (50k per
+  urlset, the sitemaps.org cap): 50,000 + 4,351 = 54,351, exactly the index. `lastmod` is
+  the build date from the block, not a file mtime that a mount would rewrite.
+- **Resolver.** `/resolve.json` answers disease and drug names, which have no variant page
+  at all (`kind: atlas_disease` / `atlas_drug`), and puts `atlas_url` beside a gene hit so
+  one request covers both corpora without turning a gene into "ambiguous". The entity
+  index now carries Atlas's own name and synonym maps: **245,986 names → 216,642 alias
+  rows**, so "carasil syndrome" and "CARASIL2" resolve without loading 13 MB of JSON.
+- **Search — the plan was wrong here.** Atlas has no Pagefind: its search is a
+  client-side match over a 13 MB `manifest.json`. Inventing Pagefind would have been a
+  content/behaviour change, not a migration. What the migration must do is not *lose*
+  search, so: `/suggest.json` now merges Atlas entities after the variant suggestions (a
+  drug or disease name used to return nothing at all), and `/atlas/search/` with its
+  `manifest.json` still ships per release. Full-text search is a separate decision.
+- **Exit met:** one manifest describes the small-variant, structural-variant and Atlas
+  corpora; release and rollback exercised on dev — a bad index sha gives 503 with the
+  reason, a subset index gives a real 404 for the missing entity, a good manifest serves
+  the page, its `.md` twin, the 301 table, `/atlas/about` and `X-Sugi-Variant-Release`.
 
 ### Phase 3 — compose `/gene/X` (≈1 week)
 

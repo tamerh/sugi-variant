@@ -1071,10 +1071,29 @@ def variant_set(v: str = "", q: str = ""):
 
 @app.get("/suggest.json")
 def suggest(q: str = ""):
+    """Type-ahead over both corpora.
+
+    Variant suggestions come first (a gene or a GENE + change is what this site is
+    for); Atlas entities follow, so a disease or drug name -- which has no variant
+    page at all -- is still reachable from the header search instead of returning
+    nothing. A gene that both corpora know is not listed twice.
+    """
     from fastapi.responses import JSONResponse
     ix = _index()
     items = IX.suggest(ix, q) if ix else []
-    return JSONResponse(items, headers={"Cache-Control": "public, max-age=60"})
+    if q and len(q.strip()) >= 2 and ATW.enabled() and ATW.cache_enabled():
+        seen = {(i.get("label") or "").upper() for i in items if i.get("kind") == "gene"}
+        for e in ATW.find(q, 3):
+            if e["type"] == "gene" and e["slug"].upper() in seen:
+                continue
+            items.append({
+                "kind": f"atlas_{e['type']}",
+                "badge": f"atlas {e['type']}",
+                "url": f"atlas/{e['type']}/{e['slug']}/",
+                "label": e["name"],
+                "sub": "entity page",
+            })
+    return JSONResponse(items[:10], headers={"Cache-Control": "public, max-age=60"})
 
 
 @app.get("/about", response_class=HTMLResponse)

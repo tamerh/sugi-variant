@@ -197,3 +197,23 @@ def test_resolve_json_puts_the_atlas_page_beside_a_gene_hit(tmp_path, monkeypatc
     assert hit["kind"] == "gene"
     assert hit["atlas_url"].endswith("/atlas/gene/BRCA1/")
     assert hit["atlas_markdown_url"].endswith("/atlas/gene/BRCA1/index.md")
+
+
+def test_suggest_merges_atlas_entities_without_duplicating_a_gene(tmp_path, monkeypatch):
+    from starlette.testclient import TestClient
+
+    import app as A
+
+    cache, index, root, redirects = _corpus(tmp_path)
+    ATW.configure(AC.describe(cache, index, root=root, redirects=redirects))
+    monkeypatch.setattr(A, "_index", lambda: None)   # no variant index in this test
+    client = TestClient(A.app)
+
+    d = client.get("/suggest.json", params={"q": "BRCA1"}).json()
+    assert d and d[0]["kind"] == "atlas_gene"
+    assert d[0]["url"] == "atlas/gene/BRCA1/"
+    assert d[0]["badge"] == "atlas gene"
+    assert sum(1 for i in d if i.get("label") == "BRCA1") == 1
+
+    # Two characters is the floor, exactly as the variant suggester has it.
+    assert client.get("/suggest.json", params={"q": "B"}).json() == []
