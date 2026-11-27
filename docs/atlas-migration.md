@@ -284,12 +284,46 @@ Tooling in `migration/` (`atlas_oracle.py`, `nginx_redirects.py`), outputs in
   reason, a subset index gives a real 404 for the missing entity, a good manifest serves
   the page, its `.md` twin, the 301 table, `/atlas/about` and `X-Sugi-Variant-Release`.
 
-### Phase 3 — compose `/gene/X` (≈1 week)
+### Phase 3 — compose `/gene/X` — **mechanism done 2026-11-27, design is the owner's call**
 
-- Atlas gene sections + Variant variant list + counts in one page, one provenance
-  block, one `.md` twin.
-- Build the mechanism now; decide the canonical URL with the umbrella/naming decision.
-- **Exit:** the composed page passes the render-diff gate and the 404/301 suite.
+- **What is built.** `COMPOSE_GENE=1` makes `/gene/X` render `gene_composed.html`: the
+  Variant hub unchanged (counts with their basis, disagreements, structural variants, the
+  capped variant list) followed by the Atlas gene context. With the flag unset the route
+  is exactly the hub it was, so nothing served by default changes.
+- **The composition is mechanical.** `sugivariant/compose.py` removes only the Atlas page
+  furniture the composed page supplies itself — breadcrumb, `<h1>`/kind header, the on-page
+  navigation (sticky aside, mobile `<details>`, reopen button) and the nested `container`
+  wrapper — and demotes the markdown headings one level under a `## Gene context` section.
+  It never touches `.entity-body`, the tables or the About/Sources footer.
+- **Why the TOC goes.** Its links are Atlas section anchors and its sticky offset is
+  computed from `.entity-main`, which on the composed page is not the element it was
+  written for. A table of contents for the second half of the page, positioned above the
+  first, is worse than the collapsible headings it duplicates.
+- **Gate** (`migration/verify_gene_composed.py`): load `/gene/X` and `/atlas/gene/X/` in
+  headless Chromium, let the enhancement script run, and compare the `.entity-body` DOM —
+  **16 of 16 genes identical** (BRCA1, TP53, DMD, CFTR, MEN1, SCN1A plus a size spread),
+  with one `<h1>`, one canonical, no Atlas header or TOC, and the Atlas sections actually
+  enhanced. The `.md` twin has one `# ` heading and a `## Gene context` section, and
+  `?section=Gene context` returns it.
+- **Coverage, measured:** 18,623 of the 18,847 served genes exist in Atlas and compose;
+  the other 224 (fusion genes and symbols from a different HGNC snapshot, e.g.
+  CHURC1-FNTB, GPR182) keep the hub — a graceful fallback, not an error.
+- **Still the owner's decision, deliberately not taken here:**
+  1. **Order.** Evidence first, context second (as built). Context first is one template
+     edit, but it buries the variant list behind Atlas's collapsed sections.
+  2. **Provenance.** The single block is Atlas's "About this page / Sources", because the
+     hub has none. It names Atlas's datasets and build, which covers the prose but not the
+     ClinVar/gnomAD/AlphaMissense evidence above. Merging them into one page-level block
+     (v1.8.7's shape) is a content decision.
+  3. **Canonical URL.** `/gene/X` keeps `https://sugi.bio/variant/gene/X`, and
+     `/atlas/gene/X/` still exists with its own canonical. Both public in production is
+     duplicate content, so the umbrella/naming call decides whether Atlas gene URLs 301
+     here, stay a separate corpus, or the composed page moves.
+  4. **The Atlas feedback button** (`Send feedback`, fixed bottom-left) still floats over
+     the variant list because it is part of the fragment. Removing it is a one-line regex,
+     but it is an affordance, so the owner decides.
+- **Exit:** render diff passes and URL semantics are unchanged — `/gene/zzzqqq` 404,
+  `/gene/BRCA1/` 307 to no-slash, `/atlas/disease/carasil-syndrome/` 301 to its successor.
 
 ### Phase 4 — standby and cutover (3–5 days)
 

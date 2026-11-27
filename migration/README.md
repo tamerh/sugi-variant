@@ -189,3 +189,20 @@ missing one by basename under `CACHE_DIR/atlas` (the rule `sv.db` already follow
 - No release integration: the manifest, Pagefind, sitemaps and `/resolve.json` entity
   hits are Phase 2.
 - No changes to the Atlas build, to nginx, or to production.
+
+## 7. Composed gene page — `verify_gene_composed.py`
+
+`COMPOSE_GENE=1` makes `/gene/X` the variant hub plus the Atlas gene context.
+`migration/verify_gene_composed.py` is the gate: it loads both pages in headless
+Chromium, runs the enhancement script, and compares the `.entity-body` DOM — the Atlas
+prose must be byte-identical, because the only defensible claim is that composition
+moved markup, never re-rendered a statement.
+
+```bash
+COMPOSE_GENE=1 ... uvicorn app:app --port 8128     # with the Atlas corpus configured
+python migration/verify_gene_composed.py --base http://127.0.0.1:8128 --sample 10
+# composed: 16/16 identical prose, one identity · RESULT: PASS
+```
+
+It also checks the shape (one `<h1>`, one canonical, no Atlas header/TOC, sections
+enhanced) and the `.md` twin (one `# `, a `## Gene context` section).

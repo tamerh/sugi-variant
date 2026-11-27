@@ -1,0 +1,32 @@
+{% extends "gene_hub.html" %}
+{#
+  Phase 3: the composed gene page.
+
+  The variant evidence comes from the hub (unchanged); the gene context is the Atlas
+  entity fragment, stored verbatim since Phase 1b, with only its own page furniture
+  removed server-side (see sugivariant/compose.py). Nothing here rewrites prose.
+#}
+{% block atlas_cta %}{% endblock %}
+
+{% block head %}
+  {{ super() }}
+  {# The Atlas fragment is styled by the site stylesheet, which the Atlas page carries
+     and this one would otherwise not. Loaded after app.css, as on an Atlas page. #}
+  <link rel="stylesheet" href="{{ base }}/static/css/atlas-site.css?v={{ css_v() }}">
+  <script defer src="{{ base }}/static/js/atlas-entity.js?v={{ css_v() }}"></script>
+{% endblock %}
+
+{% block gene_context %}
+{% if atlas %}
+<section class="entity-main composed-context" id="gene-context">
+  <h2 class="section-title">Gene context <span class="composed-context-sub">Sugi Atlas · {{ atlas.built }}</span></h2>
+  <p class="section-sub" style="margin:-.4rem 0 1rem">
+    Function, structure, pathways, constraint, disease and drug links for {{ gene }}, built
+    deterministically from primary databases. The variant evidence above and this context
+    below are two corpora on one page: the counts and classifications are ClinVar's, the
+    prose is Atlas's, and neither is derived from the other.
+  </p>
+  <div class="atlas-entity-embed">{{ atlas.html|safe }}</div>
+</section>
+{% endif %}
+{% endblock %}

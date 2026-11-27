@@ -1070,7 +1070,7 @@ def render_body(v, jsonld_tag=""):
     return "\n".join(L)
 
 
-def render_gene_md(ctx, url="", release_line=""):
+def render_gene_md(ctx, url="", release_line="", atlas_md=""):
     """Markdown twin of a gene hub: the same facts, one page, capped and honest.
 
     A resolver hit of kind "gene" had nothing to fetch, so a generic client reported a
@@ -1178,6 +1178,17 @@ def render_gene_md(ctx, url="", release_line=""):
             L.append(f"| [{r['nssv']}](https://sugi.bio/variant/sv/{r['nssv']}) | "
                      f"{r.get('svtype') or '—'} | {r.get('significance') or '—'} |")
         L.append("")
+
+    if atlas_md:
+        # Phase 3: the Atlas gene context, appended rather than merged. Its headings are
+        # already demoted one level by compose.demote_markdown(), and its own provenance
+        # lines stay, because they name which Atlas build the prose came from.
+        L += ["## Gene context {#gene-context}", "",
+              "Gene function, structure, pathways, constraint, disease and drug links, "
+              "built by Sugi Atlas from primary databases. This is context for the "
+              "variants above; it is not a re-derivation of them, and it carries no "
+              "classification. The block below names the Atlas build it came from.", "",
+              atlas_md, ""]
 
     L += ["## Sources {#sources}", "",
           "Every fact on the variant pages traces to one source, carried with its "

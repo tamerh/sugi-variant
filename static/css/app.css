@@ -646,3 +646,23 @@ table.pf-tbl tr.is-max td{color:var(--fg,#0f172a);background:rgba(63,127,212,.07
 a.chip:hover{background:var(--accent-soft,#eff6ff);border-color:var(--accent,#2563eb);color:var(--accent,#2563eb)}
 .chip strong{font-weight:600;color:inherit}
 .src-credit{margin:.35rem 0 0;font-size:.78rem;color:var(--muted,#64748b)}
+
+/* ── Composed gene page (Phase 3) ───────────────────────────────────────────────
+   The Atlas context block is the Atlas fragment, so this page also loads
+   atlas-site.css (in its head block). Only the seam between the two corpora is
+   styled here: a rule, the section label, and no nested max-width. */
+.composed-context {
+  margin-top: 2.75rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.composed-context-sub {
+  margin-left: .5rem;
+  font-size: .78rem;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: .02em;
+}
+.composed-atlas { max-width: 100%; }
+/* The Atlas article carries its own top margin for a page-level header we removed. */
+.composed-context .entity-page { margin-top: 0; }

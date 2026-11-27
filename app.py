@@ -1619,6 +1619,19 @@ def _md_response(md, section, extra_headers=None):
     return PlainTextResponse(md, headers=headers)
 
 
+# Phase 3: /gene/X composes the variant hub with the Atlas gene context. Off unless a
+# deployment asks for it: with it off, /gene/X is exactly the hub it was, and nothing in
+# this branch changes a served page by default.
+COMPOSE_GENE = (os.environ.get("COMPOSE_GENE") or "").strip().lower() in ("1", "true", "yes")
+
+
+def _atlas_gene_block(gene: str):
+    if not COMPOSE_GENE:
+        return None
+    from sugivariant import compose
+    return compose.gene_block(gene, BASE)
+
+
 @app.get("/gene/{gene}.md", response_class=PlainTextResponse)
 def gene_md(gene: str, section: str = ""):
     """Markdown twin of a gene hub, so a gene identifier is fetchable like a page.
@@ -1629,13 +1642,21 @@ def gene_md(gene: str, section: str = ""):
     """
     ctx = _gene_hub_context(gene)
     ctx_gene = ctx["gene"]
+    atlas = _atlas_gene_block(ctx_gene)
     return _md_response(VR.render_gene_md(ctx, url=f"{_PUB}/gene/{ctx_gene}",
-                                          release_line=release_line_md()), section)
+                                          release_line=release_line_md(),
+                                          atlas_md=(atlas or {}).get("md") or ""), section)
 
 
 @app.get("/gene/{gene}", response_class=HTMLResponse)
 def gene_hub(gene: str):
-    return _render("gene_hub.html", nav="variant", **_gene_hub_context(gene))
+    ctx = _gene_hub_context(gene)
+    if isinstance(ctx, HTMLResponse):        # the graceful no-variants page
+        return ctx
+    atlas = _atlas_gene_block(ctx["gene"])
+    if atlas:
+        return _render("gene_composed.html", nav="variant", atlas=atlas, **ctx)
+    return _render("gene_hub.html", nav="variant", **ctx)
 
 
 @app.get("/sv", response_class=HTMLResponse)
