@@ -169,15 +169,22 @@ These are the conditions that make the merge safe; they are deliverables, not cl
 
 ## 7. Phases
 
-### Phase 0 — inventory and gates (1–2 days)
+### Phase 0 — inventory and gates — **done 2026-11-27**
 
-- Oracle snapshot: `path → sha256 + size` for all 54,361 rendered pages.
-- Machine-readable table of every 301 (disease renames, gene legacy) and the
-  trailing-slash rule, with a test that each lands on a 200.
-- Decide and pin how the body fragment is obtained: a Hugo/Atlas layout that emits
-  `.Content` (clean, one-line-ish), or extraction from the existing HTML (no Atlas
-  change, but brittle). Prefer the layout output; use extraction only to bootstrap.
-- **Exit:** snapshot + redirect table + fragment method committed; nothing served.
+Tooling in `migration/` (`atlas_oracle.py`, `nginx_redirects.py`), outputs in
+`/data2/atlas-migration/`.
+
+- **Oracle** — `oracle-20261127.jsonl`, 108,713 lines (54,360 HTML + 54,353 Markdown),
+  sha256 + size + mtime per page, 6.7 s to build. `verify` re-walks and reports
+  added/removed/changed: the "did the corpus move under us?" gate.
+- **Redirects** — `redirects.json`, **363 rules**, **363/363 land on a page present in
+  the oracle, 0 misses**. Verified offline (a live probe is blocked by Cloudflare);
+  offline catches the failure that matters, a rename pointing at a page that is gone.
+- **Fragment** — every page has exactly one `<article class="entity-page">…</article>`,
+  93% of the page bytes, no inline CSS, only JSON-LD scripts inside. Phase 1a extracts
+  it as a bootstrap; Phase 1b replaces extraction with a `partials/entity-page.html` +
+  `fragment` output format in the Atlas web repo, which is the permanent form.
+- **Exit met:** snapshot + table + method committed; nothing served.
 
 ### Phase 1a — routing and semantics, no renderer (2–3 days)
 
