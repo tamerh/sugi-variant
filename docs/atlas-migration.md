@@ -271,6 +271,14 @@ Tooling in `migration/` (`atlas_oracle.py`, `nginx_redirects.py`), outputs in
   search, so: `/suggest.json` now merges Atlas entities after the variant suggestions (a
   drug or disease name used to return nothing at all), and `/atlas/search/` with its
   `manifest.json` still ships per release. Full-text search is a separate decision.
+- **Open, and deliberately not fixed here:** the app header carries no search box — search
+  lives on the home page and the error page — so an Atlas page currently has no search
+  control at all, where the Atlas header had one. Adding a site-wide search box is a
+  navigation change that touches every Variant page, i.e. the umbrella/nav decision of
+  Phase 3, and it must not be slipped in under "Phase 2". The endpoint it would use is
+  ready and tested (`/suggest.json` returns variants and Atlas entities), and the render
+  gate drives the real box end to end (type `imatinib`, keyboard-pick, land on
+  `/atlas/drug/imatinib/`).
 - **Exit met:** one manifest describes the small-variant, structural-variant and Atlas
   corpora; release and rollback exercised on dev — a bad index sha gives 503 with the
   reason, a subset index gives a real 404 for the missing entity, a good manifest serves

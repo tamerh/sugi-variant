@@ -142,6 +142,48 @@ python migration/verify_atlas_render.py --base http://127.0.0.1:8115 --sample 25
 (The `LD_LIBRARY_PATH` is only because this host lacks Chromium's system libs; they are
 in the conda envs.)
 
+## 6. Release mode — both corpora from one manifest
+
+```bash
+# what `variant.sh release-manifest` now emits (Atlas parts optional)
+PYTHONPATH=. python -m sugivariant.snapshot build \
+    --records /data2/sugi-variant-cache-dev/records \
+    --index   /data2/sugi-variant-cache-dev/index.db \
+    --sv-db   /data2/sugi-variant-cache-dev/sv.db \
+    --atlas-index /data2/atlas-migration/atlas_index.db \
+    --atlas-cache /data2/atlas-migration/atlas-cache \
+    --atlas-root  /data2/atlas-migration/atlas-html \
+    --atlas-redirects /data2/atlas-migration/redirects.json \
+    --out /tmp/full.json --serve-out /tmp/release-atlas.json \
+    --release v0.0.0-test --released-at 2026-11-27
+```
+
+`corpora.atlas` carries the paths, 54,351 entities by type, `fragment_bytes`,
+`corpus_bytes`, `with_markdown`, `built_at`, the 363 redirect rules and sha256 anchors
+for the index, the site home page, the search data and the table. The entity list is not
+in the manifest: the index is the membership.
+
+Serve it (no `ATLAS_*` environment needed — the manifest drives it):
+
+```bash
+VARIANT_SERVE=release VARIANT_RELEASE=/tmp/release-atlas.json \
+CACHE_DIR=/data2/sugi-variant-cache-dev INDEX_DB=/data2/sugi-variant-cache-dev/index.db \
+python -m uvicorn app:app --port 8124
+```
+
+Release discipline, all exercised on dev:
+
+| case | result |
+|---|---|
+| manifest matches the files | 200, `X-Sugi-Variant-Release` on every response |
+| index sha in the manifest is wrong | **503** on `/atlas` with the reason, variants unaffected |
+| entity in the tree but not in the released index (KCNA2 removed from a copy) | **404** — no fall-through to the tree |
+| `.md` twin, 301 rename, `/atlas/about` | unchanged |
+
+Installed layout for a prod cache: `$CACHE_DIR/atlas/{atlas_index.db, atlas-cache/,
+atlas-html/, redirects.json}`. Manifest paths are host paths, so a container resolves a
+missing one by basename under `CACHE_DIR/atlas` (the rule `sv.db` already follows).
+
 ## What is not done here
 
 - No release integration: the manifest, Pagefind, sitemaps and `/resolve.json` entity

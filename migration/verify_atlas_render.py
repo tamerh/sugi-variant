@@ -57,12 +57,42 @@ def stats(page):
     )
 
 
+def check_search(page, base, query="imatinib"):
+    """The header search must reach Atlas entities, and opening one must navigate.
+
+    A JS change is invisible to the HTML gates: this types into the real search box,
+    picks the first row with the keyboard, and checks where it lands.
+    """
+    page.goto(base.rstrip("/") + "/", wait_until="load")
+    box = page.locator("textarea.hero-search-input, input[type=search][name=q]").first
+    if box.count() == 0:
+        print("search: no search box on this deployment (skipped)")
+        return []
+    box.click()
+    box.type(query, delay=30)
+    page.wait_for_timeout(900)
+    rows = page.eval_on_selector_all(
+        ".ac-item", "els => els.map(e => e.innerText.replace(/\\s+/g, ' ').trim())")
+    if not any("atlas" in r.lower() for r in rows):
+        return [f"search: no Atlas entity for {query!r} (rows: {rows[:3]})"]
+    page.keyboard.press("ArrowDown")
+    page.keyboard.press("Enter")
+    page.wait_for_load_state("load")
+    page.wait_for_timeout(300)
+    if f"/atlas/" not in page.url:
+        return [f"search: opened {page.url}, expected an /atlas/ page"]
+    print(f"search: {query!r} -> {page.url.split('/', 3)[-1]}")
+    return []
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="http://127.0.0.1:8115")
     ap.add_argument("--root", default="/data2/atlas-migration/atlas-html")
     ap.add_argument("--index", default="/data2/atlas-migration/atlas_index.db")
     ap.add_argument("--sample", type=int, default=25)
+    ap.add_argument("--search", default="imatinib",
+                    help="query for the search-box check (empty string skips it)")
     a = ap.parse_args(argv)
 
     root = Path(a.root)
@@ -104,6 +134,8 @@ def main(argv=None):
                 continue
             if want_s != got_s:
                 bad.append((slug, f"enhancement stats differ {want_s} vs {got_s}"))
+        if a.search:
+            bad += [(f"search:{a.search}", why) for why in check_search(page, a.base, a.search)]
         browser.close()
 
     print(f"rendered article: {len(sample)-len(bad):,}/{len(sample):,} identical")
