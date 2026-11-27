@@ -220,6 +220,24 @@ def row_for(etype: str, slug: str):
         "SELECT * FROM entity WHERE type=? AND slug=?", (etype, slug)).fetchone()
 
 
+def count() -> int:
+    """Entities in the corpus (0 when there is none)."""
+    if not cache_enabled():
+        return 0
+    row = _index_db().execute("SELECT COUNT(*) FROM entity").fetchone()
+    return int(row[0]) if row else 0
+
+
+def slugs(offset: int, limit: int) -> list[tuple[str, str]]:
+    """A stable page of (type, slug), for the sitemap chunks."""
+    if not cache_enabled() or offset < 0 or limit <= 0:
+        return []
+    rows = _index_db().execute(
+        "SELECT type, slug FROM entity ORDER BY type, slug LIMIT ? OFFSET ?",
+        (limit, offset)).fetchall()
+    return [(r[0], r[1]) for r in rows]
+
+
 def entity(etype: str, slug: str) -> dict | None:
     """One entity record, from the LRU or its pickle."""
     global _lru_bytes

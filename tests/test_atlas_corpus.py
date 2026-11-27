@@ -136,3 +136,22 @@ def test_configure_disables_atlas_when_the_corpus_is_absent(tmp_path, monkeypatc
                               "index_db": str(tmp_path / "nope.db")}, cache_dir=None)
     assert problems and "unusable" in problems[0]
     assert ATW.enabled() is False
+
+
+def test_sitemap_chunks_enumerate_the_index_and_nothing_else(tmp_path, monkeypatch):
+    from starlette.testclient import TestClient
+
+    import app as A
+
+    cache, index, root, redirects = _corpus(tmp_path)
+    ATW.configure(AC.describe(cache, index, root=root, redirects=redirects))
+    assert ATW.count() == 1
+    assert ATW.slugs(0, 10) == [("gene", "BRCA1")]
+    assert ATW.slugs(1, 10) == []
+
+    client = TestClient(A.app)
+    r = client.get("/sitemap-atlas-1.xml")
+    assert r.status_code == 200
+    assert "/atlas/gene/BRCA1/" in r.text
+    # The registry order matters: /sitemap-{gene}.xml must not swallow this route.
+    assert client.get("/sitemap-atlas-2.xml").status_code == 404

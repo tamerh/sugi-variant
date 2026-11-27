@@ -1333,14 +1333,32 @@ def _index_lastmod():
 # Sitemap index memo: enumerating 6.5k genes takes ~5s, so cache the built XML and
 # regenerate only when index.db changes (keyed on its lastmod). Per-worker + in-memory:
 # first hit after a rebuild is slow, every hit after is instant. Auto-invalidates.
-_SITEMAP_INDEX_CACHE = None  # (index_lastmod, sv_lastmod, xml)
+_SITEMAP_INDEX_CACHE = None  # (index_lastmod, sv_lastmod, atlas_lastmod, xml)
 _SV_CHUNK = 50000            # sitemaps.org cap per urlset
+_ATLAS_CHUNK = 50000         # same cap; the current corpus is 2 chunks
 
 
 def _sv_lastmod():
     try:
         import datetime
         return datetime.date.fromtimestamp(SV_DB.stat().st_mtime).isoformat()
+    except Exception:
+        return None
+
+
+def _atlas_lastmod():
+    """The Atlas build date, from the release block when there is one.
+
+    Not the index mtime: release mode replaces the mtime with a copy, and a sitemap
+    lastmod has to say when the content was built, not when it was mounted.
+    """
+    desc = ATW.RELEASE or {}
+    built = (desc.get("built_at") or "")[:10]
+    if built:
+        return built
+    try:
+        import datetime
+        return datetime.date.fromtimestamp(ATW.INDEX.stat().st_mtime).isoformat()
     except Exception:
         return None
 
@@ -1356,8 +1374,13 @@ def sitemap():
         raise StarletteHTTPException(503, "Sitemap needs the resolution index; run sugivariant.index.")
     lm = _index_lastmod()
     sv_lm = _sv_lastmod()
-    if _SITEMAP_INDEX_CACHE and _SITEMAP_INDEX_CACHE[0] == lm and _SITEMAP_INDEX_CACHE[1] == sv_lm:
-        xml = _SITEMAP_INDEX_CACHE[2]
+    atlas_n = ATW.count() if (ATW.enabled() and ATW.cache_enabled()) else 0
+    atlas_lm = _atlas_lastmod() if atlas_n else None
+    if (_SITEMAP_INDEX_CACHE and _SITEMAP_INDEX_CACHE[0] == lm
+            and _SITEMAP_INDEX_CACHE[1] == sv_lm
+            and _SITEMAP_INDEX_CACHE[2] == atlas_lm
+            and _SITEMAP_INDEX_CACHE[3] == atlas_n):
+        xml = _SITEMAP_INDEX_CACHE[4]
     else:
         lm_tag = f"<lastmod>{lm}</lastmod>" if lm else ""
         children = "".join(
@@ -1370,10 +1393,17 @@ def sitemap():
             children += "".join(
                 f"<sitemap><loc>{_PUB}/sitemap-sv-{i}.xml</loc>{sv_tag}</sitemap>"
                 for i in range(1, (n + _SV_CHUNK - 1) // _SV_CHUNK + 1))
+        if atlas_n:
+            # Atlas entities are a flat corpus, so they chunk like the SVs rather than
+            # getting a child sitemap per gene.
+            tag = f"<lastmod>{atlas_lm}</lastmod>" if atlas_lm else ""
+            children += "".join(
+                f"<sitemap><loc>{_PUB}/sitemap-atlas-{i}.xml</loc>{tag}</sitemap>"
+                for i in range(1, (atlas_n + _ATLAS_CHUNK - 1) // _ATLAS_CHUNK + 1))
         xml = ('<?xml version="1.0" encoding="UTF-8"?>'
                '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
                f'{children}</sitemapindex>')
-        _SITEMAP_INDEX_CACHE = (lm, sv_lm, xml)
+        _SITEMAP_INDEX_CACHE = (lm, sv_lm, atlas_lm, atlas_n, xml)
     return Response(content=xml, media_type="application/xml",
                     headers={"Cache-Control": "public, max-age=3600"})
 
@@ -1390,6 +1420,26 @@ def sitemap_sv(chunk: int):
     lm = _sv_lastmod()
     lm_tag = f"<lastmod>{lm}</lastmod>" if lm else ""
     urls = "".join(f"<url><loc>{_PUB}/sv/{r[0]}</loc>{lm_tag}</url>" for r in rows)
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>'
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+           f'{urls}</urlset>')
+    return Response(content=xml, media_type="application/xml",
+                    headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get("/sitemap-atlas-{chunk}.xml")
+def sitemap_atlas(chunk: int):
+    """One urlset per 50k Atlas entities. Registered before /sitemap-{gene}.xml, or
+    the gene route would swallow `atlas-1`."""
+    if not (ATW.enabled() and ATW.cache_enabled()) or chunk < 1:
+        raise StarletteHTTPException(404, "No Atlas sitemap.")
+    rows = ATW.slugs((chunk - 1) * _ATLAS_CHUNK, _ATLAS_CHUNK)
+    if not rows:
+        raise StarletteHTTPException(404, "No Atlas sitemap.")
+    lm = _atlas_lastmod()
+    lm_tag = f"<lastmod>{lm}</lastmod>" if lm else ""
+    urls = "".join(f"<url><loc>{_PUB}/atlas/{t}/{s}/</loc>{lm_tag}</url>"
+                   for t, s in rows)
     xml = ('<?xml version="1.0" encoding="UTF-8"?>'
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
            f'{urls}</urlset>')
