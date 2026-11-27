@@ -535,6 +535,20 @@ def _load_release():
     _RELEASE_DATE = data.get("released_at") or (data.get("created_at") or "")[:10] or None
     _RELEASE_VERSION = data.get("variant_version") or _RELEASE_ID
     _RELEASE_META = data
+    atlas = ((data.get("corpora") or {}).get("atlas") or {})
+    if atlas:
+        # The release names an Atlas corpus: adopt its paths, then re-check the anchors
+        # (index sha, counts, the site anchors, the redirect table). A mismatch means
+        # this deployment is not the corpus the manifest describes, so /atlas answers
+        # 503 rather than serving pages from a corpus nobody released.
+        problems = ATW.configure(atlas, CACHE_DIR)
+        if problems:
+            for p in problems:
+                print(f"warning: atlas corpus: {p}", file=sys.stderr, flush=True)
+        else:
+            print(f"Sugi Variant: atlas {atlas.get('entities'):,} entities "
+                  f"({', '.join(f'{k} {v:,}' for k, v in sorted((atlas.get('by_type') or {}).items()))})",
+                  flush=True)
     sv = ((data.get("corpora") or {}).get("structural_variant") or {})
     if sv.get("db"):
         # The manifest records the path the build saw, which is the HOST path. Inside
@@ -1091,6 +1105,13 @@ def atlas_no_slash():
 def atlas_page(rel: str, request: Request):
     if not ATW.enabled():
         raise StarletteHTTPException(404, "Atlas is not served by this deployment.")
+    if ATW.RELEASE_MODE and ATW.RELEASE_PROBLEMS:
+        # Release discipline: never serve an Atlas corpus the manifest does not
+        # describe. The detail is deliberately in the body, because this is a
+        # deployment error someone has to see, not a reader-facing 404.
+        raise StarletteHTTPException(
+            503, "Atlas corpus does not match the release manifest: "
+                 + "; ".join(ATW.RELEASE_PROBLEMS[:5]))
     action, value = ATW.target_for(rel)
     if action == "redirect":
         return RedirectResponse(value if value.startswith("http")

@@ -36,6 +36,12 @@ CACHE = Path(os.environ.get("ATLAS_CACHE") or "/nonexistent")
 INDEX = Path(os.environ.get("ATLAS_INDEX") or "/nonexistent")
 ENABLED = ROOT.is_dir() or CACHE.is_dir()
 CACHE_MB = int(os.environ.get("ATLAS_CACHE_MB") or 96)
+# Set by configure() when the release manifest names an Atlas corpus. In that mode the
+# index is the release's membership, so an entity it does not list is a 404 -- never a
+# fall-through to whatever happens to be in the tree.
+RELEASE = None
+RELEASE_MODE = False
+RELEASE_PROBLEMS: list[str] = []
 
 _lock = threading.Lock()
 _lru: dict[str, dict] = {}
@@ -51,6 +57,55 @@ _redirects: dict[str, str] | None = None
 
 def enabled() -> bool:
     return ENABLED
+
+
+def _resolve_path(path, cache_dir):
+    """A manifest path, or the same file under the mounted cache.
+
+    The manifest records the paths the build saw, which are host paths. A container
+    mounts that directory somewhere else, so a path that does not exist here is
+    retried by name under `CACHE_DIR/atlas` and then `CACHE_DIR` -- the same rule the
+    structural-variant db already follows.
+    """
+    p = Path(path) if path else Path("/nonexistent")
+    if p.exists() or not cache_dir:
+        return p
+    for cand in (Path(cache_dir) / "atlas" / p.name, Path(cache_dir) / p.name):
+        if cand.exists():
+            return cand
+    return p
+
+
+def configure(desc, cache_dir=None):
+    """Adopt an Atlas corpus from the release manifest.
+
+    Returns the list of problems found; an empty list means the files are the ones the
+    manifest describes. `enabled()` is left False when the corpus is unusable, so a
+    broken release serves "Atlas is not served" rather than stale or partial pages.
+    """
+    global ROOT, REDIRECTS, CACHE, INDEX, ENABLED, RELEASE, RELEASE_MODE
+    global RELEASE_PROBLEMS, _lru, _lru_bytes, _tls, _redirects, _sha_cache
+    if not desc:
+        return []
+    CACHE = _resolve_path(desc.get("cache"), cache_dir)
+    INDEX = _resolve_path(desc.get("index_db"), cache_dir)
+    ROOT = _resolve_path(desc.get("root"), cache_dir)
+    REDIRECTS = _resolve_path(desc.get("redirects"), cache_dir)
+    RELEASE = desc
+    RELEASE_MODE = True
+    _lru, _lru_bytes = {}, 0
+    _tls = threading.local()
+    _redirects = None
+    _sha_cache.clear()
+    usable = CACHE.is_dir() and INDEX.is_file()
+    ENABLED = usable
+    if not usable:
+        RELEASE_PROBLEMS[:] = [f"corpus unusable: cache={CACHE} index={INDEX}"]
+        return list(RELEASE_PROBLEMS)
+    from sugivariant import atlas_corpus
+    RELEASE_PROBLEMS[:] = atlas_corpus.check(
+        desc, cache=CACHE, index_db=INDEX, root=ROOT, redirects=REDIRECTS)
+    return list(RELEASE_PROBLEMS)
 
 
 def redirects() -> dict[str, str]:

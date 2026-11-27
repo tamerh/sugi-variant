@@ -566,7 +566,7 @@ def rebuild_queue(manifest):
 SERVABLE = ("ok", "stale", "mismatch")
 
 
-def serve_manifest(manifest, sv_db=None):
+def serve_manifest(manifest, sv_db=None, atlas=None):
     """Compact manifest for the read-only serving mode.
 
     Only genes with a record file and a servable status. Missing/known-empty/
@@ -575,7 +575,9 @@ def serve_manifest(manifest, sv_db=None):
     and `mismatch` is served (the pickle exists; its page is usable).
 
     If `sv_db` is given, the structural-variant corpus is named in the release
-    alongside the small-variant corpus.
+    alongside the small-variant corpus. `atlas` is the block
+    `sugivariant.atlas_corpus.describe()` produced; without it a release serves no
+    Atlas pages at all, which is what a Variant-only deployment wants.
     """
     corpus = ((manifest or {}).get("corpora") or {}).get(CORPUS) or {}
     state = corpus.get("gene_state") or {}
@@ -620,6 +622,8 @@ def serve_manifest(manifest, sv_db=None):
             pass
         out["corpora"]["structural_variant"] = {"db": os.path.abspath(sv_db),
                                                 "records": n}
+    if atlas:
+        out["corpora"]["atlas"] = atlas
     return out
 
 
@@ -737,6 +741,10 @@ def main(argv=None):
     b.add_argument("--queue-out", help="write the rebuild queue JSON here")
     b.add_argument("--serve-out", help="write the compact serve manifest here")
     b.add_argument("--sv-db", help="include the dbVar sv.db in the release manifest")
+    b.add_argument("--atlas-cache", help="Atlas entity pickle corpus (one dir per type)")
+    b.add_argument("--atlas-index", help="Atlas entity index (atlas_index.db)")
+    b.add_argument("--atlas-root", help="Atlas static tree, for site-level pages + search data")
+    b.add_argument("--atlas-redirects", help="Atlas 301 table (redirects.json)")
     b.add_argument("--current-versions", help="JSON {dataset: version} to check staleness")
     b.add_argument("--release", help="release id (vX.Y.Z); default VARIANT_BUILD_VERSION or git describe")
     b.add_argument("--released-at", help="release date (YYYY-MM-DD; default today)")
@@ -766,6 +774,12 @@ def main(argv=None):
         if a.current_versions:
             with open(a.current_versions, encoding="utf-8") as f:
                 current = json.load(f)
+        atlas = None
+        if a.atlas_index:
+            from sugivariant import atlas_corpus
+            atlas = atlas_corpus.describe(
+                a.atlas_cache or os.path.dirname(a.atlas_index), a.atlas_index,
+                root=a.atlas_root, redirects=a.atlas_redirects)
         manifest, report = build_manifest(
             a.records, a.index, current_versions=current,
             count_records=a.count_records, count_sample=a.count_sample,
@@ -780,7 +794,7 @@ def main(argv=None):
         if a.queue_out:
             _write_atomic(a.queue_out, json.dumps(queue, indent=2, sort_keys=False) + "\n")
         if a.serve_out:
-            serve = serve_manifest(manifest, sv_db=a.sv_db)
+            serve = serve_manifest(manifest, sv_db=a.sv_db, atlas=atlas)
             _write_atomic(a.serve_out,
                           json.dumps(serve, indent=2, sort_keys=False) + "\n")
         t = report["totals"]
@@ -789,6 +803,9 @@ def main(argv=None):
         print(f"  served genes : {t['served_genes']:,}")
         print(f"  index genes  : {t['index_genes']:,}")
         print(f"  index rows   : {t['index_records']:,}")
+        if atlas:
+            print(f"  atlas        : {atlas['entities']:,} entities "
+                  f"({', '.join(f'{k} {v:,}' for k, v in sorted(atlas['by_type'].items()))})")
         print(f"  missing      : {len(report['missing']):,}  (index rows, no record)")
         print(f"  orphan       : {len(report['orphan']):,}  (records, no current index rows)")
         print(f"  records-only : {len(report['records_only']):,}")
