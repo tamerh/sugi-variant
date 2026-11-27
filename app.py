@@ -59,8 +59,23 @@ env = Environment(loader=FileSystemLoader(str(ROOT / "templates")),
 env.globals["base"] = BASE
 env.globals["release"] = None
 env.globals["released_at"] = None
-env.globals["css_v"] = lambda: str(int(max(
-    (ROOT / "static" / "css" / f).stat().st_mtime for f in ("app.css", "atlas.css"))))
+def _asset_v() -> str:
+    """Cache-buster for every served asset.
+
+    It used to hash only app.css and atlas.css, so a change to atlas-site.css or to a
+    static/js file kept the old query string and the browser kept the old file.
+    """
+    files = []
+    for sub, pat in (("css", "*.css"), ("js", "*.js")):
+        d = ROOT / "static" / sub
+        if d.is_dir():
+            files.extend(d.glob(pat))
+    if not files:
+        return "0"
+    return str(int(max(f.stat().st_mtime for f in files)))
+
+
+env.globals["css_v"] = _asset_v
 
 # ── classification → colour class + display + star rendering (template helpers) ─
 _CLS_CLASS = {

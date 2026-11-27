@@ -12,6 +12,13 @@
 {% block head %}
   {% if canonical %}<link rel="canonical" href="{{ canonical }}">{% endif %}
   <link rel="stylesheet" href="{{ base }}/static/css/atlas-site.css?v={{ css_v() }}">
+  {#
+    Live Atlas enhances the entity body at runtime: H2 sections become collapsibles,
+    the TOC gets chevrons and a filter, tables get a Copy CSV button. That script lives
+    in the Atlas page shell, not in the fragment, so the app has to carry it. The file
+    is copied verbatim from the static build and must stay that way.
+  #}
+  <script defer src="{{ base }}/static/js/atlas-entity.js?v={{ css_v() }}"></script>
 {% endblock %}
 {% block content %}
   <div class="atlas-entity-embed">{{ body|safe }}</div>

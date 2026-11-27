@@ -125,8 +125,25 @@ python migration/verify_atlas_entities.py --base http://127.0.0.1:8114 \
 # entity content: 3,039/3,039 identical · RESULT: PASS
 ```
 
+That gate compares the article bytes, which is necessary but not sufficient: Atlas
+enhances the entity body in the *page shell* (collapsible sections, TOC chevrons and
+filter, Copy CSV on tables). The app carries that script verbatim in
+`static/js/atlas-entity.js`; `verify_atlas_render.py` loads both pages in headless
+Chromium, runs the script, and compares the post-JS DOM:
+
+```bash
+# server on :8115 with BASE_PATH="" so links match the static tree
+LD_LIBRARY_PATH=/data/miniconda3/envs/bioyoda/lib:/data/miniconda3/envs/biobtree/lib:\
+/data/miniconda3/pkgs/libgbm-1.0.7-h54a6638_0/lib:/data/miniconda3/pkgs/xorg-libxshmfence-1.3.3-hb9d3cd8_0/lib \
+python migration/verify_atlas_render.py --base http://127.0.0.1:8115 --sample 25
+# rendered article: 26/26 identical · RESULT: PASS
+```
+
+(The `LD_LIBRARY_PATH` is only because this host lacks Chromium's system libs; they are
+in the conda envs.)
+
 ## What is not done here
 
-- No pickles yet (Phase 1b); the app still reads the HTML tree.
-- No fragment/shell rendering and no CSS merge (Phase 1b).
+- No release integration: the manifest, Pagefind, sitemaps and `/resolve.json` entity
+  hits are Phase 2.
 - No changes to the Atlas build, to nginx, or to production.

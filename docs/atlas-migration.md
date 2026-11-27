@@ -227,6 +227,22 @@ Tooling in `migration/` (`atlas_oracle.py`, `nginx_redirects.py`), outputs in
   Two bugs found and fixed by the gate: a SQLite connection shared across threads
   (`InterfaceError` under the concurrent verifier, surfacing as sporadic 404/500) and a
   plain `str` route return that FastAPI JSON-encoded.
+- **The fragment is not the whole page: Atlas enhances it in the shell.** The static page
+  carries an 8.7 KB inline script that rewrites `.entity-body` at runtime — H2 sections
+  become `<details>` (only the first open) with an Expand/Collapse-all button, the TOC
+  gets chevrons, open/closed state and a filter, hash links open collapsed sections, and
+  every table is wrapped with a Copy CSV button. My first gate compared the `<article>`
+  bytes and passed while the app page rendered as one flat document, because that script
+  lives outside the fragment. Fixed by copying it verbatim to
+  `static/js/atlas-entity.js` (loaded only on entity pages). **Any Atlas shell script that
+  touches the entity body belongs with the fragment, and a fragment-only gate cannot see
+  its absence.**
+  Gate (`migration/verify_atlas_render.py`, headless Chromium): both pages are loaded, the
+  script runs, and the post-JS `<article>` DOM is compared. **26 of 26 identical**,
+  including the five largest entities, with the same enhancement stats (sections, which
+  one is open, table wrappers, Copy CSV buttons, TOC chevrons, filter, Expand all) and no
+  console errors. Only the TOC's sticky `top` is normalised, because that is a measurement
+  of the shell the app owns.
 
 ### Phase 2 — one manifest and one search (3–5 days)
 

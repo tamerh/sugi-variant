@@ -151,3 +151,19 @@ def test_excerpt_strips_markup():
     rec = {"body_html": "<h2>Summary</h2><p>BRCA1 is a <b>tumour</b> suppressor.</p>",
            "title": "t"}
     assert ATW.excerpt(rec) == "Summary BRCA1 is a tumour suppressor."
+
+
+def test_entity_page_carries_the_atlas_enhancement_script():
+    """Live Atlas collapses sections and builds the TOC in the page shell, not in the
+    fragment. If the app drops that script the page still passes the fragment gate but
+    renders as one long flat document, which is not the same page."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    js = root / "static" / "js" / "atlas-entity.js"
+    assert js.is_file() and js.stat().st_size > 5000, "enhancement script missing"
+    src = js.read_text()
+    for marker in ("entity-body", "details", "atlas-section", "toc-chevron"):
+        assert marker in src, f"script lost its {marker} handling"
+    tpl = (root / "templates" / "atlas_entity.html").read_text()
+    assert "/static/js/atlas-entity.js" in tpl
