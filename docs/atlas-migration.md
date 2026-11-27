@@ -208,14 +208,25 @@ Tooling in `migration/` (`atlas_oracle.py`, `nginx_redirects.py`), outputs in
   links inside the stored HTML are absolute `/atlas/…`, so navigation leaves the
   preview for the live site — expected until the fragment/shell phase.
 
-### Phase 1b — the pickle corpus (≈1 week)
+### Phase 1b — the pickle corpus — **done 2026-11-27**
 
 - Atlas build writes `body_html` fragment + metadata + `content_hash` per entity into
   `atlas-cache/<type>/<slug>.pkl.gz`, plus `atlas_index.db`.
 - The app serves from pickles; Hugo leaves the serve path.
 - Diff against the oracle: structure (headings, tables, links) then text; fix to
   parity on the sample, then a full 54k overnight diff.
-- **Exit:** zero unexplained diffs; `.md` twins byte-identical to today's.
+- **Exit met:** built from the frozen tree with `migration/build_atlas_corpus.py`:
+  **54,351 entities, 0 without a fragment, 1.1 GB** (from 5.7 GB), 95 s.
+  `atlas_index.db` carries type/slug/title/canonical/fragment sha/md sha/sections.
+  The app renders the stored fragment inside the shared shell (new `atlas_entity.html`),
+  loads the site stylesheet (`static/css/atlas-site.css`) on Atlas pages only, and
+  rewrites `/atlas/…` links through `BASE` so the dev prefix survives.
+  Gate (`migration/verify_atlas_entities.py`): **3,039 of 3,039 sampled entities serve
+  the exact fragment** (sha256 vs the record built from the static tree) and the `.md`
+  twin matches. Site-level pages (about, type indexes) still come from the tree.
+  Two bugs found and fixed by the gate: a SQLite connection shared across threads
+  (`InterfaceError` under the concurrent verifier, surfacing as sporadic 404/500) and a
+  plain `str` route return that FastAPI JSON-encoded.
 
 ### Phase 2 — one manifest and one search (3–5 days)
 

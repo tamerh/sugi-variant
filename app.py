@@ -1082,6 +1082,37 @@ def atlas_page(rel: str, request: Request):
                                 else f"{BASE}{value}", status_code=301)
     if action == "404":
         raise StarletteHTTPException(404, "Not found.")
+    # Pickle corpus (Phase 1b): entity pages come from the record, site-level pages
+    # still come from the tree.
+    parts = value.rstrip("/").split("/")
+    if ATW.cache_enabled() and len(parts) == 3 and parts[0] in ("gene", "disease", "drug"):
+        etype, slug, leaf = parts
+        if leaf == "index.html":
+            rec = ATW.entity(etype, slug)
+            if rec is None:
+                raise StarletteHTTPException(404, "Not found.")
+            # A bare str return would be JSON-encoded by FastAPI; this route can also
+            # return Redirect/Response, so the content type has to be explicit here.
+            return HTMLResponse(_render("atlas_entity.html",
+                                        title=rec["title"],
+                                        description=ATW.excerpt(rec),
+                                        canonical=rec.get("canonical"),
+                                        body=ATW.rewrite_links(rec["body_html"], BASE),
+                                        nav="atlas"))
+        if leaf == "index.md":
+            rec = ATW.entity(etype, slug)
+            if rec is None:
+                raise StarletteHTTPException(404, "Not found.")
+            md = rec.get("body_md") or ""
+            if not md:
+                raise StarletteHTTPException(404, "No markdown twin.")
+            etag = '"' + (rec.get("md_sha") or "")[:32] + '"'
+            headers = {"Cache-Control": _ATLAS_CACHE, "ETag": etag,
+                       "Content-Type": "text/markdown; charset=utf-8"}
+            if request.headers.get("if-none-match") == etag:
+                return Response(status_code=304, headers=headers)
+            return Response(content=md.encode(), media_type="text/markdown; charset=utf-8",
+                            headers={k: v for k, v in headers.items() if k != "Content-Type"})
     got = ATW.read(value)
     if got is None:
         raise StarletteHTTPException(404, "Not found.")

@@ -1,0 +1,3315 @@
+:root {
+  --bg: #fafafa;
+  --bg-elev: #ffffff;
+  --bg-soft: #f4f5f7;
+  --fg: #0f172a;
+  --fg-muted: #475569;
+  --fg-soft: #64748b;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --accent: #2563eb;
+  --accent-soft: #eff6ff;
+  --on-accent: #ffffff;
+  /* H3/H4 navigational headings — readable on both light and dark backgrounds. */
+  --subsection-fg: #1e40af;
+  --table-row-hover: var(--bg-soft);
+  --warn-bg: #fffbeb;
+  --warn-border: #fde68a;
+  --warn-edge: #f59e0b;
+  --warn-fg: #78350f;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 10px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+[data-theme="dark"] {
+  --bg: #0b0e14;
+  --bg-elev: #131822;
+  --bg-soft: #1a2030;
+  --fg: #e6e9ef;
+  --fg-muted: #a3aec0;
+  --fg-soft: #7a8699;
+  --border: #1f2937;
+  --border-strong: #334155;
+  --accent: #60a5fa;
+  --accent-soft: rgba(96, 165, 250, 0.13);
+  --on-accent: #0b1220;
+  --subsection-fg: #93c5fd;
+  --table-row-hover: rgba(255, 255, 255, 0.04);
+  --warn-bg: rgba(245, 158, 11, 0.10);
+  --warn-border: rgba(245, 158, 11, 0.35);
+  --warn-edge: #f59e0b;
+  --warn-fg: #fcd34d;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.18);
+  --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.32), 0 2px 4px rgba(0, 0, 0, 0.22);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Sticky footer: short pages (About, Privacy) keep the footer at the
+     bottom of the viewport instead of floating up under the content. */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+body > main {
+  flex: 1 0 auto;
+  /* main is itself a flex column so direct children (the home hero) can
+     flex-grow to fill the viewport without relying on brittle calc()
+     values that drift when the header / footer height changes. */
+  display: flex;
+  flex-direction: column;
+}
+/* Outline focus ring for keyboard users (mouse clicks suppress it via
+   :focus-visible). Applies globally so every link, button, input, summary
+   element gets a consistent ring without per-component CSS. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+/* Skip-to-main: visually hidden until focused. The first Tab on any page
+   lands here so keyboard / screen-reader users can jump past the header
+   and nav straight to <main>. */
+.skip-link {
+  position: absolute;
+  left: 0.5rem;
+  top: -3rem;
+  background: var(--accent);
+  color: var(--on-accent);
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  text-decoration: none;
+  z-index: 1000;
+  transition: top 120ms ease;
+}
+.skip-link:focus, .skip-link:focus-visible { top: 0.5rem; outline: none; }
+main:focus { outline: none; }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+h1, h2, h3, h4 {
+  margin: 0 0 0.5em;
+  line-height: 1.25;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  background: var(--bg-soft);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+.container-narrow { max-width: 760px; }
+.container-wide { max-width: 1320px; }
+
+/* ─── Header ─────────────────────────────────────────────── */
+.site-header {
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: saturate(180%) blur(6px);
+}
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.2rem;
+  height: 60px;
+}
+
+/* ─── Header search (non-home pages) ─── */
+.header-search {
+  position: relative;
+  flex: 1 1 240px;
+  max-width: 340px;
+  min-width: 160px;
+  margin-left: auto;
+  margin-right: 0.5rem;
+}
+.header-search-icon {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-soft);
+  font-size: 0.95rem;
+  pointer-events: none;
+}
+.header-search input {
+  width: 100%;
+  height: 32px;
+  padding: 0 0.7rem 0 1.85rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.85rem;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.header-search input::placeholder {
+  color: var(--fg-soft);
+}
+.header-search input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+.header-search-results[hidden] { display: none; }
+.header-search-results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.10);
+  z-index: 100;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 0.25rem 0;
+}
+.hs-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.45rem 0.7rem;
+  color: var(--fg);
+  font-size: 0.88rem;
+  text-decoration: none;
+  border-radius: 0;
+}
+.hs-result:hover,
+.hs-result-active {
+  background: var(--bg-soft);
+  text-decoration: none;
+}
+.hs-result-active { box-shadow: inset 2px 0 0 var(--accent); }
+.hs-result-name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hs-result-cat {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.hs-deeper {
+  display: block;
+  padding: 0.5rem 0.7rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+.hs-deeper:hover { background: var(--bg-soft); text-decoration: none; }
+.hs-noresult, .hs-loading {
+  padding: 0.6rem 0.7rem;
+  font-size: 0.82rem;
+  color: var(--fg-soft);
+}
+
+/* ─── Header nav: inline on desktop, right-side drawer on mobile ───
+   Desktop: .header-actions is display:contents (no box), so the nav renders
+   inline in the header row exactly as before and the hamburger is hidden.
+   The nav lives in a native <details>, so on mobile it becomes a slide-in
+   drawer with zero JavaScript (JS only adds backdrop/Escape dismissal). */
+.header-actions { display: contents; }
+.nav-menu { position: relative; }
+/* Desktop: the nav renders inline and the <details> is never toggled (its
+   summary is hidden), so its content must always show regardless of open
+   state. Browsers hide a closed <details> two different ways, so override
+   both: the older model puts display:none on the child (Firefox/Safari/old
+   Chrome); Chrome 131+ puts content-visibility:hidden on ::details-content
+   (which a child display override CANNOT beat). Scoped to ≥721px so the
+   mobile drawer keeps its closed-state hiding. */
+@media (min-width: 721px) {
+  .nav-menu > .site-nav { display: flex !important; }
+  .nav-menu::details-content { content-visibility: visible !important; }
+}
+.nav-close { display: none; }                  /* close button: drawer-only */
+.nav-toggle {
+  display: none;                               /* desktop: no hamburger */
+  list-style: none;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+}
+.nav-toggle::-webkit-details-marker { display: none; }   /* kill the disclosure triangle */
+.nav-toggle::marker { content: ""; }
+.nav-toggle:hover { background: var(--bg-soft); border-color: var(--border); }
+/* CSS-drawn 3-bar hamburger (no glyph — renders identically everywhere) */
+.nav-toggle-bars,
+.nav-toggle-bars::before,
+.nav-toggle-bars::after {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 2px;
+}
+.nav-toggle-bars { position: relative; }
+.nav-toggle-bars::before,
+.nav-toggle-bars::after { content: ""; position: absolute; left: 0; }
+.nav-toggle-bars::before { top: -6px; }
+.nav-toggle-bars::after { top: 6px; }
+
+@media (max-width: 720px) {
+  .header-search { display: none; }
+  .header-actions { display: flex; align-items: center; margin-left: auto; }
+  .nav-toggle { display: inline-flex; }
+  /* The sticky header's backdrop-filter makes it a containing block for
+     position:fixed descendants — which would trap the drawer (and its
+     backdrop) inside the 60px header instead of the viewport. Drop it on
+     mobile so the fixed drawer + backdrop span the full screen. */
+  .site-header { backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+  /* Dimmed backdrop behind the open drawer (tap to dismiss — see baseof JS). */
+  .nav-menu[open]::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 200;
+    animation: navFade 0.2s ease;
+  }
+  /* The drawer itself — full-height panel pinned to the right edge. */
+  .nav-menu > .site-nav {
+    display: none !important;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 78%;
+    max-width: 320px;
+    flex-direction: column;
+    flex-wrap: nowrap;                /* base .site-nav sets wrap; a column must not */
+    justify-content: flex-start;      /* base sets flex-end → would pin items to the bottom */
+    align-items: stretch;
+    gap: 0.1rem;
+    padding: 4.25rem 1rem 1.5rem;     /* room for the close button up top */
+    background: var(--bg-elev);
+    border-left: 1px solid var(--border);
+    box-shadow: -14px 0 40px rgba(0, 0, 0, 0.22);
+    z-index: 201;
+    overflow-y: auto;
+  }
+  .nav-menu[open] > .site-nav {
+    display: flex !important;
+    animation: navSlideIn 0.22s ease;
+  }
+  .nav-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 0.85rem;
+    right: 0.9rem;
+    width: 38px;
+    height: 38px;
+    font-size: 1.6rem;
+    line-height: 1;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--fg-muted);
+    cursor: pointer;
+  }
+  .nav-close:hover { background: var(--bg-soft); color: var(--fg); border-color: var(--border); }
+  /* Categories + secondary links stack as full-width rows in the drawer.
+     All inner rules are scoped under .nav-menu so they outrank the base
+     "Site nav grouping" + .theme-toggle rules that appear LATER in this file
+     at equal specificity (otherwise the drawer inherits the desktop
+     inline-flex group, the vertical 1px divider, and the 34×34 icon toggle). */
+  .nav-menu .site-nav-group {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.1rem;
+  }
+  /* Left padding of 1.6rem keeps the gutter for the category colour dot
+     (absolute, left:0.6rem) and aligns the secondary links to the same edge. */
+  .nav-menu .site-nav-group a,
+  .nav-menu .site-nav-secondary { display: block; padding: 0.7rem 0.6rem 0.7rem 1.6rem; font-size: 1rem; }
+  .nav-menu .site-nav-divider {
+    display: block;
+    width: auto;
+    height: 1px;
+    margin: 0.5rem 0.3rem;
+    background: var(--border);
+  }
+  /* Theme toggle becomes a labelled drawer row instead of an icon-only button. */
+  .nav-menu .theme-toggle {
+    width: auto;
+    height: auto;
+    margin-left: 0;
+    justify-content: flex-start;
+    gap: 0.55rem;
+    padding: 0.7rem 0.6rem;
+  }
+  .nav-menu .theme-toggle::after { content: "Dark mode"; color: var(--fg-muted); font-size: 1rem; }
+}
+@keyframes navSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes navFade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .nav-menu[open] > .site-nav,
+  .nav-menu[open]::before { animation: none; }
+}
+.site-title {
+  color: var(--fg);
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  /* never let the brand wrap to a second line — the nav uses flex-shrink to
+     give up width before "Sugi Atlas" breaks. */
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.site-title:hover { text-decoration: none; }
+.site-mark {
+  color: var(--accent);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.site-nav {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  row-gap: 0.25rem;
+}
+.site-nav a {
+  color: var(--fg-muted);
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.93rem;
+  font-weight: 500;
+}
+.site-nav a:hover {
+  color: var(--fg);
+  background: var(--bg-soft);
+  text-decoration: none;
+}
+.site-nav a.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* ─── Hero (home) ────────────────────────────────────────── */
+.hero {
+  padding: 5rem 0 3.5rem;
+  background:
+    radial-gradient(60% 60% at 50% 0%, rgba(37, 99, 235, 0.08), transparent 70%),
+    linear-gradient(to bottom, var(--bg-elev), var(--bg));
+  border-bottom: 1px solid var(--border);
+}
+.hero-eyebrow {
+  margin: 0 0 1rem;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  font-weight: 600;
+}
+.hero-title {
+  font-size: clamp(2rem, 4vw, 3rem);
+  margin: 0 0 1rem;
+  max-width: 22ch;
+  letter-spacing: -0.025em;
+}
+.hero-lead {
+  font-size: 1.12rem;
+  color: var(--fg-muted);
+  max-width: 62ch;
+  margin: 0 0 2rem;
+}
+.hero-cta { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.65rem 1.1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  font-weight: 550;
+  border: 1px solid transparent;
+  transition: transform 0.06s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.btn:hover { text-decoration: none; }
+.btn:active { transform: translateY(1px); }
+.btn-primary {
+  background: var(--accent);
+  color: white;
+}
+.btn-primary:hover { background: #1d4ed8; }
+.btn-ghost {
+  color: var(--fg-muted);
+  border-color: var(--border-strong);
+  background: var(--bg-elev);
+}
+.btn-ghost:hover { color: var(--fg); border-color: var(--fg-muted); }
+
+/* ─── Category cards (home) ──────────────────────────────── */
+.categories { padding: 4rem 0; }
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+.category-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.75rem;
+  color: var(--fg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  position: relative;
+  transition: transform 0.12s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  overflow: hidden;
+}
+.category-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--accent);
+}
+.category-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent);
+  text-decoration: none;
+}
+.category-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 0.25rem;
+}
+.category-card h2 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+.category-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+}
+.category-description {
+  color: var(--fg-muted);
+  margin: 0;
+  font-size: 0.95rem;
+}
+.category-cta {
+  margin-top: auto;
+  padding-top: 0.5rem;
+  color: var(--accent);
+  font-weight: 550;
+  font-size: 0.93rem;
+}
+
+/* ─── How it works ───────────────────────────────────────── */
+.how {
+  padding: 4rem 0;
+  background: var(--bg-elev);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.how h2 {
+  font-size: 1.6rem;
+  margin-bottom: 2rem;
+}
+.how-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+.how-steps li {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+}
+.step-num {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 50%;
+  font-weight: 600;
+  font-size: 0.88rem;
+  margin-bottom: 0.75rem;
+}
+.how-steps h3 {
+  font-size: 1.1rem;
+  margin: 0 0 0.5rem;
+}
+.how-steps p {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 0.95rem;
+}
+
+/* ─── Datasets strip ─────────────────────────────────────── */
+.datasets { padding: 4rem 0; }
+.datasets h2 { font-size: 1.6rem; margin-bottom: 0.5rem; }
+.datasets-lead {
+  color: var(--fg-muted);
+  margin-bottom: 1.5rem;
+}
+.dataset-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.dataset-list li {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+
+/* ─── Category page ──────────────────────────────────────── */
+.cat-hero {
+  padding: 3rem 0 2rem;
+  background:
+    radial-gradient(50% 50% at 0% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%),
+    var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+}
+.breadcrumb {
+  color: var(--fg-soft);
+  font-size: 0.88rem;
+  margin: 0 0 1rem;
+  text-transform: none;
+}
+.breadcrumb a {
+  color: var(--fg-soft);
+}
+.breadcrumb span { margin: 0 0.4em; opacity: 0.6; }
+.cat-hero h1 {
+  font-size: 2.25rem;
+  margin: 0 0 0.5rem;
+}
+.cat-lead {
+  font-size: 1.05rem;
+  color: var(--fg-muted);
+  max-width: 70ch;
+  margin: 0 0 1rem;
+}
+.cat-count {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--fg-soft);
+}
+.cat-count strong { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+.entity-list-section { padding: 2.5rem 0 5rem; }
+
+.entity-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+.search-box {
+  position: relative;
+  flex: 1;
+  max-width: 380px;
+  min-width: 220px;
+}
+.search-box input {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.9rem 0.6rem 2.25rem;
+  background: var(--bg-elev);
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: var(--fg);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.search-box input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.search-icon {
+  position: absolute;
+  left: 0.7rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-soft);
+  font-size: 1.1rem;
+  pointer-events: none;
+}
+.result-count {
+  color: var(--fg-soft);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.entity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.875rem;
+}
+.entity-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.1rem;
+  color: var(--fg);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+}
+.entity-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+.entity-symbol {
+  margin: 0;
+  font-size: 1.05rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--fg);
+}
+.entity-summary {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--fg-muted);
+  line-height: 1.5;
+}
+.entity-summary-muted { color: var(--fg-soft); font-style: italic; }
+.entity-arrow {
+  position: absolute;
+  right: 1rem;
+  top: 1rem;
+  color: var(--fg-soft);
+  font-size: 1rem;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+.entity-card:hover .entity-arrow {
+  color: var(--accent);
+  transform: translateX(2px);
+}
+
+.no-results {
+  text-align: center;
+  color: var(--fg-soft);
+  padding: 3rem 0;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 1rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--fg-muted);
+  background: var(--bg-elev);
+}
+.empty-state h3 { color: var(--fg); }
+
+/* ─── Entity page ────────────────────────────────────────── */
+.entity-page { padding: 1rem 0 2.5rem; }
+
+.entity-header {
+  display: flex;
+  flex-wrap: wrap;          /* long titles: the kind badge wraps under instead of floating off */
+  align-items: baseline;
+  gap: 0.75rem;
+  margin: 0 0 0.9rem;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+.entity-title {
+  margin: 0;
+  font-size: 1.95rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  /* Long entity names (e.g. anti-NMDA receptor encephalitis) must wrap on
+     narrow viewports — break at any character if a single token can't fit. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.entity-kind-badge {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+}
+
+.entity-body { font-size: 0.95rem; }
+.entity-body > p:first-of-type { font-size: 1rem; color: var(--fg); line-height: 1.6; }
+.entity-body p { margin: 0.55rem 0; }
+
+.entity-body em { color: var(--fg-soft); }
+.entity-body h3 {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--fg-muted);
+  margin: 1.2rem 0 0.3rem;
+}
+/* H4 sub-sub-headings inside a subsection (introduced for backend's H4
+   pilot — one heading per table block in crowded subsections like Drugs
+   & pharmacology). Picks up the same indigo as H3 to read as the same
+   navigational tier, slightly smaller. */
+.entity-body h4 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--subsection-fg);
+  margin: 1.5rem 0 0.45rem;
+  letter-spacing: -0.005em;
+}
+.entity-body h4 a { color: inherit; }
+
+/* Anchored entity headings — when a TOC click or deep-link lands on a
+   heading, give it room so the sticky site header doesn't sit on top of
+   the title. Applies to H2/H3/H4 ids whether they're rendered in the
+   visible body or wrapped into a <summary>. */
+.entity-page :is(h2, h3, h4)[id] { scroll-margin-top: 80px; }
+.entity-body code {
+  font-size: 0.86em;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+}
+.entity-body a { color: var(--accent); }
+
+/* Expand-all toggle — mounted inline into the first section's summary line
+   (right-aligned via margin-left:auto). */
+.atlas-section-toggle {
+  margin-left: auto;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.22rem 0.6rem;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-soft);
+  font-family: inherit;
+  font-weight: 600;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.atlas-section-toggle:hover {
+  background: var(--bg-soft);
+  border-color: var(--border-strong);
+  color: var(--accent);
+}
+
+details.atlas-section {
+  border-top: 1px dashed var(--border);
+  margin-top: 0.15rem;
+  padding: 0;
+}
+details.atlas-section:first-of-type { border-top: none; margin-top: 0; }
+details.atlas-section:last-of-type { border-bottom: 1px dashed var(--border); }
+details.atlas-section > summary.atlas-section-title {
+  cursor: pointer;
+  font-size: 0.92rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  padding: 0.55rem 0.25rem 0.45rem 0.9rem;
+  margin: 0.3rem 0 0;
+  list-style: none;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--accent);
+  border-left: 3px solid var(--accent);
+  transition: color 0.12s ease, background 0.12s ease;
+}
+details.atlas-section > summary.atlas-section-title:hover { background: var(--accent-soft); }
+details.atlas-section > summary.atlas-section-title::-webkit-details-marker { display: none; }
+details.atlas-section > summary.atlas-section-title::before {
+  content: "▶";
+  display: inline-block;
+  font-size: 0.85em;
+  color: var(--accent);
+  transition: transform 0.15s ease;
+  width: 0.85em;
+}
+details.atlas-section[open] > summary.atlas-section-title::before {
+  transform: rotate(90deg);
+}
+/* Body of an atlas-section is indented to align with the eyebrow text (past the
+   3px accent bar + 0.9rem padding). */
+details.atlas-section > *:not(summary) {
+  padding-left: 0.9rem;
+}
+details.atlas-section > *:not(summary) {
+  margin-left: 1.45rem;
+}
+details.atlas-section > *:last-child { margin-bottom: 0.9rem; }
+
+.table-wrapper {
+  margin: 0.6rem 0 1rem;
+  margin-left: 1.45rem;
+  position: relative;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+}
+details.atlas-section .table-wrapper { margin-left: 0; }
+.table-actions {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.table-wrapper:hover .table-actions { opacity: 1; }
+/* Touch devices have no hover — keep the copy button visible there. */
+@media (hover: none) { .table-actions { opacity: 1; } }
+.table-copy-btn {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.55rem;
+  cursor: pointer;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--bg-elev);
+  color: var(--fg-muted);
+  font-family: inherit;
+}
+.table-copy-btn:hover { background: var(--bg-soft); color: var(--fg); }
+
+.entity-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0;
+  font-size: 0.88rem;
+}
+.entity-body th, .entity-body td {
+  border-bottom: 1px solid var(--border);
+  /* Compact rows: a gene page carries ~1,200 table rows, so cell padding is
+     the single biggest driver of page length. */
+  padding: 0.32rem 0.75rem;
+  line-height: 1.45;
+  text-align: left;
+  vertical-align: top;
+}
+.entity-body th {
+  background: var(--bg-soft);
+  font-weight: 600;
+  color: var(--fg);
+  border-bottom: 1px solid var(--border-strong);
+  position: sticky;
+  top: 0;
+}
+.entity-body tr:hover td { background: var(--bg-soft); }
+.entity-body tr:last-child td { border-bottom: none; }
+
+/* ─── Footer ─────────────────────────────────────────────── */
+.site-footer {
+  border-top: 1px solid var(--border);
+  background: var(--bg-elev);
+  padding: 1rem 0;
+  color: var(--fg-muted);
+  font-size: 0.88rem;
+  margin-top: 0;
+}
+.site-footer p { margin: 0.25rem 0; text-align: center; }
+.site-footer-links { font-size: 0.85rem; color: var(--fg-soft); }
+.site-footer-links a { color: var(--fg-muted); }
+.site-footer-links a:hover { color: var(--accent); }
+.footer-meta { color: var(--fg-soft); font-size: 0.83rem; }
+
+@media (max-width: 600px) {
+  .site-nav a { padding: 0.4rem 0.55rem; font-size: 0.88rem; }
+  .hero { padding: 3rem 0 2rem; }
+  .categories, .how, .datasets { padding: 2.5rem 0; }
+  .entity-controls { flex-direction: column; align-items: stretch; }
+  .search-box { max-width: none; }
+}
+
+/* ─── V3 ─ Search-first ───────────────────────────────────── */
+.hero-v3 {
+  position: relative;
+  padding: 3rem 0 2.5rem;
+  background: linear-gradient(to bottom, #0f172a, #1e293b);
+  color: #f1f5f9;
+  overflow: hidden;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* main is a flex column, so the hero grows to fill the remaining
+     viewport height after header + footer. No calc() required. */
+  flex: 1 0 auto;
+}
+.hero-v3-dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  pointer-events: none;
+}
+.hero-v3-content { position: relative; z-index: 1; max-width: 980px; }
+.hero-v3-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.74rem;
+  color: #93c5fd;
+  margin: 0 0 1rem;
+  font-weight: 600;
+}
+.hero-v3-title {
+  font-size: clamp(2.4rem, 5vw, 3.6rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin: 0 0 0.85rem;
+  color: #fff;
+}
+.hero-v3-sub {
+  font-size: 1rem;
+  color: #cbd5e1;
+  margin: 0 0 2.25rem;
+  max-width: 80ch;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.55;
+}
+
+.hero-v3-searchbox {
+  position: relative;
+  background: #fff;
+  border-radius: 12px;
+  padding: 0.25rem 0.25rem 0.25rem 3.25rem;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  max-width: 600px;
+  margin: 0 auto;
+}
+.hero-v3-searchbox:focus-within {
+  box-shadow: 0 10px 40px rgba(37, 99, 235, 0.35), 0 0 0 3px rgba(37, 99, 235, 0.4);
+}
+.search-icon-large {
+  position: absolute;
+  left: 1.1rem;
+  font-size: 1.4rem;
+  color: var(--fg-soft);
+  pointer-events: none;
+}
+#v3-search {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 0.95rem 0;
+  font-size: 1rem;
+  color: var(--fg);
+  font-family: inherit;
+}
+#v3-search::placeholder { color: var(--fg-soft); }
+/* The ⏎ key hint means nothing on touch screens and steals width from the
+   placeholder (it was clipped to "try EGFR, m…" on phones). */
+@media (hover: none) {
+  .hero-v3-searchbox kbd,
+  .search-box-wrap kbd { display: none; }
+}
+.hero-v3-searchbox kbd {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  color: var(--fg-soft);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  margin-right: 0.5rem;
+}
+
+.hero-v3-results {
+  max-width: 600px;
+  margin: 0.5rem auto 0;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  padding: 0.4rem;
+  text-align: left;
+}
+.v3-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.85rem;
+  color: var(--fg);
+  border-radius: 6px;
+}
+.v3-result:hover,
+.v3-result-active { background: var(--bg-soft); text-decoration: none; }
+.v3-result-active { box-shadow: inset 2px 0 0 var(--accent); }
+.v3-result-name { font-family: var(--font-mono); font-weight: 600; }
+.v3-result-cat {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.v3-noresult {
+  padding: 0.85rem;
+  font-size: 0.88rem;
+  color: var(--fg-soft);
+  text-align: center;
+}
+
+.hero-v3-chips-label {
+  margin: 2.5rem 0 0.8rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.hero-v3-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+.v3-chip {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  transition: all 0.15s ease;
+}
+.v3-chip:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+.v3-chip-gene { color: #93c5fd; }
+.v3-chip-drug { color: #86efac; }
+.v3-chip-disease { color: #fca5a5; }
+
+.hero-v3-stats {
+  margin-top: 2.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  font-size: 0.95rem;
+}
+.v3-stat {
+  color: #cbd5e1;
+}
+.v3-stat strong {
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+}
+.v3-stat:hover { color: #fff; text-decoration: none; }
+.v3-stat-sep { color: #475569; }
+
+@media (max-width: 600px) {
+  .hero-v3 { padding: 4rem 0; }
+}
+
+/* ─── Site nav grouping ──────────────────────────────────── */
+.site-nav { align-items: center; }
+.site-nav-group { display: inline-flex; gap: 0.15rem; }
+.site-nav-divider {
+  display: inline-block;
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 0.85rem;
+}
+
+/* ─── V3 ─ Two-axis (Reference + Reports) ────────────────── */
+.v3-axes {
+  background: linear-gradient(to bottom, #1e293b, #0f172a);
+  padding: 0 0 5rem;
+  color: #cbd5e1;
+}
+.v3-axes-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  padding-top: 3.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+@media (max-width: 880px) {
+  .v3-axes-grid { grid-template-columns: 1fr; }
+}
+/* solo layout — used when Reports column is hidden (see atlas-home/list.html) */
+.v3-axes-grid--solo {
+  grid-template-columns: 1fr;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.v3-axis-head { margin-bottom: 1.5rem; }
+.v3-axis-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: #64748b;
+}
+.v3-axis-reference .v3-axis-eyebrow { color: #60a5fa; }
+.v3-axis-reports .v3-axis-eyebrow { color: #c4b5fd; }
+.v3-axis-head h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.4rem;
+  color: #f1f5f9;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.v3-axis-desc {
+  font-size: 0.92rem;
+  color: #94a3b8;
+  margin: 0;
+  line-height: 1.55;
+  max-width: 50ch;
+}
+
+.v3-axis-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+.v3-cat-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.85rem 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: #e2e8f0;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
+  position: relative;
+}
+.v3-cat-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.2);
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+.v3-cat-name { font-weight: 550; font-size: 0.95rem; }
+.v3-cat-count {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  color: #cbd5e1;
+}
+.v3-cat-arrow {
+  position: absolute;
+  bottom: 0.55rem;
+  right: 0.95rem;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.3);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+.v3-cat-card:hover .v3-cat-arrow { color: #fff; transform: translateX(2px); }
+.v3-cat-gene { border-left: 3px solid #60a5fa; }
+.v3-cat-drug { border-left: 3px solid #4ade80; }
+.v3-cat-disease { border-left: 3px solid #f87171; }
+.v3-cat-card-soon {
+  opacity: 0.45;
+  cursor: default;
+  border-style: dashed;
+}
+.v3-cat-card-soon:hover { transform: none; background: rgba(255, 255, 255, 0.04); }
+.v3-cat-soon {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #64748b;
+}
+
+.v3-axis-reports-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.v3-report-row {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 3px solid #a78bfa;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  color: #e2e8f0;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.v3-report-row:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.2);
+  border-left-color: #c4b5fd;
+  text-decoration: none;
+}
+.v3-report-row-meta {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  font-size: 0.74rem;
+  margin-bottom: 0.4rem;
+}
+.v3-report-kind {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: #c4b5fd;
+}
+.v3-report-date { color: #64748b; }
+.v3-report-row-title {
+  font-size: 0.96rem;
+  font-weight: 550;
+  color: #f1f5f9;
+  line-height: 1.4;
+  margin-bottom: 0.45rem;
+}
+.v3-report-row-entities {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+.v3-report-row-entities > span {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  background: rgba(167, 139, 250, 0.12);
+  color: #c4b5fd;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+}
+.v3-report-all {
+  align-self: flex-start;
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+  color: #c4b5fd;
+  font-weight: 500;
+}
+.v3-report-all:hover { color: #ddd6fe; }
+
+/* report category chip + search result color */
+.v3-chip-report { color: #c4b5fd; }
+.v3-result-cat.v3-chip-report {
+  background: rgba(167, 139, 250, 0.12);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.68rem;
+}
+
+/* ─── /atlas/reports/ list page ──────────────────────────── */
+.reports-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  max-width: 880px;
+}
+.report-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-left: 3px solid #7c3aed;
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  color: var(--fg);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+}
+.report-card:hover {
+  border-color: #7c3aed;
+  box-shadow: var(--shadow-md);
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+.report-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  font-size: 0.78rem;
+  margin-bottom: 0.5rem;
+}
+.report-kind {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: #7c3aed;
+  background: #f3eaff;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+}
+.report-date, .report-time {
+  color: var(--fg-soft);
+}
+.report-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.2rem;
+  color: var(--fg);
+  letter-spacing: -0.01em;
+}
+.report-summary {
+  margin: 0 0 0.85rem;
+  color: var(--fg-muted);
+  line-height: 1.6;
+}
+.report-entities {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+.report-entities-label {
+  font-size: 0.78rem;
+  color: var(--fg-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-right: 0.2rem;
+}
+.report-entity-pill {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  background: #f3eaff;
+  color: #6d28d9;
+  padding: 0.15rem 0.55rem;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* ─── individual report page ─────────────────────────────── */
+.report-page { padding: 2.5rem 0 5rem; }
+.report-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1.75rem;
+  margin-bottom: 2rem;
+}
+.report-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  font-size: 0.78rem;
+  margin-bottom: 0.85rem;
+  color: var(--fg-soft);
+}
+.report-page-title {
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 0 0 1rem;
+}
+.report-page-summary {
+  font-size: 1.05rem;
+  color: var(--fg-muted);
+  line-height: 1.65;
+  margin: 0 0 1.25rem;
+  max-width: 70ch;
+}
+.report-body { font-size: 1rem; }
+.report-body h2 {
+  font-size: 1.3rem;
+  margin: 2rem 0 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+.report-body p { line-height: 1.7; color: var(--fg); }
+
+
+/* ─── Entity page footer ─────────────────────────────────── */
+.entity-footer {
+  margin-top: 1.75rem;
+  padding: 1.25rem 0 0.75rem;
+  border-top: 2px solid var(--border);
+}
+.entity-footer-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 2.5rem;
+}
+@media (max-width: 760px) {
+  .entity-footer-grid { grid-template-columns: 1fr; gap: 1.75rem; }
+}
+.entity-footer h3 {
+  margin: 0 0 0.85rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--fg);
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.entity-footer p {
+  color: var(--fg-muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  margin: 0 0 1rem;
+}
+.count-pill {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+}
+
+.entity-footer-meta {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.4rem 1rem;
+  font-size: 0.85rem;
+}
+.entity-footer-meta > div {
+  display: contents;
+}
+.entity-footer-meta dt {
+  color: var(--fg-soft);
+  font-weight: 500;
+}
+.entity-footer-meta dd {
+  margin: 0;
+  color: var(--fg);
+}
+.entity-footer-meta code {
+  font-size: 0.82em;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  padding: 0.05em 0.4em;
+  border-radius: 4px;
+}
+
+.datasets-blurb { margin-bottom: 0.85rem; }
+.datasets-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.dataset-chip {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.dataset-chip:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ─── About page ─────────────────────────────────────────── */
+.about-page { padding: 2.5rem 0 5rem; }
+.about-header {
+  margin-bottom: 2.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.about-title {
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  letter-spacing: -0.025em;
+  margin: 0 0 0.75rem;
+  line-height: 1.2;
+}
+.about-tagline {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--fg-muted);
+  line-height: 1.55;
+}
+
+.about-body {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--fg);
+}
+.about-body p {
+  margin: 0 0 1.1rem;
+  color: var(--fg);
+}
+.about-body p:has(+ ul), .about-body p:has(+ ol) { margin-bottom: 0.5rem; }
+.about-body strong { font-weight: 600; }
+.about-body h2 {
+  font-size: 1.4rem;
+  margin: 2.5rem 0 0.85rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  letter-spacing: -0.015em;
+  font-weight: 650;
+}
+.about-body h2:first-child {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+.about-body h3 {
+  font-size: 1.05rem;
+  margin: 1.75rem 0 0.5rem;
+  font-weight: 600;
+}
+.about-body ul, .about-body ol {
+  margin: 0.4rem 0 1.1rem;
+  padding-left: 1.4rem;
+}
+.about-body li { margin-bottom: 0.5rem; }
+.about-body li > strong:first-child { color: var(--fg); }
+.about-body li > p { margin: 0.25rem 0; }
+
+.about-body a { color: var(--accent); }
+.about-body a:hover { text-decoration: underline; }
+
+.about-body pre {
+  background: #0f172a;
+  color: #cbd5e1;
+  padding: 1.1rem 1.25rem;
+  border-radius: var(--radius);
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  margin: 1rem 0 1.5rem;
+}
+.about-body pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+.about-body :not(pre) > code {
+  font-size: 0.86em;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  padding: 0.05em 0.4em;
+  border-radius: 4px;
+}
+
+/* ─── Theme toggle ───────────────────────────────────────── */
+.theme-toggle {
+  margin-left: 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.theme-toggle:hover {
+  background: var(--bg-soft);
+  color: var(--fg);
+  border-color: var(--border);
+}
+.theme-icon { width: 18px; height: 18px; display: block; }
+.theme-toggle .icon-sun { display: none; }
+.theme-toggle .icon-moon { display: block; }
+[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+
+/* ─── Dark-theme refinements ─────────────────────────────── */
+
+/* Buttons — use --on-accent so contrast survives the inversion */
+.btn-primary { color: var(--on-accent); }
+[data-theme="dark"] .btn-primary:hover { background: #93c5fd; }
+
+/* Active nav pill — softer bg in dark */
+[data-theme="dark"] .site-nav a.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Hero (V0) — radial-gradient tint already uses rgba accent, but tune for dark */
+[data-theme="dark"] .hero {
+  background:
+    radial-gradient(60% 60% at 50% 0%, rgba(96, 165, 250, 0.10), transparent 70%),
+    linear-gradient(to bottom, var(--bg-elev), var(--bg));
+}
+
+/* Table row hover — use the themed var */
+.entity-body tr:hover td { background: var(--table-row-hover); }
+
+/* Entity body code/inline — themed */
+.entity-body code {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+
+/* "Iteration 1" raw notice (unused now but theme-safe) */
+.raw-notice {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-left: 3px solid var(--warn-edge);
+  color: var(--warn-fg);
+}
+
+/* Report card (light:purple-accent) — dark needs lighter purple chip bg */
+[data-theme="dark"] .report-card { border-left-color: #a78bfa; }
+[data-theme="dark"] .report-kind {
+  background: rgba(167, 139, 250, 0.15);
+  color: #c4b5fd;
+}
+[data-theme="dark"] .report-entity-pill {
+  background: rgba(167, 139, 250, 0.15);
+  color: #c4b5fd;
+}
+
+/* Atlas-section caret colours — themed */
+details.atlas-section > summary.atlas-section-title:hover { color: var(--accent); }
+
+/* About-page dark code block already dark — keep, but slightly different bg vs page */
+[data-theme="dark"] .about-body pre {
+  background: #06090f;
+  color: #cbd5e1;
+}
+
+
+/* Site footer — soft elevation in dark */
+[data-theme="dark"] .site-footer { background: var(--bg-elev); color: var(--fg-muted); }
+[data-theme="dark"] .site-footer .footer-meta { color: var(--fg-soft); }
+
+/* Dataset chip in dark — already uses --bg-elev & --border; just confirm hover */
+[data-theme="dark"] .dataset-chip:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Site header — backdrop-blur over translucent bg-elev */
+[data-theme="dark"] .site-header { background: rgba(19, 24, 34, 0.85); }
+
+/* Search box inside the dark V3 hero — text already dark; works in both themes */
+
+/* Empty / no-results — themed muted bg */
+[data-theme="dark"] .empty-state {
+  background: var(--bg-elev);
+  border-color: var(--border);
+}
+
+/* ─── V3 hero · light-mode variants ──────────────────────── */
+/* All variants are LIGHT-MODE ONLY. In dark mode the hero stays dark. */
+
+/* L1 — Clean white */
+html:not([data-theme="dark"]) body[data-hero-light="1"] .hero-v3 {
+  background: var(--bg-elev);
+  color: var(--fg);
+  border-bottom: 1px solid var(--border);
+}
+html:not([data-theme="dark"]) body[data-hero-light="1"] .hero-v3-dots {
+  background-image: radial-gradient(rgba(15, 23, 42, 0.08) 1px, transparent 1px);
+  mask-image: radial-gradient(ellipse at center, black 25%, transparent 75%);
+  opacity: 0.7;
+}
+html:not([data-theme="dark"]) body[data-hero-light="1"] .hero-v3-eyebrow { color: var(--accent); }
+html:not([data-theme="dark"]) body[data-hero-light="1"] .hero-v3-title { color: var(--fg); }
+html:not([data-theme="dark"]) body[data-hero-light="1"] .hero-v3-sub { color: var(--fg-muted); }
+html:not([data-theme="dark"]) body[data-hero-light="1"] .hero-v3-searchbox {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 24px rgba(15, 23, 42, 0.07), 0 0 0 1px var(--border);
+}
+html:not([data-theme="dark"]) body[data-hero-light="1"] .hero-v3-searchbox:focus-within {
+  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.18), 0 0 0 2px var(--accent);
+}
+html:not([data-theme="dark"]) body[data-hero-light="1"] .hero-v3-chips-label { color: var(--fg-soft); }
+html:not([data-theme="dark"]) body[data-hero-light="1"] .v3-chip {
+  background: var(--bg);
+  border-color: var(--border);
+  color: var(--fg-muted);
+}
+html:not([data-theme="dark"]) body[data-hero-light="1"] .v3-chip:hover { background: var(--bg-soft); color: var(--fg); }
+html:not([data-theme="dark"]) body[data-hero-light="1"] .v3-chip-gene { color: #1d4ed8; border-color: #bfdbfe; background: #eff6ff; }
+html:not([data-theme="dark"]) body[data-hero-light="1"] .v3-chip-drug { color: #166534; border-color: #bbf7d0; background: #f0fdf4; }
+html:not([data-theme="dark"]) body[data-hero-light="1"] .v3-chip-disease { color: #b91c1c; border-color: #fecaca; background: #fef2f2; }
+html:not([data-theme="dark"]) body[data-hero-light="1"] .v3-stat { color: var(--fg-muted); }
+html:not([data-theme="dark"]) body[data-hero-light="1"] .v3-stat strong { color: var(--fg); }
+html:not([data-theme="dark"]) body[data-hero-light="1"] .v3-stat-sep { color: var(--border-strong); }
+
+/* L2 — Soft tinted (radial accent + faint slate grid) */
+html:not([data-theme="dark"]) body[data-hero-light="2"] .hero-v3 {
+  background:
+    radial-gradient(70% 55% at 50% 0%, rgba(37, 99, 235, 0.08), transparent 65%),
+    linear-gradient(to bottom, #fbfcfe, #f6f8fc);
+  color: var(--fg);
+  border-bottom: 1px solid var(--border);
+}
+html:not([data-theme="dark"]) body[data-hero-light="2"] .hero-v3-dots {
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse at 50% 30%, black 0%, transparent 65%);
+  opacity: 1;
+}
+html:not([data-theme="dark"]) body[data-hero-light="2"] .hero-v3-eyebrow { color: var(--accent); }
+html:not([data-theme="dark"]) body[data-hero-light="2"] .hero-v3-title { color: var(--fg); }
+html:not([data-theme="dark"]) body[data-hero-light="2"] .hero-v3-sub { color: var(--fg-muted); }
+html:not([data-theme="dark"]) body[data-hero-light="2"] .hero-v3-searchbox {
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.10), 0 0 0 1px var(--border);
+}
+html:not([data-theme="dark"]) body[data-hero-light="2"] .hero-v3-searchbox:focus-within {
+  box-shadow: 0 8px 28px rgba(37, 99, 235, 0.20), 0 0 0 2px var(--accent);
+}
+html:not([data-theme="dark"]) body[data-hero-light="2"] .hero-v3-chips-label { color: var(--fg-soft); }
+html:not([data-theme="dark"]) body[data-hero-light="2"] .v3-chip {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: var(--border);
+  color: var(--fg-muted);
+  backdrop-filter: blur(4px);
+}
+html:not([data-theme="dark"]) body[data-hero-light="2"] .v3-chip:hover { background: #fff; color: var(--fg); }
+html:not([data-theme="dark"]) body[data-hero-light="2"] .v3-chip-gene { color: #1d4ed8; }
+html:not([data-theme="dark"]) body[data-hero-light="2"] .v3-chip-drug { color: #166534; }
+html:not([data-theme="dark"]) body[data-hero-light="2"] .v3-chip-disease { color: #b91c1c; }
+html:not([data-theme="dark"]) body[data-hero-light="2"] .v3-stat { color: var(--fg-muted); }
+html:not([data-theme="dark"]) body[data-hero-light="2"] .v3-stat strong { color: var(--fg); }
+html:not([data-theme="dark"]) body[data-hero-light="2"] .v3-stat-sep { color: var(--border-strong); }
+
+/* L3 — Gradient title (white bg, accent→violet gradient on second line) */
+html:not([data-theme="dark"]) body[data-hero-light="3"] .hero-v3 {
+  background: linear-gradient(to bottom, #ffffff, #fafbfd);
+  color: var(--fg);
+  border-bottom: 1px solid var(--border);
+  padding-top: 7rem;
+  padding-bottom: 6rem;
+}
+html:not([data-theme="dark"]) body[data-hero-light="3"] .hero-v3-dots { display: none; }
+html:not([data-theme="dark"]) body[data-hero-light="3"] .hero-v3-eyebrow { color: var(--accent); }
+html:not([data-theme="dark"]) body[data-hero-light="3"] .hero-v3-title {
+  font-size: clamp(2.8rem, 5.5vw, 4.2rem);
+  line-height: 1.05;
+  color: var(--fg);
+}
+html:not([data-theme="dark"]) body[data-hero-light="3"] .hero-v3-title::after {
+  content: " Find it.";
+  background: linear-gradient(135deg, var(--accent) 0%, #7c3aed 80%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  display: inline;
+}
+html:not([data-theme="dark"]) body[data-hero-light="3"] .hero-v3-sub { color: var(--fg-muted); }
+html:not([data-theme="dark"]) body[data-hero-light="3"] .hero-v3-searchbox {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 14px 40px rgba(37, 99, 235, 0.10);
+  border: 1px solid var(--border);
+}
+html:not([data-theme="dark"]) body[data-hero-light="3"] .hero-v3-searchbox:focus-within {
+  box-shadow: 0 14px 40px rgba(124, 58, 237, 0.18), 0 0 0 2px #7c3aed;
+}
+html:not([data-theme="dark"]) body[data-hero-light="3"] .hero-v3-chips-label { color: var(--fg-soft); }
+html:not([data-theme="dark"]) body[data-hero-light="3"] .v3-chip {
+  background: var(--bg);
+  border-color: var(--border);
+  color: var(--fg-muted);
+}
+html:not([data-theme="dark"]) body[data-hero-light="3"] .v3-chip:hover { background: var(--bg-soft); color: var(--fg); }
+html:not([data-theme="dark"]) body[data-hero-light="3"] .v3-chip-gene { color: #1d4ed8; }
+html:not([data-theme="dark"]) body[data-hero-light="3"] .v3-chip-drug { color: #166534; }
+html:not([data-theme="dark"]) body[data-hero-light="3"] .v3-chip-disease { color: #b91c1c; }
+html:not([data-theme="dark"]) body[data-hero-light="3"] .v3-stat { color: var(--fg-muted); }
+html:not([data-theme="dark"]) body[data-hero-light="3"] .v3-stat strong { color: var(--fg); }
+html:not([data-theme="dark"]) body[data-hero-light="3"] .v3-stat-sep { color: var(--border-strong); }
+
+/* ─── Hero variant switcher (dev) ────────────────────────── */
+.hero-switcher[hidden] { display: none; }
+.hero-switcher {
+  position: sticky;
+  bottom: 1rem;
+  z-index: 8;
+  margin: 0 auto;
+  width: max-content;
+  max-width: calc(100vw - 2rem);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(15, 23, 42, 0.92);
+  color: #fff;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(6px);
+  font-size: 0.78rem;
+}
+.hero-switcher-label {
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  padding: 0 0.4rem 0 0.2rem;
+}
+.hero-switcher button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #cbd5e1;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.hero-switcher button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.hero-switcher button.active {
+  background: #fff;
+  color: #0f172a;
+  border-color: #fff;
+  font-weight: 600;
+}
+/* hide switcher in dark mode — variants are light-only */
+[data-theme="dark"] .hero-switcher { display: none; }
+
+/* ═══ DEFAULT LIGHT-MODE HERO + REFERENCE (L2 — soft tinted) ════ */
+/* In dark mode these are not applied; the hero/axes keep their dark portal look. */
+
+html:not([data-theme="dark"]) .hero-v3 {
+  background:
+    radial-gradient(70% 55% at 50% 0%, rgba(37, 99, 235, 0.08), transparent 65%),
+    linear-gradient(to bottom, #fbfcfe, #f6f8fc);
+  color: var(--fg);
+  border-bottom: 1px solid var(--border);
+}
+html:not([data-theme="dark"]) .hero-v3-dots {
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse at 50% 30%, black 0%, transparent 65%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 30%, black 0%, transparent 65%);
+  opacity: 1;
+}
+html:not([data-theme="dark"]) .hero-v3-eyebrow { color: var(--accent); }
+html:not([data-theme="dark"]) .hero-v3-title { color: var(--fg); }
+html:not([data-theme="dark"]) .hero-v3-sub { color: var(--fg-muted); }
+html:not([data-theme="dark"]) .hero-v3-searchbox {
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.10), 0 0 0 1px var(--border);
+}
+html:not([data-theme="dark"]) .hero-v3-searchbox:focus-within {
+  box-shadow: 0 8px 28px rgba(37, 99, 235, 0.20), 0 0 0 2px var(--accent);
+}
+html:not([data-theme="dark"]) .hero-v3-chips-label { color: var(--fg-soft); }
+html:not([data-theme="dark"]) .v3-chip {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  backdrop-filter: blur(4px);
+}
+html:not([data-theme="dark"]) .v3-chip:hover { background: #fff; color: var(--fg); }
+html:not([data-theme="dark"]) .v3-chip-gene { color: #1d4ed8; }
+html:not([data-theme="dark"]) .v3-chip-drug { color: #166534; }
+html:not([data-theme="dark"]) .v3-chip-disease { color: #b91c1c; }
+html:not([data-theme="dark"]) .v3-stat { color: var(--fg-muted); }
+html:not([data-theme="dark"]) .v3-stat strong { color: var(--fg); }
+html:not([data-theme="dark"]) .v3-stat-sep { color: var(--border-strong); }
+
+/* Reference section — light treatment to match the hero */
+html:not([data-theme="dark"]) .v3-axes {
+  background:
+    radial-gradient(60% 45% at 50% 0%, rgba(37, 99, 235, 0.05), transparent 60%),
+    linear-gradient(to bottom, #f6f8fc, #eef2f8);
+  color: var(--fg);
+}
+html:not([data-theme="dark"]) .v3-axes-grid { border-top-color: var(--border); }
+html:not([data-theme="dark"]) .v3-axis-eyebrow { color: var(--fg-soft); }
+html:not([data-theme="dark"]) .v3-axis-reference .v3-axis-eyebrow { color: var(--accent); }
+html:not([data-theme="dark"]) .v3-axis-reports .v3-axis-eyebrow { color: #7c3aed; }
+html:not([data-theme="dark"]) .v3-axis-head h2 { color: var(--fg); }
+html:not([data-theme="dark"]) .v3-axis-desc { color: var(--fg-muted); }
+
+html:not([data-theme="dark"]) .v3-cat-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  box-shadow: var(--shadow-sm);
+}
+html:not([data-theme="dark"]) .v3-cat-card:hover {
+  background: #fff;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+}
+html:not([data-theme="dark"]) .v3-cat-name { color: var(--fg); }
+html:not([data-theme="dark"]) .v3-cat-count {
+  background: var(--bg-soft);
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+html:not([data-theme="dark"]) .v3-cat-arrow { color: var(--fg-soft); }
+html:not([data-theme="dark"]) .v3-cat-card:hover .v3-cat-arrow { color: var(--accent); }
+
+/* category accent stripes — darker shades for light bg contrast */
+html:not([data-theme="dark"]) .v3-cat-gene { border-left-color: #2563eb; }
+html:not([data-theme="dark"]) .v3-cat-drug { border-left-color: #16a34a; }
+html:not([data-theme="dark"]) .v3-cat-disease { border-left-color: #dc2626; }
+
+html:not([data-theme="dark"]) .v3-cat-card-soon {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--border-strong);
+  box-shadow: none;
+  opacity: 0.7;
+}
+html:not([data-theme="dark"]) .v3-cat-card-soon:hover {
+  background: transparent;
+  border-color: var(--border-strong);
+  box-shadow: none;
+}
+html:not([data-theme="dark"]) .v3-cat-card-soon .v3-cat-name { color: var(--fg-soft); }
+html:not([data-theme="dark"]) .v3-cat-soon { color: var(--fg-soft); }
+
+/* Reports rows — currently hidden but ready for re-enable */
+html:not([data-theme="dark"]) .v3-report-row {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-left: 3px solid #7c3aed;
+  color: var(--fg);
+  box-shadow: var(--shadow-sm);
+}
+html:not([data-theme="dark"]) .v3-report-row:hover {
+  background: #fff;
+  border-color: #7c3aed;
+  border-left-color: #7c3aed;
+  box-shadow: var(--shadow-md);
+}
+html:not([data-theme="dark"]) .v3-report-kind { color: #7c3aed; }
+html:not([data-theme="dark"]) .v3-report-date { color: var(--fg-soft); }
+html:not([data-theme="dark"]) .v3-report-row-title { color: var(--fg); }
+html:not([data-theme="dark"]) .v3-report-row-entities > span {
+  background: #f3eaff;
+  color: #6d28d9;
+}
+html:not([data-theme="dark"]) .v3-report-all { color: #7c3aed; }
+
+/* ═══ Entity page layout grid + TOC + nested collapse ═══ */
+
+.entity-layout {
+  display: block;
+}
+
+/* TOC: floating panel docked in the right-margin space above the content.
+   Hide-/showable via the close (×) and reopen (≡) buttons. */
+/* Reserve a right gutter for the fixed TOC (220px) so it never sits on top of
+   the content card. The gutter shrinks by however much centred margin the
+   viewport already has beyond the 1560px container, so wide screens don't
+   waste space; when the reader hides the TOC the gutter goes away. */
+@media (min-width: 1101px) {
+  body:not(.toc-collapsed) .entity-page .container-wide {
+    padding-right: max(1.5rem, calc(220px + 2.5rem - max(0px, (100vw - 1560px) / 2)));
+  }
+}
+.entity-toc-aside {
+  position: fixed;
+  top: 76px;
+  right: 0;
+  width: 220px;
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 10px 0 0 10px;
+  padding: 0.85rem 0.95rem 0.85rem 0.55rem;
+  box-shadow: -2px 6px 20px rgba(0, 0, 0, 0.08);
+  scrollbar-width: thin;
+  z-index: 5;
+}
+.entity-toc-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 0.35rem;
+  right: 0.4rem;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--fg-soft);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.entity-toc-close:hover {
+  background: var(--bg-soft);
+  color: var(--fg);
+}
+.entity-toc-reopen { display: none; }
+body.toc-collapsed .entity-toc-aside { display: none; }
+body.toc-collapsed .entity-toc-reopen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: 76px;
+  right: 0.5rem;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  color: var(--fg-muted);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 5;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+body.toc-collapsed .entity-toc-reopen:hover {
+  background: var(--bg-soft);
+  color: var(--accent);
+  border-color: var(--border-strong);
+}
+@media (max-width: 1100px) {
+  .entity-toc-aside,
+  .entity-toc-reopen { display: none !important; }
+}
+/* Inline mobile TOC — shown only when the floating aside is hidden. */
+.entity-toc-inline { display: none; }
+@media (max-width: 1100px) {
+  .entity-toc-inline {
+    display: block;
+    margin: 0 0 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-elev);
+  }
+  .entity-toc-inline > summary {
+    cursor: pointer;
+    padding: 0.6rem 0.85rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--fg-muted);
+    list-style: none;
+  }
+  .entity-toc-inline > summary::-webkit-details-marker { display: none; }
+  .entity-toc-inline > summary::before {
+    content: "›";
+    display: inline-block;
+    margin-right: 0.45rem;
+    transition: transform 120ms ease;
+  }
+  .entity-toc-inline[open] > summary::before { transform: rotate(90deg); }
+  .entity-toc-inline nav {
+    padding: 0.25rem 0.85rem 0.85rem;
+    border-top: 1px solid var(--border);
+  }
+  .entity-toc-inline nav ul {
+    list-style: none;
+    margin: 0.4rem 0 0;
+    padding-left: 1rem;
+    font-size: 0.9rem;
+    line-height: 1.7;
+  }
+  .entity-toc-inline nav > ul { padding-left: 0; }
+  .entity-toc-inline nav a { color: var(--fg); }
+  .entity-toc-inline nav a:hover { color: var(--accent); }
+}
+.entity-toc-label {
+  margin: 0 0 0.6rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--fg-soft);
+  font-weight: 600;
+  padding-left: 0.4rem;
+}
+/* ─── On-page TOC filter (JS-injected on long pages) ─── */
+.toc-filter { margin: 0 0 0.55rem; }
+.toc-filter input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.35rem 0.6rem;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.toc-filter input::placeholder { color: var(--fg-soft); }
+.toc-filter input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+.entity-toc-aside li.toc-hidden,
+.entity-toc-inline li.toc-hidden { display: none; }
+.toc-filter-empty { margin: 0.3rem 0 0; padding-left: 0.4rem; font-size: 0.8rem; color: var(--fg-soft); }
+/* Server-side TOC from Hugo: <nav id="TableOfContents"><ul>... */
+.entity-toc-aside nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.entity-toc-aside nav > ul > li { margin-bottom: 0.35rem; }
+/* Top-level (H2) TOC entries — main sections of the page, slightly bolder
+   so the navigation reads as a hierarchy at first glance. */
+.entity-toc-aside nav > ul > li > a {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+/* ── TOC ↔ content state sync (chevron is a visual marker only) ── */
+/* Chevron prepended to parent TOC entries by JS. Rotates 90° when the
+   corresponding content <details> is open. NOT interactive — clicks
+   pass through to the link underneath. To close a section the reader
+   uses the in-content chevron on the H2/H3/H4. */
+.entity-toc-aside .toc-chevron {
+  display: inline-block;
+  width: 0.9em;
+  margin-right: 0.25rem;
+  font-size: 0.7em;
+  color: var(--fg-soft);
+  pointer-events: none;
+  transition: transform 0.15s ease;
+  vertical-align: middle;
+  user-select: none;
+}
+.entity-toc-aside nav li.toc-open > a > .toc-chevron {
+  transform: rotate(90deg);
+  color: var(--fg-muted);
+}
+/* When a TOC parent is closed, hide its nested children — keeps the TOC
+   short and aligned with what's actually expanded in the page. */
+.entity-toc-aside nav li.toc-closed > ul { display: none; }
+.entity-toc-aside nav a {
+  display: block;
+  padding: 0.3rem 0.55rem;
+  color: var(--fg-muted);
+  border-left: 2px solid transparent;
+  text-decoration: none;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  border-radius: 0 4px 4px 0;
+  transition: color 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+.entity-toc-aside nav a:hover {
+  color: var(--fg);
+  background: var(--bg-soft);
+  text-decoration: none;
+}
+.entity-toc-aside nav ul ul {
+  margin: 0.2rem 0 0.55rem 0.6rem;
+  padding-left: 0.45rem;
+  border-left: 1px solid var(--border);
+}
+.entity-toc-aside nav ul ul a {
+  font-size: 0.82rem;
+  padding: 0.22rem 0.55rem;
+  color: var(--fg-muted);
+}
+.entity-toc-aside nav ul ul a:hover { color: var(--fg); }
+/* H4 sub-sub-headings (backend ships these per table — see config.toml). */
+.entity-toc-aside nav ul ul ul {
+  margin: 0.15rem 0 0.4rem 0.5rem;
+  padding-left: 0.4rem;
+  border-left: 1px dashed var(--border);
+}
+.entity-toc-aside nav ul ul ul a {
+  font-size: 0.78rem;
+  padding: 0.18rem 0.5rem;
+  color: var(--fg-soft);
+}
+.entity-toc-aside nav ul ul ul a:hover { color: var(--fg-muted); }
+
+/* ─── Nested subsection (H3 inside an open section) ─────── */
+/* Title row carries a 3px left bar — light gray when collapsed, soft
+   accent when open. The bar lives on summary (not details) so it only
+   spans title height, not the full open section. */
+details.atlas-subsection {
+  margin: 0.55rem 0;
+  padding-left: 0.85rem;
+}
+details.atlas-subsection > summary.atlas-subsection-title {
+  cursor: pointer;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  margin-left: -0.85rem;
+  padding: 0.3rem 0 0.3rem 1.65rem;
+  list-style: none;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  justify-content: flex-start;
+  color: var(--subsection-fg);
+  background: transparent;
+  border-left: 3px solid var(--border-strong);
+  transition: color 0.12s ease, border-left-color 0.12s ease;
+}
+details.atlas-subsection[open] > summary.atlas-subsection-title {
+  border-left-color: color-mix(in srgb, var(--subsection-fg) 60%, var(--bg) 40%);
+}
+details.atlas-subsection > summary.atlas-subsection-title:hover { color: var(--accent); }
+details.atlas-subsection > summary::-webkit-details-marker { display: none; }
+/* Click-affordance chevron — mirrors the H2 section's leading marker.
+   Lives on h3::before so it sits inside the centered title group, between
+   the left hairline and the title text. Rotates 90° when section opens. */
+details.atlas-subsection > summary.atlas-subsection-title > h3::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 0.45em;
+  font-size: 0.95em;
+  color: var(--subsection-fg);
+  transition: transform 0.15s ease;
+  vertical-align: middle;
+  opacity: 0.9;
+}
+details.atlas-subsection[open] > summary.atlas-subsection-title > h3::before {
+  transform: rotate(90deg);
+  opacity: 1;
+}
+/* Flatten subsection content — paragraphs / tables align with the parent
+   section's body, so pages read as one column whether a section has
+   subsections or not. */
+details.atlas-subsection > *:not(summary) { margin-left: 0; }
+details.atlas-subsection > *:last-child { margin-bottom: 0.6rem; }
+details.atlas-section > details.atlas-subsection { margin-left: 0; }
+details.atlas-section > details.atlas-subsection > *:not(summary) { margin-left: 0; }
+
+/* ─── H4 sub-sub-block (collapsible per table introduced by backend H4) ── */
+/* Mirrors the H3 left-bar treatment but with a 2px bar (lighter weight)
+   so the H3 → H4 hierarchy reads as one continuous left edge. Open bar
+   mixes 30% subsection-fg + 70% bg so it stays out of reading view. */
+details.atlas-h4block {
+  margin: 0.4rem 0;
+  border-left: 2px solid var(--border-strong);
+  padding-left: 0.7rem;
+  transition: border-left-color 0.12s ease;
+}
+details.atlas-h4block[open] {
+  border-left-color: color-mix(in srgb, var(--subsection-fg) 30%, var(--bg) 70%);
+}
+/* External link note pulled out of an H4 title (e.g. UniProt's
+   "full annotation on UniProt →") so the title row is purely a toggle. */
+.atlas-h4-extlink {
+  margin: 0.3rem 0 0.6rem;
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+}
+.atlas-h4-extlink a {
+  color: var(--accent);
+}
+/* Section-level "See also …" note, hoisted to the bottom of a section
+   (single.html) so it reads as a footer rather than being buried in the last
+   collapsed sub-block. */
+.entity-body .section-note {
+  margin: 1.1rem 0 0.2rem;
+  padding-top: 0.8rem;
+  border-top: 1px dashed var(--border);
+  font-size: 0.9rem;
+  color: var(--fg-muted);
+}
+.entity-body .section-note a { color: var(--accent); }
+details.atlas-h4block > summary.atlas-h4block-title {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.28rem 0.2rem 0.25rem;
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--subsection-fg);
+  border-radius: 4px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+details.atlas-h4block > summary.atlas-h4block-title:hover {
+  color: var(--accent);          /* theme token — the old hard-coded navy vanished in dark mode */
+  background: var(--accent-soft);
+}
+details.atlas-h4block > summary::-webkit-details-marker { display: none; }
+/* Rotating chevron — same affordance as atlas-section / atlas-subsection */
+details.atlas-h4block > summary.atlas-h4block-title::before {
+  content: "▸";
+  display: inline-block;
+  font-size: 0.85em;
+  color: var(--subsection-fg);
+  transition: transform 0.15s ease;
+  opacity: 0.85;
+  width: 0.85em;
+}
+details.atlas-h4block[open] > summary.atlas-h4block-title::before {
+  transform: rotate(90deg);
+  opacity: 1;
+}
+details.atlas-h4block > *:not(summary) {
+  margin-left: 0;
+}
+
+
+/* ─── Heading inside summary — keep real <h2>/<h3>/<h4> tags for SEO,
+   neutralize their default styling so summary CSS drives the look ── */
+summary.atlas-section-title > h2,
+summary.atlas-subsection-title > h3,
+summary.atlas-h4block-title > h4 {
+  margin: 0;
+  padding: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  display: inline;
+  border: none;
+}
+/* Hide Hugo's auto-generated heading anchor (#) inside the summary if it exists */
+summary.atlas-section-title h2 a.anchor,
+summary.atlas-subsection-title h3 a.anchor,
+summary.atlas-h4block-title h4 a.anchor { display: none; }
+
+/* When JS is off, H2/H3 retain their native styling — that's correct.
+   Hide the .atlas-section-controls bar that JS would inject (it only exists
+   in the DOM after JS runs anyway, so no rule needed). */
+
+/* ═══ Entity header layout variants (dev: ?dev=header) ═══ */
+
+/* H1 — Compact: tighter spacing, no border-bottom */
+body[data-header="1"] .breadcrumb { margin: 0 0 0.35rem; }
+body[data-header="1"] .entity-header {
+  margin: 0 0 1.5rem;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+/* H2 — Eyebrow — now the DEFAULT on entity pages.
+   Switcher's "H2" button matches default (no body attr needed). */
+.entity-page .breadcrumb {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  color: var(--fg-soft);
+  margin: 0 0 0.2rem;
+}
+.entity-page .breadcrumb a { color: var(--fg-soft); }
+.entity-page .breadcrumb a:hover { color: var(--accent); }
+.entity-page .breadcrumb span { margin: 0 0.35em; opacity: 0.5; }
+
+/* H3 — Datasheet: smaller title, tight, no border */
+body[data-header="3"] .breadcrumb {
+  margin: 0 0 0.25rem;
+  font-size: 0.78rem;
+}
+body[data-header="3"] .entity-header {
+  margin: 0 0 1.5rem;
+  padding-bottom: 0;
+  border-bottom: none;
+  align-items: center;
+  gap: 0.6rem;
+}
+body[data-header="3"] .entity-title { font-size: 1.7rem; }
+body[data-header="3"] .entity-kind-badge { font-size: 0.7rem; }
+
+/* ═══ Entity-main datasheet card ═══════════════════════════════
+   Lifts the content column off the page chrome with a soft elevated
+   background, border, and rounded corners. Widens the surrounding
+   container so the card uses more of the viewport on large screens. */
+.entity-page .container-wide { max-width: 1560px; }
+.entity-main {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 2rem 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  margin-left: -1rem;
+  margin-right: -1rem;
+}
+@media (max-width: 768px) {
+  .entity-main {
+    margin-left: 0;
+    margin-right: 0;
+    padding: 0.75rem 1.25rem 1.25rem;
+  }
+}
+/* ─── Phone density ───────────────────────────────────────────
+   Desktop spacing carried over unchanged stacked four indents (page gutter,
+   card padding, section margin, section padding) and left ~260px of a 390px
+   screen for text. Flatten them so prose gets ~345px. */
+@media (max-width: 720px) {
+  .container { padding: 0 1rem; }
+  .entity-page { padding-top: 0.5rem; }
+  /* Card becomes a full-width sheet (keeps its background for dark mode). */
+  .entity-main {
+    margin: 0 -1rem;
+    padding: 0.5rem 1rem 1rem;
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .entity-title { font-size: 1.6rem; }
+  .entity-header { margin-bottom: 0.6rem; }
+  .entity-toc-inline { margin-bottom: 0.75rem; }
+  details.atlas-section > *:not(summary) { margin-left: 0; padding-left: 0.75rem; }
+  details.atlas-section > details.atlas-subsection { padding-left: 0.85rem; }
+  details.atlas-section > summary.atlas-section-title { padding: 0.5rem 0.25rem 0.4rem 0.75rem; margin-top: 0.2rem; }
+  /* Source list as plain dotted text instead of ~80 bordered chips
+     (it was ~1,400px tall on TP53). */
+  .entity-footer { margin-top: 1.25rem; padding: 1rem 0 0.5rem; }
+  .datasets-chips { display: block; line-height: 1.7; font-size: 0.78rem; }
+  .dataset-chip { border: 0; background: none; padding: 0; font-size: inherit; }
+  .dataset-chip:not(:last-child)::after { content: " · "; color: var(--fg-soft); }
+}
+
+/* ─── Header switcher (dev) — reuse hero-switcher visual style ─── */
+.header-switcher[hidden] { display: none; }
+.header-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.65rem;
+  margin: 0 0 1.5rem;
+  background: rgba(15, 23, 42, 0.92);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  width: max-content;
+  max-width: 100%;
+}
+.header-switcher button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #cbd5e1;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.header-switcher button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.header-switcher button.active {
+  background: #fff;
+  color: #0f172a;
+  border-color: #fff;
+  font-weight: 600;
+}
+
+/* ═══ Method (preprint) page ══════════════════════════════ */
+.preprint-page { padding: 1.5rem 0 3rem; }
+.preprint-header {
+  margin: 0 0 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.preprint-title {
+  margin: 0 0 0.4rem;
+  font-size: clamp(1.6rem, 2.4vw, 2rem);
+  letter-spacing: -0.02em;
+}
+.preprint-tagline {
+  font-size: 0.95rem;
+  color: var(--fg-muted);
+  margin: 0;
+  line-height: 1.55;
+}
+.preprint-tagline a { color: var(--accent); }
+/* Inlined preprint body — main.css (scoped to .preprint-doc) provides typography;
+   this rule isolates the wrapper visually inside the atlas page so the paper
+   sits on its own paper-tone band rather than blending into the chrome. */
+.preprint-doc {
+  margin: 1rem 0 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow-wrap: break-word;
+}
+.preprint-doc img { max-width: 100%; height: auto; }
+@media (max-width: 700px) {
+  .preprint-doc { border-radius: 0; margin-left: -0.75rem; margin-right: -0.75rem; }
+}
+
+/* ═══ Data sources page ═══════════════════════════════════ */
+.sources-page { padding: 1.5rem 0 5rem; }
+.sources-header {
+  margin: 0 0 2rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.sources-title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  letter-spacing: -0.025em;
+}
+.sources-tagline {
+  font-size: 1.05rem;
+  color: var(--fg-muted);
+  margin: 0;
+  line-height: 1.55;
+}
+.sources-page h2 {
+  font-size: 1.25rem;
+  margin: 2rem 0 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.sources-ack {
+  background: rgba(22, 163, 74, 0.06);
+  border: 1px solid var(--border);
+  border-left: 3px solid #16a34a;
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  margin: 0 0 2rem;
+}
+.sources-ack h2 { margin-top: 0; color: #16a34a; }
+.sources-ack p { color: var(--fg); margin: 0; line-height: 1.6; }
+[data-theme="dark"] .sources-ack { background: rgba(22, 163, 74, 0.10); }
+.cite-note { font-size: 0.92rem; color: var(--fg-soft); margin: 0; }
+
+.sources-freshness {
+  background: var(--accent-soft);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  margin: 0 0 2rem;
+}
+.sources-freshness h2 { margin-top: 0; }
+.sources-freshness p { color: var(--fg); margin: 0 0 0.6rem; line-height: 1.6; }
+.sources-freshness p:last-child { margin-bottom: 0; }
+.sources-freshness strong { color: var(--accent); }
+
+/* ─── Sources table ──────────────────────────────────────── */
+.sources-table-section { margin-bottom: 2.5rem; }
+.sources-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  /* DO NOT use overflow:hidden here — it breaks position:sticky on <thead>. */
+}
+.sources-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.92rem;
+  /* No overflow:hidden here — it turned the table into its own scroll
+     container, so the sticky header's top:60px was measured inside the table
+     and the header row slid 60px down over the first data rows. Round the
+     top corners on the header cells instead. */
+}
+.sources-table thead th:first-child { border-top-left-radius: var(--radius); }
+.sources-table thead th:last-child { border-top-right-radius: var(--radius); }
+.sources-table thead th {
+  background: var(--bg-soft);
+  text-align: left;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--fg-soft);
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--border-strong);
+  position: sticky;
+  top: 60px;
+  z-index: 2;
+  box-shadow: 0 1px 0 var(--border-strong);
+}
+.sources-table tbody tr { border-bottom: 1px solid var(--border); }
+.sources-table tbody tr:last-child { border-bottom: none; }
+.sources-table tbody tr:hover { background: var(--bg-soft); }
+.sources-table td {
+  padding: 0.55rem 0.85rem;
+  vertical-align: middle;
+  color: var(--fg);
+}
+.src-name-cell {
+  white-space: nowrap;
+  font-weight: 500;
+}
+.src-name-cell a { color: var(--accent); text-decoration: none; font-weight: normal; }
+.src-name-cell a:hover { text-decoration: underline; }
+.src-ref-cell { color: var(--fg-muted); }
+.src-tag {
+  display: inline-block;
+  margin-left: 0.45rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+.src-ref-missing { color: var(--fg-soft); font-style: italic; }
+.src-date-cell { color: var(--fg-muted); white-space: nowrap; }
+.src-date-cell code { font-size: 0.82em; background: var(--bg-soft); border: 1px solid var(--border); padding: 0.05em 0.4em; border-radius: 3px; }
+.src-status-cell { white-space: nowrap; }
+
+/* freshness chip with colored dot */
+.freshness {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+.freshness-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.fresh-latest { color: #166534; }
+.fresh-latest .freshness-dot { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18); }
+.fresh-recent { color: #92400e; }
+.fresh-recent .freshness-dot { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18); }
+.fresh-old { color: var(--fg-soft); }
+.fresh-old .freshness-dot { background: var(--fg-soft); }
+.fresh-unknown { color: var(--fg-soft); }
+.fresh-unknown .freshness-dot { background: transparent; border: 1px dashed var(--border-strong); }
+
+[data-theme="dark"] .fresh-latest { color: #86efac; }
+[data-theme="dark"] .fresh-recent { color: #fbbf24; }
+
+.sources-legend {
+  margin-top: 0.85rem;
+  font-size: 0.82rem;
+  color: var(--fg-soft);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sources-methodology { color: var(--fg-muted); }
+.sources-methodology ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+.sources-methodology li { line-height: 1.6; margin-bottom: 0.5rem; }
+.sources-methodology code {
+  font-size: 0.82em;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  padding: 0.05em 0.4em;
+  border-radius: 3px;
+}
+
+/* ─── Category pagination ────────────────────────────────── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  margin: 2.5rem 0 1rem;
+  font-size: 0.9rem;
+  flex-wrap: wrap;
+}
+.pg-step {
+  padding: 0.45rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+  color: var(--fg);
+  font-weight: 500;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.pg-step:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.pg-disabled {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--fg-soft);
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.pg-pages {
+  display: flex;
+  gap: 0.15rem;
+  align-items: center;
+  margin: 0 0.4rem;
+}
+.pg-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.1rem;
+  height: 2.1rem;
+  padding: 0 0.4rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.pg-num:hover {
+  background: var(--bg-soft);
+  color: var(--fg);
+  text-decoration: none;
+}
+.pg-current {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+  border-color: var(--accent);
+}
+.pg-gap {
+  color: var(--fg-soft);
+  padding: 0 0.3rem;
+}
+
+/* ─── Category featured landing ──────────────────────────── */
+.cat-featured-header {
+  margin-bottom: 1.25rem;
+}
+.cat-featured-header h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+.cat-featured-hint {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 0.92rem;
+}
+.cat-browse-note {
+  margin-top: 2.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-soft);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+.cat-browse-note strong { color: var(--fg); }
+
+/* ─── Entity "Also known as" — bordered chips ───────────── */
+.altn {
+  margin: 0 0 0.8rem;
+  font-size: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: baseline;
+}
+.altn-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--fg-soft);
+  margin-right: 0.45rem;
+}
+.altn-chip {
+  display: inline-block;
+  vertical-align: middle;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--fg-muted);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  line-height: 1.5;
+  /* Long aliases (e.g. "limbic encephalitis with N-methyl-D-aspartate
+     receptor antibodies") render in full — wrap at word boundaries inside
+     the chip rather than ellipsis-truncate. Single long tokens with no
+     spaces still break to avoid overflow. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* ─── Pagefind result rows ───────────────────────────────── */
+.v3-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.7rem 0.9rem;
+  color: var(--fg);
+  border-radius: 6px;
+  transition: background 0.1s ease;
+}
+.v3-result:hover {
+  background: var(--bg-soft);
+  text-decoration: none;
+}
+.v3-result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+.v3-result-excerpt {
+  font-size: 0.82rem;
+  color: var(--fg-muted);
+  line-height: 1.45;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.v3-result-excerpt mark {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+  padding: 0 0.1em;
+  border-radius: 2px;
+}
+.v3-noresult {
+  padding: 0.85rem;
+  color: var(--fg-soft);
+  text-align: center;
+  font-size: 0.92rem;
+}
+
+/* Exact-match pin in search results */
+.v3-result-exact {
+  border-left: 3px solid var(--accent);
+  background: rgba(96, 165, 250, 0.04);
+}
+.v3-result-excerpt-pin {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--accent);
+}
+.v3-loading {
+  padding: 0.55rem 0.9rem;
+  color: var(--fg-soft);
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
+/* ─── Home-page: alias hint + "find by topic" CTA ────────── */
+.v3-result-alias {
+  font-size: 0.8rem;
+  color: var(--fg-soft);
+  font-weight: 400;
+}
+.v3-deeper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 0.9rem;
+  border-top: 1px dashed var(--border);
+  margin-top: 0.2rem;
+  color: var(--accent);
+  font-size: 0.88rem;
+  font-weight: 500;
+  border-radius: 6px;
+}
+.v3-deeper:hover {
+  background: var(--accent-soft);
+  text-decoration: none;
+}
+.v3-deeper-arrow {
+  transition: transform 0.12s ease;
+}
+.v3-deeper:hover .v3-deeper-arrow {
+  transform: translateX(3px);
+}
+
+/* ─── Dedicated search page (/atlas/search/) ─────────────── */
+.search-page {
+  padding: 1.5rem 0 5rem;
+}
+.search-header {
+  margin: 0 0 1.75rem;
+}
+.search-title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  letter-spacing: -0.025em;
+}
+.search-tagline {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 1.02rem;
+  max-width: 70ch;
+}
+.search-note {
+  margin: 0.45rem 0 0;
+  color: var(--fg-soft);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  /* No max-width — at 0.82rem, "70ch" came out narrower than the
+     tagline above and the line broke awkwardly. Let it span the
+     container width like every other chrome paragraph. */
+}
+
+.search-box-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  padding: 0.25rem 0.25rem 0.25rem 3.25rem;
+  margin-bottom: 1.5rem;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.search-box-wrap:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.search-box-wrap .search-icon-large {
+  position: absolute;
+  left: 1.1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-soft);
+  font-size: 1.4rem;
+  pointer-events: none;
+}
+#atlas-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 0.9rem 0;
+  font-size: 1.05rem;
+  color: var(--fg);
+  font-family: inherit;
+}
+.search-box-wrap kbd {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  color: var(--fg-soft);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  margin-right: 0.6rem;
+}
+
+.search-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.search-filters {
+  display: flex;
+  gap: 0.3rem;
+}
+.search-filter {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.search-filter:hover {
+  background: var(--bg-soft);
+  color: var(--fg);
+}
+.search-filter.active {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+.search-filter-count {
+  margin-left: 0.3rem;
+  color: var(--fg-soft);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.search-filter.active .search-filter-count { color: var(--on-accent); opacity: 0.85; }
+.search-count {
+  margin: 0;
+  color: var(--fg-soft);
+  font-size: 0.9rem;
+}
+.search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.search-hit {
+  display: block;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1.1rem;
+  color: var(--fg);
+  transition: border-color 0.12s ease, transform 0.06s ease, box-shadow 0.12s ease;
+}
+.search-hit:hover {
+  border-color: var(--accent);
+  border-left-color: var(--accent);
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+.search-hit-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.3rem;
+}
+.search-hit-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+.search-hit-kind {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+.search-hit-excerpt {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.search-hit-excerpt mark {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+  padding: 0 0.1em;
+  border-radius: 2px;
+}
+.search-hit-altn {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: var(--fg-soft);
+  font-family: var(--font-mono);
+}
+
+.search-loading, .search-empty {
+  padding: 2rem 1rem;
+  color: var(--fg-soft);
+  text-align: center;
+}
+.search-loading { font-style: italic; }
+.search-empty p { margin: 0.35rem 0; }
+.search-hint { font-size: 0.92rem; }
+.search-hint a {
+  display: inline-block;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  padding: 0.15rem 0.65rem;
+  border-radius: 999px;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  margin: 0 0.15rem;
+}
+.search-hint a:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* ─── Search-page loading state ──────────────────────────── */
+.search-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  padding: 2.5rem 1rem;
+  color: var(--fg-muted);
+  font-size: 0.95rem;
+  font-style: normal;
+}
+.search-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: searchSpin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes searchSpin { to { transform: rotate(360deg); } }
+.search-dots::after {
+  content: '';
+  display: inline-block;
+  width: 1.5em;
+  text-align: left;
+  animation: searchDots 1.2s steps(4, end) infinite;
+}
+@keyframes searchDots {
+  0%   { content: ''; }
+  25%  { content: '.'; }
+  50%  { content: '..'; }
+  75%  { content: '...'; }
+  100% { content: ''; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-spinner { animation: none; border-top-color: var(--accent); opacity: 0.6; }
+  .search-dots::after { animation: none; content: '...'; }
+}
+
+
+/* ─── Pinned exact-match on /atlas/search/ ───────────────── */
+.search-hit-pinned {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+}
+.search-hit-pinned:hover {
+  border-color: var(--accent);
+  border-left-color: var(--accent);
+}
+.search-hit-pin-label {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* ─── Color-coded category nav (gene/drug/disease dot prefix) ─── */
+.site-nav-group a {
+  position: relative;
+  padding-left: 1.6rem;
+}
+.site-nav-group a::before {
+  content: "";
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.site-nav-group a:nth-child(1)::before { background: #2563eb; }
+.site-nav-group a:nth-child(2)::before { background: #16a34a; }
+.site-nav-group a:nth-child(3)::before { background: #dc2626; }
+.site-nav-group a:nth-child(1).active { color: #2563eb; background: rgba(37, 99, 235, 0.08); }
+.site-nav-group a:nth-child(2).active { color: #16a34a; background: rgba(22, 163, 74, 0.08); }
+.site-nav-group a:nth-child(3).active { color: #dc2626; background: rgba(220, 38, 38, 0.08); }
+
+
+/* Send-feedback pill (mailto). BOTTOM-LEFT so it never collides with the fixed
+   right-side .entity-toc-aside / .entity-toc-reopen (which own the right edge). */
+.atlas-feedback{position:fixed;bottom:1.1rem;left:1.1rem;z-index:30;display:inline-flex;align-items:center;gap:.4rem;
+  padding:.55rem 1rem;border-radius:999px;background:#16a34a;color:#fff;font-size:.82rem;font-weight:600;
+  text-decoration:none;border:none;box-shadow:0 3px 10px rgba(0,0,0,.18);cursor:pointer}
+.atlas-feedback:hover,.atlas-feedback:focus{background:#15803d;color:#fff;text-decoration:none}
+.atlas-feedback:active{transform:translateY(1px)}

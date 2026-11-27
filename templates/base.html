@@ -7,7 +7,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Sugi Variant{% endblock %}{% if self.title() != "Sugi Variant" %} · Sugi Variant{% endif %}</title>
+  <title>{% block title %}Sugi Variant{% endblock %}{% block title_suffix %}{% if self.title() != "Sugi Variant" %} · Sugi Variant{% endif %}{% endblock %}</title>
   <meta name="description" content="{% block description %}Cross-sourced reference pages for every clinically significant human variant — ClinVar, gnomAD, AlphaMissense, conservation, ClinGen and more.{% endblock %}">
   <meta name="color-scheme" content="light dark">
   <link rel="icon" type="image/svg+xml" href="{{ base }}/static/favicon.svg">

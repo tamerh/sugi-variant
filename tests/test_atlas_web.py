@@ -93,3 +93,61 @@ def test_site_level_pages_work(site):
     assert site.get("/atlas/about/").status_code == 200
     assert "about" in site.get("/atlas/about/").text
     assert site.get("/atlas/").status_code == 200
+
+
+# ── Phase 1b: the pickle corpus ────────────────────────────────────────────────
+def _corpus(tmp_path, monkeypatch):
+    import gzip
+    import pickle
+    import sqlite3
+    cache = tmp_path / "cache"
+    (cache / "gene").mkdir(parents=True)
+    rec = {
+        "schema": "sugi-atlas-entity/1", "type": "gene", "slug": "BRCA1",
+        "title": "BRCA1 gene", "canonical": "https://sugi.bio/atlas/gene/BRCA1/",
+        "body_html": '<article class=entity-page>BRCA1 <a href=/atlas/gene/TP53/>TP53</a>'
+                     ' <a href=https://example.org>x</a></article>',
+        "body_md": "# BRCA1\n", "sections": [{"id": "summary", "title": "Summary"}],
+        "frag_sha": "x", "md_sha": "y", "bytes": 120,
+    }
+    with gzip.open(cache / "gene" / "BRCA1.pkl.gz", "wb") as f:
+        pickle.dump(rec, f)
+    db = tmp_path / "index.db"
+    conn = sqlite3.connect(db)
+    conn.executescript(
+        "CREATE TABLE entity(type TEXT, slug TEXT, path TEXT, title TEXT, canonical TEXT,"
+        " frag_sha TEXT, md_sha TEXT, bytes INTEGER, sections TEXT, PRIMARY KEY(type,slug));")
+    conn.execute("INSERT INTO entity VALUES(?,?,?,?,?,?,?,?,?)",
+                 ("gene", "BRCA1", "gene/BRCA1.pkl.gz", rec["title"], rec["canonical"],
+                  "x", "y", 120, "[]"))
+    conn.commit()
+    conn.close()
+    monkeypatch.setattr(ATW, "CACHE", cache)
+    monkeypatch.setattr(ATW, "INDEX", db)
+    monkeypatch.setattr(ATW, "_lru", {})
+    monkeypatch.setattr(ATW, "_lru_bytes", 0)
+    monkeypatch.setattr(ATW, "_tls", __import__("threading").local())
+    return rec
+
+
+def test_entity_record_loads_from_the_pickle(tmp_path, monkeypatch):
+    rec = _corpus(tmp_path, monkeypatch)
+    assert ATW.cache_enabled() is True
+    assert ATW.has_entity("gene", "BRCA1") is True
+    assert ATW.has_entity("gene", "NOPE") is False
+    assert ATW.entity("gene", "BRCA1")["body_html"] == rec["body_html"]
+
+
+def test_rewrite_prefixes_only_internal_atlas_links():
+    html = '<a href=/atlas/gene/TP53/>t</a> <a href="https://x/atlas/">e</a> <a href=#s>s</a>'
+    out = ATW.rewrite_links(html, "/variant")
+    assert "href=/variant/atlas/gene/TP53/" in out
+    assert "https://x/atlas/" in out          # external untouched
+    assert "href=#s" in out                   # anchor untouched
+    assert ATW.rewrite_links(html, "") == html
+
+
+def test_excerpt_strips_markup():
+    rec = {"body_html": "<h2>Summary</h2><p>BRCA1 is a <b>tumour</b> suppressor.</p>",
+           "title": "t"}
+    assert ATW.excerpt(rec) == "Summary BRCA1 is a tumour suppressor."

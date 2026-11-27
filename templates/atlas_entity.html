@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{#
+  An Atlas entity page rendered by the Variant app (Phase 1b).
+
+  The content is the `<article class=entity-page>` fragment Atlas's own build produced,
+  stored verbatim in the entity pickle — the app never re-renders it. This template
+  only supplies the shell and the site stylesheet the fragment was written against.
+#}
+{% block title %}{{ title }}{% endblock %}
+{% block title_suffix %}{% endblock %}
+{% block description %}{{ description }}{% endblock %}
+{% block head %}
+  {% if canonical %}<link rel="canonical" href="{{ canonical }}">{% endif %}
+  <link rel="stylesheet" href="{{ base }}/static/css/atlas-site.css?v={{ css_v() }}">
+{% endblock %}
+{% block content %}
+  <div class="atlas-entity-embed">{{ body|safe }}</div>
+{% endblock %}

@@ -100,6 +100,31 @@ Result 2026-11-27:
 The source tree is a frozen copy at `/data2/atlas-migration/atlas-html` so the gate does
 not depend on what production serves while we work.
 
+## 5. Pickle corpus — `build_atlas_corpus.py`
+
+```bash
+python migration/build_atlas_corpus.py \
+    --html /data2/atlas-migration/atlas-html \
+    --out  /data2/atlas-migration/atlas-cache \
+    --index /data2/atlas-migration/atlas_index.db --apply
+```
+
+| | |
+|---|---|
+| entities | **54,351** (29,336 genes, 18,596 diseases, 6,419 drugs) |
+| without a fragment | 0 |
+| corpus size | **1.1 GB** (from 5.7 GB of HTML), 95 s |
+| per entity | `body_html` fragment, `body_md`, title, canonical, sections, shas |
+
+The app reads it when `ATLAS_CACHE` + `ATLAS_INDEX` are set; site-level pages still
+come from the tree. Parity gate:
+
+```bash
+python migration/verify_atlas_entities.py --base http://127.0.0.1:8114 \
+    --index /data2/atlas-migration/atlas_index.db --sample 3000 --threads 8
+# entity content: 3,039/3,039 identical · RESULT: PASS
+```
+
 ## What is not done here
 
 - No pickles yet (Phase 1b); the app still reads the HTML tree.

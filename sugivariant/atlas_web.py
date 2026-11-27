@@ -20,14 +20,27 @@ shell; the routing and the gates built here stay.
 """
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
 import os
+import pickle
+import re
+import sqlite3
+import threading
 from pathlib import Path
 
 ROOT = Path(os.environ.get("ATLAS_ROOT") or "/nonexistent")
 REDIRECTS = Path(os.environ.get("ATLAS_REDIRECTS") or "/nonexistent")
-ENABLED = ROOT.is_dir()
+CACHE = Path(os.environ.get("ATLAS_CACHE") or "/nonexistent")
+INDEX = Path(os.environ.get("ATLAS_INDEX") or "/nonexistent")
+ENABLED = ROOT.is_dir() or CACHE.is_dir()
+CACHE_MB = int(os.environ.get("ATLAS_CACHE_MB") or 96)
+
+_lock = threading.Lock()
+_lru: dict[str, dict] = {}
+_lru_bytes = 0
+_tls = threading.local()
 
 _TYPES = {"gene", "disease", "drug"}
 _MD = {".md": "text/markdown; charset=utf-8"}
@@ -115,6 +128,91 @@ def etag_for(path: Path) -> str:
         _sha_cache.clear()
     _sha_cache[key] = digest
     return digest
+
+
+def cache_enabled() -> bool:
+    return CACHE.is_dir() and INDEX.is_file()
+
+
+def _index_db():
+    """One read-only connection PER THREAD.
+
+    A shared connection with check_same_thread=False raised
+    `sqlite3.InterfaceError: bad parameter or other API misuse` under the concurrent
+    verifier (and would under any threaded server), which surfaced as sporadic 404/500
+    on perfectly good entities.
+    """
+    db = getattr(_tls, "db", None)
+    if db is None:
+        db = sqlite3.connect(f"file:{INDEX}?mode=ro", uri=True)
+        db.row_factory = sqlite3.Row
+        _tls.db = db
+    return db
+
+
+def has_entity(etype: str, slug: str) -> bool:
+    if not cache_enabled():
+        return False
+    row = _index_db().execute(
+        "SELECT 1 FROM entity WHERE type=? AND slug=? LIMIT 1", (etype, slug)).fetchone()
+    return row is not None
+
+
+def row_for(etype: str, slug: str):
+    if not cache_enabled():
+        return None
+    return _index_db().execute(
+        "SELECT * FROM entity WHERE type=? AND slug=?", (etype, slug)).fetchone()
+
+
+def entity(etype: str, slug: str) -> dict | None:
+    """One entity record, from the LRU or its pickle."""
+    global _lru_bytes
+    key = f"{etype}/{slug}"
+    with _lock:
+        rec = _lru.get(key)
+        if rec is not None:
+            return rec
+    row = row_for(etype, slug)
+    if row is None:
+        return None
+    path = CACHE / row["path"]
+    try:
+        with gzip.open(path, "rb") as f:
+            rec = pickle.load(f)
+    except Exception:
+        return None
+    size = len(rec.get("body_html") or "")
+    with _lock:
+        if _lru_bytes + size > CACHE_MB * 1024 * 1024:
+            _lru.clear()
+            _lru_bytes = 0
+        _lru[key] = rec
+        _lru_bytes += size
+    return rec
+
+
+def excerpt(rec, limit=180):
+    """First sentence-ish of the entity text, for the meta description."""
+    text = re.sub(r"<[^>]+>", " ", rec.get("body_html") or "")
+    text = re.sub(r"\s+", " ", text).strip()
+    if not text:
+        return rec.get("title") or ""
+    if len(text) <= limit:
+        return text
+    return text[:limit].rsplit(" ", 1)[0] + "…"
+
+
+def rewrite_links(html: str, base: str) -> str:
+    """Point the fragment's internal links through `base` (empty in production).
+
+    The stored fragment carries absolute `/atlas/...` links because it came from a
+    site served at the root. Behind the dev proxy the app lives under `/variant`, so
+    those links must keep the prefix or they leave the deployment.
+    """
+    if not base:
+        return html
+    return re.sub(r"(href|src)=([\"\']?)/atlas/", lambda m: f"{m.group(1)}={m.group(2)}{base}/atlas/", html)
 
 
 def read(rel: str):
