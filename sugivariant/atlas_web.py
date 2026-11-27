@@ -238,6 +238,59 @@ def slugs(offset: int, limit: int) -> list[tuple[str, str]]:
     return [(r[0], r[1]) for r in rows]
 
 
+def slugify(text: str) -> str:
+    """Atlas slugs: lowercase, runs of non-alphanumerics collapsed to one hyphen."""
+    return re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+
+
+def normalize_name(name: str) -> str:
+    """Atlas's search normalisation: lowercase, punctuation to one space.
+
+    The alias table is keyed this way because the tree's `manifest.json` is.
+    """
+    return re.sub(r"[^a-z0-9]+", " ", (name or "").lower()).strip()
+
+
+def find(query: str, limit: int = 5) -> list[dict]:
+    """Entities matching a free-text query: exact name/synonym first, then title.
+
+    Deliberately not fuzzy. "carasil syndrome" resolves because the alias table
+    carries the synonym; "CARASIL2" resolves to the same disease; a near-miss
+    returns nothing rather than a neighbour. Several hits are the caller's problem.
+    """
+    if not cache_enabled() or not (query or "").strip():
+        return []
+    q = query.strip()
+    key = normalize_name(q)
+    like = "%" + q.lower() + "%"
+    db = _index_db()
+    sql_alias = """
+        WITH hits(type, slug, rank) AS (
+            SELECT type, slug, 3 FROM entity WHERE lower(slug) = lower(?)
+            UNION ALL
+            SELECT type, slug, 3 FROM alias WHERE key = ?
+            UNION ALL
+            SELECT type, slug, 1 FROM entity WHERE lower(title) LIKE ?
+        )
+        SELECT e.type, e.slug, e.title, e.canonical, e.bytes, MAX(h.rank) AS rank
+        FROM hits h JOIN entity e ON e.type = h.type AND e.slug = h.slug
+        GROUP BY e.type, e.slug
+        ORDER BY rank DESC, (e.type = 'gene') DESC, length(e.slug), e.slug
+        LIMIT ?"""
+    sql_plain = """
+        SELECT type, slug, title, canonical, bytes,
+               CASE WHEN lower(slug) = lower(?) THEN 3 ELSE 1 END AS rank
+        FROM entity WHERE lower(slug) = lower(?) OR lower(title) LIKE ?
+        ORDER BY rank DESC, (type = 'gene') DESC, length(slug), slug LIMIT ?"""
+    try:
+        rows = db.execute(sql_alias, (q, key, like, max(1, limit))).fetchall()
+    except sqlite3.Error:
+        # An index built before the alias table existed still resolves by slug/title.
+        rows = db.execute(sql_plain, (q, q, like, max(1, limit))).fetchall()
+    return [{"type": r[0], "slug": r[1], "title": r[2],
+             "canonical": r[3], "bytes": r[4]} for r in rows]
+
+
 def entity(etype: str, slug: str) -> dict | None:
     """One entity record, from the LRU or its pickle."""
     global _lru_bytes

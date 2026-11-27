@@ -155,3 +155,45 @@ def test_sitemap_chunks_enumerate_the_index_and_nothing_else(tmp_path, monkeypat
     assert "/atlas/gene/BRCA1/" in r.text
     # The registry order matters: /sitemap-{gene}.xml must not swallow this route.
     assert client.get("/sitemap-atlas-2.xml").status_code == 404
+
+
+def test_resolve_json_answers_an_entity_when_no_variant_does(tmp_path, monkeypatch):
+    from starlette.testclient import TestClient
+
+    import app as A
+
+    cache, index, root, redirects = _corpus(tmp_path)
+    ATW.configure(AC.describe(cache, index, root=root, redirects=redirects))
+    monkeypatch.setattr(A, "resolve_query", lambda q: ("none", q, []))
+    monkeypatch.setattr(A, "_index_hits", lambda k: [])
+    monkeypatch.setattr(A, "_vcv_hits", lambda k: [])
+    monkeypatch.setattr(A, "_sv_lookup", lambda k: [])
+    client = TestClient(A.app)
+
+    d = client.get("/resolve.json?q=BRCA1").json()
+    assert d["not_found"] is False
+    assert d["kind"] == "atlas_gene"
+    hit = d["hits"][0]
+    assert hit["canonical_url"].endswith("/atlas/gene/BRCA1/")
+    assert hit["markdown_url"].endswith("/atlas/gene/BRCA1/index.md")
+
+    assert client.get("/resolve.json?q=nothing-here").json()["not_found"] is True
+
+
+def test_resolve_json_puts_the_atlas_page_beside_a_gene_hit(tmp_path, monkeypatch):
+    from starlette.testclient import TestClient
+
+    import app as A
+
+    cache, index, root, redirects = _corpus(tmp_path)
+    ATW.configure(AC.describe(cache, index, root=root, redirects=redirects))
+    monkeypatch.setattr(A, "resolve_query",
+                        lambda q: ("gene", "BRCA1", [{"gene": "BRCA1", "variants": 3}]))
+    monkeypatch.setattr(A, "_gene_counts", lambda g: {"total": 3})
+    client = TestClient(A.app)
+
+    d = client.get("/resolve.json?q=BRCA1").json()
+    hit = d["hits"][0]
+    assert hit["kind"] == "gene"
+    assert hit["atlas_url"].endswith("/atlas/gene/BRCA1/")
+    assert hit["atlas_markdown_url"].endswith("/atlas/gene/BRCA1/index.md")

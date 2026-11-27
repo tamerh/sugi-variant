@@ -11,7 +11,10 @@ page: the app supplies the shell. Keeping the fragment means the content is neve
 re-rendered, so there is nothing to drift.
 
 `atlas_index.db` is the lookup the app needs before loading a record (hit vs 404,
-sitemaps, resolver): (type, slug) -> path, title, fragment sha, md sha, bytes.
+sitemaps, resolver): (type, slug) -> path, title, fragment sha, md sha, bytes. It
+also carries the alias table from the tree's `manifest.json` (names and synonyms,
+normalised the way Atlas's own search normalises them), so the resolver can answer
+"carasil syndrome" without loading a 13 MB JSON at serve time.
 
     python migration/build_atlas_corpus.py \
         --html /data2/atlas-migration/atlas-html \
@@ -48,8 +51,35 @@ CREATE TABLE IF NOT EXISTS entity(
   type TEXT, slug TEXT, path TEXT, title TEXT, canonical TEXT,
   frag_sha TEXT, md_sha TEXT, bytes INTEGER, sections TEXT,
   PRIMARY KEY(type, slug));
+CREATE TABLE IF NOT EXISTS alias(
+  key TEXT, type TEXT, slug TEXT, name TEXT,
+  PRIMARY KEY(key, type, slug));
+CREATE INDEX IF NOT EXISTS alias_key ON alias(key);
 CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT);
 """
+
+
+def normalize_name(name):
+    """Atlas's own search normalisation: lowercase, punctuation to one space."""
+    return re.sub(r"[^a-z0-9]+", " ", (name or "").lower()).strip()
+
+
+def aliases(root):
+    """(type, name, slug) from manifest.json's name maps and synonym maps."""
+    path = os.path.join(root, "manifest.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            m = json.load(f)
+    except Exception:
+        return []
+    out = []
+    syn = m.get("syn") or {}
+    for etype in TYPES:
+        for source in (m.get(etype) or {}, syn.get(etype) or {}):
+            for name, slug in source.items():
+                if name and slug:
+                    out.append((etype, name, slug))
+    return out
 
 
 def _text(html):
@@ -128,8 +158,14 @@ def build(html_root, out, index, apply, limit=0, shard=None):
     if limit:
         jobs = jobs[:limit]
     conn = sqlite3.connect(index) if apply else None
+    full = apply and not limit and not shard
     if conn:
         conn.executescript(SCHEMA)
+        if full:
+            # A full build replaces the corpus; stale rows from an older tree would
+            # otherwise stay resolvable after their page disappears.
+            conn.execute("DELETE FROM entity")
+            conn.execute("DELETE FROM alias")
         conn.commit()
     t0, done, skipped, written = time.time(), 0, 0, 0
     for etype, slug, html_path, md_path in jobs:
@@ -151,8 +187,31 @@ def build(html_root, out, index, apply, limit=0, shard=None):
                 print(f"  {done:,}/{len(jobs):,}  {time.time()-t0:.0f}s", flush=True)
         elif done % 5000 == 0:
             print(f"  {done:,}/{len(jobs):,}", flush=True)
+    if conn and full:
+        # Names and synonyms, keyed the way the Atlas search normalises them.
+        canon = {}
+        try:
+            with open(os.path.join(html_root, "manifest.json"), encoding="utf-8") as f:
+                canon = (json.load(f).get("canon") or {})
+        except Exception:
+            canon = {}
+        rows = []
+        known = set((t, s) for t, s in conn.execute("SELECT type, slug FROM entity"))
+        for etype, name, slug in aliases(html_root):
+            if (etype, slug) not in known:
+                continue
+            key = normalize_name(name)
+            if not key:
+                continue
+            display = (canon.get(etype) or {}).get(slug) or name
+            rows.append((key, etype, slug, display))
+        conn.executemany(
+            "INSERT OR REPLACE INTO alias(key, type, slug, name) VALUES(?,?,?,?)", rows)
+        n_alias = conn.execute("SELECT COUNT(*) FROM alias").fetchone()[0]
+        conn.execute("INSERT OR REPLACE INTO meta VALUES('aliases',?)", (str(n_alias),))
+        print(f"  aliases      : {n_alias:,} (from {len(rows):,} names)", flush=True)
     if conn:
-        conn.execute("INSERT OR REPLACE INTO meta VALUES('schema','sugi-atlas-index/1')")
+        conn.execute("INSERT OR REPLACE INTO meta VALUES('schema','sugi-atlas-index/2')")
         conn.execute("INSERT OR REPLACE INTO meta VALUES('built_at',?)",
                      (time.strftime("%Y-%m-%dT%H:%M:%S"),))
         conn.commit()

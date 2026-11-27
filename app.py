@@ -1268,6 +1268,20 @@ def _hit_sv(r):
     }
 
 
+def _hit_atlas(e):
+    """An Atlas entity as a resolver hit.
+
+    `kind` is namespaced (`atlas_gene`) because these are a different corpus from the
+    variant `gene` hit: a reader who wants the variant list must not be sent to a page
+    that has none of it.
+    """
+    etype, slug = e["type"], e["slug"]
+    return {"kind": f"atlas_{etype}", "entity_type": etype, "slug": slug,
+            "title": e["title"], "cached": True,
+            "canonical_url": f"{_PUB}/atlas/{etype}/{slug}/",
+            "markdown_url": f"{_PUB}/atlas/{etype}/{slug}/index.md"}
+
+
 @app.get("/resolve.json")
 def resolve_json(q: str = "", gene: str = "", slug: str = "", limit: int = 10):
     """Read-only resolver for agents/MCP: identifier -> canonical page(s).
@@ -1305,11 +1319,27 @@ def resolve_json(q: str = "", gene: str = "", slug: str = "", limit: int = 10):
                     if not hits:
                         hits = [_hit_small(r)
                                 for r in (_vcv_hits(q) or _index_hits(q) or [])]
+    geo = bool((q or slug) and ATW.enabled() and ATW.cache_enabled())
+    if not hits and geo:
+        # Nothing in the variant corpora. Ask Atlas: a disease or drug name has no
+        # variant page at all, and a gene symbol with no classified variants still
+        # has an entity page. This runs after the variant resolvers, so it cannot
+        # change what they already answered.
+        hits = [_hit_atlas(e) for e in ATW.find(key)]
+    if geo:
+        # A gene hit gets the Atlas page beside it rather than instead of it: one
+        # request, both corpora, no ambiguity.
+        for h in hits:
+            if h.get("kind") == "gene" and ATW.has_entity("gene", h["gene"]):
+                h["atlas_url"] = f"{_PUB}/atlas/gene/{h['gene']}/"
+                h["atlas_markdown_url"] = f"{_PUB}/atlas/gene/{h['gene']}/index.md"
     if gene:
         g = gene.upper()
         hits = [h for h in hits
                 if (h.get("gene") or "").upper() == g
-                or (h.get("kind") == "structural_variant" and g in _sv_genes(h["nssv"]))]
+                or (h.get("kind") == "structural_variant" and g in _sv_genes(h["nssv"]))
+                or (h.get("kind", "").startswith("atlas_")
+                    and (h.get("slug") or "").upper() == g)]
     hits = hits[:limit]
     kinds = {h["kind"] for h in hits}
     return JSONResponse(
